@@ -98,3 +98,15 @@ Nome e e-mail permanecem preenchidos caso ocorra algum erro.
 - Até 3 fotos.
 - Um único botão de envio.
 - Cada material chega ao Admin como pendente para aprovação.
+
+
+## Exclusão de ciclo
+
+No Painel Admin > Ciclos agora existe o botão **Excluir**.
+
+Ao excluir um ciclo:
+- o ciclo é removido;
+- todas as metas desse ciclo são removidas;
+- todas as entregas vinculadas a essas metas também são removidas.
+
+A tela pede confirmação antes de executar a exclusão.

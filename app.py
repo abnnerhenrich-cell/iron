@@ -612,6 +612,28 @@ def admin_cycle_activate(cycle_id):
     flash("Ciclo ativado.", "success")
     return redirect(url_for("admin_cycles"))
 
+@app.post("/admin/cycles/<int:cycle_id>/delete")
+@admin_required
+def admin_cycle_delete(cycle_id):
+    validate_csrf()
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM cycles WHERE id=%s", (cycle_id,))
+            cycle = cur.fetchone()
+
+            if not cycle:
+                abort(404)
+
+            # A FK de goals usa ON DELETE CASCADE e submissions também,
+            # então ao excluir o ciclo, metas e entregas desse ciclo também são removidas.
+            cur.execute("DELETE FROM cycles WHERE id=%s", (cycle_id,))
+        conn.commit()
+
+    flash(f"Ciclo '{cycle['title']}' excluído com sucesso.", "success")
+    return redirect(url_for("admin_cycles"))
+
+
 @app.route("/admin/cycles/<int:cycle_id>", methods=["GET", "POST"])
 @admin_required
 def admin_cycle_detail(cycle_id):
