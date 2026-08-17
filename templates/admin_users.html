@@ -4,7 +4,7 @@
 <section class="hero">
   <div>
     <span class="eyebrow">CONTROLE DE ACESSO</span>
-    <h1>Usuários e permissões</h1>
+    <h1>Membros e permissões</h1>
     <p>Aprove novos membros e escolha quem também pode acessar o Painel Admin.</p>
   </div>
 </section>
@@ -15,7 +15,7 @@
       <thead>
         <tr>
           <th>Nome</th><th>E-mail</th><th>Perfil</th><th>Aprovação</th>
-          <th>Status</th><th>Entregas</th><th>Ações</th>
+          <th>Status</th><th>Entregas</th><th>Registro de metas</th><th>Ações</th>
         </tr>
       </thead>
       <tbody>
@@ -33,6 +33,13 @@
         </td>
         <td><span class="status {{ 'approved' if u['active'] else 'rejected' }}">{{ 'ATIVO' if u['active'] else 'BLOQUEADO' }}</span></td>
         <td>{{ u['submissions_count'] }}</td>
+        <td>
+          {% if u['role']=='user' %}
+          <a class="btn ghost" href="{{ url_for('admin_member_detail', user_id=u['id']) }}">Abrir pasta</a>
+          {% else %}
+          <span class="muted">—</span>
+          {% endif %}
+        </td>
         <td>
           <div class="row-actions wrap-actions">
           {% if u['id'] != current_user['id'] %}

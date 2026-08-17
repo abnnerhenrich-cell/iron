@@ -793,6 +793,70 @@ def admin_users():
             users = cur.fetchall()
     return render_template("admin_users.html", users=users)
 
+@app.route("/admin/members/<int:user_id>")
+@admin_required
+def admin_member_detail(user_id):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, name, email, role, active, approved, created_at
+                FROM users
+                WHERE id=%s AND role='user'
+            """, (user_id,))
+            member = cur.fetchone()
+            if not member:
+                abort(404)
+
+            cur.execute("SELECT * FROM cycles WHERE active=TRUE ORDER BY id DESC LIMIT 1")
+            cycle = cur.fetchone()
+            goals = []
+            overall = 0
+            total_target = 0.0
+            total_approved = 0.0
+            total_pending = 0.0
+
+            if cycle:
+                cur.execute("""
+                    SELECT g.*,
+                           COALESCE(SUM(CASE WHEN s.status='approved' THEN s.amount ELSE 0 END),0) AS approved,
+                           COALESCE(SUM(CASE WHEN s.status='pending' THEN s.amount ELSE 0 END),0) AS pending,
+                           COALESCE(SUM(CASE WHEN s.status='rejected' THEN s.amount ELSE 0 END),0) AS rejected
+                    FROM goals g
+                    LEFT JOIN submissions s ON s.goal_id=g.id AND s.user_id=%s
+                    WHERE g.cycle_id=%s
+                    GROUP BY g.id
+                    ORDER BY g.sort_order, g.id
+                """, (user_id, cycle["id"]))
+                goals = cur.fetchall()
+                total_target = sum(float(g["target"] or 0) for g in goals)
+                total_approved = sum(float(g["approved"] or 0) for g in goals)
+                total_pending = sum(float(g["pending"] or 0) for g in goals)
+                overall = min(100, round((total_approved / total_target) * 100)) if total_target else 0
+
+            cur.execute("""
+                SELECT s.id, s.amount, s.note, s.status, s.admin_note,
+                       s.created_at, s.reviewed_at,
+                       ((b.image_data IS NOT NULL) OR (s.image_data IS NOT NULL)) AS has_image,
+                       ((b.image2_data IS NOT NULL) OR (s.image2_data IS NOT NULL)) AS has_image2,
+                       ((b.image3_data IS NOT NULL) OR (s.image3_data IS NOT NULL)) AS has_image3,
+                       g.title AS goal_title, g.unit, c.title AS cycle_title
+                FROM submissions s
+                JOIN goals g ON g.id=s.goal_id
+                JOIN cycles c ON c.id=g.cycle_id
+                LEFT JOIN delivery_batches b ON b.id=s.batch_id
+                WHERE s.user_id=%s
+                ORDER BY s.id DESC
+            """, (user_id,))
+            history = cur.fetchall()
+
+    return render_template(
+        "admin_member_detail.html",
+        member=member, cycle=cycle, goals=goals, history=history,
+        overall=overall, total_target=total_target,
+        total_approved=total_approved, total_pending=total_pending
+    )
+
+
 @app.post("/admin/users/<int:user_id>/toggle")
 @admin_required
 def admin_user_toggle(user_id):
