@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Admin · Solicitações de cadastro{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <span class="eyebrow">NOVOS MEMBROS</span>
+    <h1>Solicitações de cadastro</h1>
+    <p>Aprove ou recuse quem pediu acesso ao IRON.</p>
+  </div>
+  <a class="btn ghost" href="{{ url_for('admin_users') }}">Ver todos os usuários</a>
+</section>
+
+<section class="panel">
+  {% if users %}
+    <div class="cards-list">
+      {% for u in users %}
+      <article class="list-card">
+        <div>
+          <strong>{{ u['name'] }}</strong>
+          <small>{{ u['email'] }} · solicitado em {{ u['created_at'].strftime('%d/%m/%Y %H:%M') if u['created_at'] else '' }}</small>
+        </div>
+        <div class="row-actions wrap-actions">
+          <form method="post" action="{{ url_for('admin_user_approve', user_id=u['id']) }}">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <button class="btn success" type="submit">✓ Aprovar acesso</button>
+          </form>
+          <form method="post" action="{{ url_for('admin_user_reject', user_id=u['id']) }}">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <button class="btn danger" type="submit">✕ Recusar</button>
+          </form>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty">
+      <h2>Nenhuma solicitação pendente</h2>
+      <p>Quando um novo membro se cadastrar, o pedido aparecerá aqui.</p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

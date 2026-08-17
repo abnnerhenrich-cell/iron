@@ -69,3 +69,12 @@ Isso resolve bancos que já tinham sido inicializados com credenciais antigas.
 - O administrador consegue abrir a foto/comprovante e aprovar ou reprovar.
 - O envio de imagem agora é obrigatório para novas entregas.
 - O painel inicial do Admin destaca quantas entregas estão aguardando análise.
+
+
+## Solicitações de cadastro — correção
+
+- Novo menu Admin > Cadastros.
+- Todo novo membro entra com `approved = false`.
+- O painel Admin mostra a quantidade de cadastros aguardando aprovação.
+- A tela `/admin/registrations` lista nome, e-mail e data do pedido.
+- O administrador pode Aprovar ou Recusar diretamente nessa tela.

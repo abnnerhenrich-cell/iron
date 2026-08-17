@@ -283,7 +283,10 @@ def register():
             with get_conn() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
-                        "INSERT INTO users (name,email,password_hash,role,approved,active) VALUES (%s,%s,%s,'user',FALSE,TRUE)",
+                        """
+                        INSERT INTO users (name,email,password_hash,role,approved,active)
+                        VALUES (%s,%s,%s,'user',FALSE,TRUE)
+                        """,
                         (name, email, generate_password_hash(password))
                     )
                 conn.commit()
@@ -437,6 +440,8 @@ def admin_dashboard():
             approved = cur.fetchone()["c"]
             cur.execute("SELECT COUNT(*) AS c FROM cycles")
             cycles = cur.fetchone()["c"]
+            cur.execute("SELECT COUNT(*) AS c FROM users WHERE role='user' AND approved=FALSE")
+            pending_users = cur.fetchone()["c"]
             cur.execute("""
                 SELECT s.id, s.amount, s.status, s.created_at,
                        (s.image_data IS NOT NULL) AS has_image,
@@ -449,7 +454,7 @@ def admin_dashboard():
             recent = cur.fetchall()
             cur.execute("SELECT * FROM cycles WHERE active=TRUE ORDER BY id DESC LIMIT 1")
             cycle = cur.fetchone()
-    stats = {"users": users, "pending": pending, "approved": approved, "cycles": cycles}
+    stats = {"users": users, "pending": pending, "approved": approved, "cycles": cycles, "pending_users": pending_users}
     return render_template("admin_dashboard.html", stats=stats, recent=recent, cycle=cycle)
 
 @app.route("/admin/cycles", methods=["GET", "POST"])
@@ -601,6 +606,20 @@ def admin_review(submission_id):
     flash("Entrega atualizada.", "success")
     return redirect(request.referrer or url_for("admin_submissions"))
 
+@app.route("/admin/registrations")
+@admin_required
+def admin_registrations():
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, name, email, role, active, approved, created_at
+                FROM users
+                WHERE role='user' AND approved=FALSE
+                ORDER BY created_at ASC
+            """)
+            users = cur.fetchall()
+    return render_template("admin_registrations.html", users=users)
+
 @app.route("/admin/users")
 @admin_required
 def admin_users():
@@ -645,7 +664,7 @@ def admin_user_approve(user_id):
             """, (user_id,))
         conn.commit()
     flash("Membro aprovado e liberado para acessar o painel.", "success")
-    return redirect(url_for("admin_users"))
+    return redirect(request.referrer or url_for("admin_registrations"))
 
 @app.post("/admin/users/<int:user_id>/reject")
 @admin_required
@@ -660,7 +679,7 @@ def admin_user_reject(user_id):
             """, (user_id,))
         conn.commit()
     flash("Cadastro recusado/bloqueado.", "success")
-    return redirect(url_for("admin_users"))
+    return redirect(request.referrer or url_for("admin_registrations"))
 
 @app.post("/admin/users/<int:user_id>/make-admin")
 @admin_required
