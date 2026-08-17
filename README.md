@@ -1,92 +1,43 @@
-# RPT Metas — sistema de metas e entregas
+# RPT Metas — Vercel + Neon
 
-Aplicação web completa em Flask + SQLite, com visual responsivo escuro/laranja inspirado nas referências enviadas.
+Versão preparada para publicação na Vercel com PostgreSQL Neon.
 
-## Recursos
+## O que esta versão faz
 
-- Cadastro e login de usuários
-- Perfis `user` e `admin`
-- Painel de metas da semana/ciclo
-- Criação de ciclos e metas pelo administrador
-- Entrega de quantidade ou valor por meta
-- Upload de imagem como comprovante
-- Histórico de entregas
-- Fluxo de aprovação/reprovação pelo admin
-- Progresso calculado apenas com entregas aprovadas
-- Banco SQLite persistente
-- Uploads salvos em `instance/uploads`
-- Proteção simples contra CSRF
-- Senhas com hash do Werkzeug
-- Limite de upload de 8 MB e validação de extensão
+- Login e cadastro de usuários.
+- Painel de usuário.
+- Painel administrativo.
+- Criação de ciclos e metas.
+- Entrega de quantidade/valor.
+- Aprovação e reprovação pelo administrador.
+- Histórico.
+- Usuários, metas e entregas persistidos no Neon.
+- Comprovantes em imagem persistidos no próprio PostgreSQL nesta primeira versão.
 
-## Como rodar
+## Variáveis na Vercel
 
-1. Instale Python 3.11+.
-2. Na pasta do projeto:
+A integração Neon deve criar automaticamente:
 
-```bash
-python -m venv .venv
-```
+`DATABASE_URL`
 
-Windows:
+No projeto da Vercel, configure também:
 
-```bash
-.venv\Scripts\activate
-```
+`SECRET_KEY` = uma chave longa e aleatória  
+`ADMIN_EMAIL` = o e-mail do administrador  
+`ADMIN_PASSWORD` = a senha inicial do administrador
 
-Linux/macOS:
+Caso não configure os dados de administrador, o primeiro admin será:
 
-```bash
-source .venv/bin/activate
-```
+E-mail: `admin@rpt.local`  
+Senha: `admin123`
 
-3. Instale:
+Troque isso antes do uso real.
 
-```bash
-pip install -r requirements.txt
-```
+## Uploads
 
-4. Opcionalmente configure o primeiro administrador:
+PNG, JPG, WEBP ou GIF, até 3,5 MB por imagem.
 
-Windows PowerShell:
+## Deploy
 
-```powershell
-$env:ADMIN_EMAIL="admin@empresa.com"
-$env:ADMIN_PASSWORD="troque-esta-senha"
-```
-
-Linux/macOS:
-
-```bash
-export ADMIN_EMAIL="admin@empresa.com"
-export ADMIN_PASSWORD="troque-esta-senha"
-```
-
-5. Rode:
-
-```bash
-python app.py
-```
-
-Acesse `http://127.0.0.1:5000`.
-
-## Primeiro acesso
-
-Se não houver nenhum admin, a aplicação cria automaticamente:
-
-- E-mail: `admin@rpt.local`
-- Senha: `admin123`
-
-Troque isso antes de colocar em produção.
-
-## Estrutura de dados
-
-- `users`: usuários e administradores
-- `cycles`: ciclos semanais
-- `goals`: metas por ciclo
-- `submissions`: entregas dos usuários com imagem e status
-
-## Produção
-
-Para produção, use um servidor WSGI (Gunicorn/Waitress), HTTPS e armazenamento externo de arquivos (S3/R2/Cloudinary). O SQLite funciona muito bem para ambiente pequeno/interno; para maior volume, migre para PostgreSQL.
-
+Substitua os arquivos do repositório GitHub pelos arquivos desta versão.
+A Vercel fará um novo deploy automaticamente.
