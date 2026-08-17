@@ -60,3 +60,12 @@ Isso resolve bancos que já tinham sido inicializados com credenciais antigas.
   - bloquear/desbloquear contas;
   - conceder permissão de administrador;
   - remover permissão de administrador.
+
+
+## Correção de entregas e fotos
+
+- Corrigida a rota das imagens no painel Admin.
+- Entregas pendentes aparecem em `Admin > Entregas`.
+- O administrador consegue abrir a foto/comprovante e aprovar ou reprovar.
+- O envio de imagem agora é obrigatório para novas entregas.
+- O painel inicial do Admin destaca quantas entregas estão aguardando análise.

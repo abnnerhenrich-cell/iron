@@ -23,8 +23,8 @@
       <div>
         <span class="status {{ s['status'] }}">{{ s['status'] }}</span>
         {% if s['has_image'] %}
-        <a class="proof" href="{{ url_for('uploaded_file', filename=s['has_image']) }}" target="_blank">
-          <img src="{{ url_for('uploaded_file', filename=s['has_image']) }}" alt="Comprovante">
+        <a class="proof" href="{{ url_for('submission_image', submission_id=s['id']) }}" target="_blank">
+          <img src="{{ url_for('submission_image', submission_id=s['id']) }}" alt="Comprovante">
           <span>Abrir anexo</span>
         </a>
         {% endif %}

@@ -351,16 +351,21 @@ def submit():
             return render_template("submit.html", cycle=cycle, goals=goals)
 
         image_data = image_mime = image_name = None
-        if image and image.filename:
-            if image.mimetype not in ALLOWED_MIMES:
-                flash("Formato de imagem não permitido.", "danger")
-                return render_template("submit.html", cycle=cycle, goals=goals)
-            image_data = image.read()
-            if len(image_data) > 3_500_000:
-                flash("A imagem deve ter no máximo 3,5 MB.", "danger")
-                return render_template("submit.html", cycle=cycle, goals=goals)
-            image_mime = image.mimetype
-            image_name = image.filename[:180]
+        if not image or not image.filename:
+            flash("Anexe uma foto/comprovante da entrega.", "danger")
+            return render_template("submit.html", cycle=cycle, goals=goals)
+
+        if image.mimetype not in ALLOWED_MIMES:
+            flash("Formato de imagem não permitido.", "danger")
+            return render_template("submit.html", cycle=cycle, goals=goals)
+
+        image_data = image.read()
+        if len(image_data) > 3_500_000:
+            flash("A imagem deve ter no máximo 3,5 MB.", "danger")
+            return render_template("submit.html", cycle=cycle, goals=goals)
+
+        image_mime = image.mimetype
+        image_name = image.filename[:180]
 
         with get_conn() as conn:
             with conn.cursor() as cur:

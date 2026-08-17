@@ -16,7 +16,7 @@
         <td>{{ s['goal_title'] }}</td>
         <td>{{ money(s['amount']) if s['unit']=='R$' else (s['amount']|int|string + ' ' + s['unit']) }}</td>
         <td><span class="status {{ s['status'] }}">{{ s['status'] }}</span></td>
-        <td>{% if s['has_image'] %}<a href="{{ url_for('uploaded_file', filename=s['has_image']) }}" target="_blank">Ver imagem</a>{% else %}—{% endif %}</td>
+        <td>{% if s['has_image'] %}<a href="{{ url_for('submission_image', submission_id=s['id']) }}" target="_blank">Ver imagem</a>{% else %}—{% endif %}</td>
         <td>{{ s['note'] or '—' }}</td>
       </tr>
       {% else %}
