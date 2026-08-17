@@ -364,76 +364,62 @@ def dashboard():
 def submit():
     user = get_current_user()
     cycle, goals = active_cycle_with_goals(user["id"])
-
     if not cycle:
         flash("Não há ciclo ativo.", "danger")
         return redirect(url_for("dashboard"))
 
     if request.method == "POST":
         validate_csrf()
-
         note = (request.form.get("note") or "").strip()
-        valid_goals = {int(g["id"]): g for g in goals}
 
-        # Cada card envia amount_ID. Só entram os valores maiores que zero.
+        # Lê todas as metas enviadas no mesmo formulário.
         selected = []
-        for goal_id, goal in valid_goals.items():
-            raw = (request.form.get(f"amount_{goal_id}") or "0").replace(",", ".").strip()
+        valid_ids = {int(g["id"]): g for g in goals}
+        for key, raw_value in request.form.items():
+            if not key.startswith("amount_"):
+                continue
             try:
-                amount = float(raw)
-            except ValueError:
-                amount = 0
-
-            if amount > 0:
+                goal_id = int(key.split("_", 1)[1])
+                amount = float(raw_value or 0)
+            except (ValueError, TypeError):
+                continue
+            if goal_id in valid_ids and amount > 0:
                 selected.append((goal_id, amount))
 
         if not selected:
-            flash("Escolha pelo menos um item e informe a quantidade entregue.", "danger")
+            flash("Informe pelo menos uma quantidade antes de enviar.", "danger")
             return render_template("submit.html", cycle=cycle, goals=goals)
 
-        # Até 3 fotos no mesmo envio.
-        uploaded = [
-            f for f in request.files.getlist("images")
-            if f and f.filename
-        ]
+        # Até 3 comprovantes por envio.
+        uploaded = request.files.getlist("images")
+        uploaded = [img for img in uploaded if img and img.filename]
 
         if not uploaded:
-            flash("Adicione pelo menos uma foto da entrega.", "danger")
+            flash("Adicione pelo menos uma foto/comprovante da entrega.", "danger")
             return render_template("submit.html", cycle=cycle, goals=goals)
 
         if len(uploaded) > 3:
-            flash("Você pode anexar no máximo 3 fotos por envio.", "danger")
+            flash("Envie no máximo 3 imagens por atualização.", "danger")
             return render_template("submit.html", cycle=cycle, goals=goals)
 
         images = []
-        total_bytes = 0
-
         for image in uploaded:
             if image.mimetype not in ALLOWED_MIMES:
-                flash("Use apenas imagens PNG, JPG, WEBP ou GIF.", "danger")
+                flash("Uma das imagens está em formato não permitido.", "danger")
                 return render_template("submit.html", cycle=cycle, goals=goals)
 
             data = image.read()
-            total_bytes += len(data)
-
-            # Mantém o pedido total bem abaixo do limite da Function da Vercel.
-            if len(data) > 1_200_000:
-                flash("Cada foto deve ter no máximo 1,2 MB.", "danger")
+            if len(data) > 1_250_000:
+                flash("Uma das imagens ficou grande demais. Tente novamente; o site normalmente reduz as fotos automaticamente.", "danger")
                 return render_template("submit.html", cycle=cycle, goals=goals)
 
             images.append((data, image.mimetype, image.filename[:180]))
-
-        if total_bytes > 3_200_000:
-            flash("As fotos juntas estão muito grandes. Reduza o tamanho das imagens.", "danger")
-            return render_template("submit.html", cycle=cycle, goals=goals)
 
         while len(images) < 3:
             images.append((None, None, None))
 
         (img1, mime1, name1), (img2, mime2, name2), (img3, mime3, name3) = images
 
-        # Um único clique cria uma entrega pendente para cada material informado.
-        # As mesmas fotos ficam vinculadas a todos os itens desse envio.
         with get_conn() as conn:
             with conn.cursor() as cur:
                 for goal_id, amount in selected:
@@ -460,11 +446,41 @@ def submit():
                     ))
             conn.commit()
 
-        flash(f"Atualização enviada: {len(selected)} item(ns) aguardando aprovação.", "success")
+        flash(f"{len(selected)} item(ns) enviado(s) para análise.", "success")
         return redirect(url_for("dashboard"))
 
     return render_template("submit.html", cycle=cycle, goals=goals)
 
+        image_data = image_mime = image_name = None
+        if not image or not image.filename:
+            flash("Anexe uma foto/comprovante da entrega.", "danger")
+            return render_template("submit.html", cycle=cycle, goals=goals)
+
+        if image.mimetype not in ALLOWED_MIMES:
+            flash("Formato de imagem não permitido.", "danger")
+            return render_template("submit.html", cycle=cycle, goals=goals)
+
+        image_data = image.read()
+        if len(image_data) > 3_500_000:
+            flash("A imagem deve ter no máximo 3,5 MB.", "danger")
+            return render_template("submit.html", cycle=cycle, goals=goals)
+
+        image_mime = image.mimetype
+        image_name = image.filename[:180]
+
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO submissions
+                    (user_id, goal_id, amount, note, image_data, image_mime, image_name, status)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,'pending')
+                """, (user["id"], goal_id, amount, note, image_data, image_mime, image_name))
+            conn.commit()
+
+        flash("Entrega enviada para análise.", "success")
+        return redirect(url_for("dashboard"))
+
+    return render_template("submit.html", cycle=cycle, goals=goals)
 
 @app.route("/history")
 @login_required
@@ -491,7 +507,7 @@ def history():
 @login_required
 def submission_image(submission_id):
     user = get_current_user()
-    image_index = request.args.get("index", "1")
+    index = request.args.get("index", "1")
 
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -511,18 +527,12 @@ def submission_image(submission_id):
     if user["role"] != "admin" and int(item["user_id"]) != int(user["id"]):
         abort(403)
 
-    if image_index == "2":
-        data = item["image2_data"]
-        mime = item["image2_mime"]
-        name = item["image2_name"]
-    elif image_index == "3":
-        data = item["image3_data"]
-        mime = item["image3_mime"]
-        name = item["image3_name"]
+    if index == "2":
+        data, mime, name = item["image2_data"], item["image2_mime"], item["image2_name"]
+    elif index == "3":
+        data, mime, name = item["image3_data"], item["image3_mime"], item["image3_name"]
     else:
-        data = item["image_data"]
-        mime = item["image_mime"]
-        name = item["image_name"]
+        data, mime, name = item["image_data"], item["image_mime"], item["image_name"]
 
     if not data:
         abort(404)
@@ -530,10 +540,9 @@ def submission_image(submission_id):
     return send_file(
         BytesIO(bytes(data)),
         mimetype=mime or "application/octet-stream",
-        download_name=name or f"comprovante-{submission_id}-{image_index}",
+        download_name=name or f"comprovante-{submission_id}-{index}",
         as_attachment=False
     )
-
 
 @app.route("/admin")
 @admin_required
@@ -611,28 +620,6 @@ def admin_cycle_activate(cycle_id):
         conn.commit()
     flash("Ciclo ativado.", "success")
     return redirect(url_for("admin_cycles"))
-
-@app.post("/admin/cycles/<int:cycle_id>/delete")
-@admin_required
-def admin_cycle_delete(cycle_id):
-    validate_csrf()
-
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT * FROM cycles WHERE id=%s", (cycle_id,))
-            cycle = cur.fetchone()
-
-            if not cycle:
-                abort(404)
-
-            # A FK de goals usa ON DELETE CASCADE e submissions também,
-            # então ao excluir o ciclo, metas e entregas desse ciclo também são removidas.
-            cur.execute("DELETE FROM cycles WHERE id=%s", (cycle_id,))
-        conn.commit()
-
-    flash(f"Ciclo '{cycle['title']}' excluído com sucesso.", "success")
-    return redirect(url_for("admin_cycles"))
-
 
 @app.route("/admin/cycles/<int:cycle_id>", methods=["GET", "POST"])
 @admin_required
