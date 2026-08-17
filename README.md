@@ -78,3 +78,26 @@ Isso resolve bancos que já tinham sido inicializados com credenciais antigas.
 - O painel Admin mostra a quantidade de cadastros aguardando aprovação.
 - A tela `/admin/registrations` lista nome, e-mail e data do pedido.
 - O administrador pode Aprovar ou Recusar diretamente nessa tela.
+
+
+## Correção da validação do cadastro
+
+A validação do cadastro agora informa separadamente:
+- nome inválido;
+- e-mail inválido;
+- senha menor que 6 caracteres;
+- e-mail já cadastrado.
+
+Nome e e-mail permanecem preenchidos caso ocorra algum erro.
+
+
+## Entrega múltipla
+
+A tela de atualização agora permite:
+- pesquisar materiais;
+- informar vários itens no mesmo envio;
+- usar botões + e -;
+- adicionar observação única para o envio;
+- anexar até 3 fotos;
+- enviar todos os itens de uma vez;
+- o Admin continua recebendo cada item para aprovação, com acesso às fotos.

@@ -22,12 +22,26 @@
       </div>
       <div>
         <span class="status {{ s['status'] }}">{{ s['status'] }}</span>
-        {% if s['has_image'] %}
-        <a class="proof" href="{{ url_for('submission_image', submission_id=s['id']) }}" target="_blank">
-          <img src="{{ url_for('submission_image', submission_id=s['id']) }}" alt="Comprovante">
-          <span>Abrir anexo</span>
-        </a>
-        {% endif %}
+        <div class="proof-grid">
+          {% if s['has_image'] %}
+          <a class="proof" href="{{ url_for('submission_image', submission_id=s['id'], index=1) }}" target="_blank">
+            <img src="{{ url_for('submission_image', submission_id=s['id'], index=1) }}" alt="Comprovante 1">
+            <span>Foto 1</span>
+          </a>
+          {% endif %}
+          {% if s['has_image2'] %}
+          <a class="proof" href="{{ url_for('submission_image', submission_id=s['id'], index=2) }}" target="_blank">
+            <img src="{{ url_for('submission_image', submission_id=s['id'], index=2) }}" alt="Comprovante 2">
+            <span>Foto 2</span>
+          </a>
+          {% endif %}
+          {% if s['has_image3'] %}
+          <a class="proof" href="{{ url_for('submission_image', submission_id=s['id'], index=3) }}" target="_blank">
+            <img src="{{ url_for('submission_image', submission_id=s['id'], index=3) }}" alt="Comprovante 3">
+            <span>Foto 3</span>
+          </a>
+          {% endif %}
+        </div>
       </div>
     </div>
     {% if s['status']=='pending' %}

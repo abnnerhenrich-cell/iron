@@ -1,5 +1,6 @@
 import os
 import secrets
+import re
 from datetime import date
 from functools import wraps
 from io import BytesIO
@@ -85,6 +86,12 @@ def init_db():
                     reviewed_by BIGINT REFERENCES users(id)
                 )
             """)
+            cur.execute("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS image2_data BYTEA")
+            cur.execute("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS image2_mime TEXT")
+            cur.execute("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS image2_name TEXT")
+            cur.execute("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS image3_data BYTEA")
+            cur.execute("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS image3_mime TEXT")
+            cur.execute("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS image3_name TEXT")
             admin_email = os.environ.get("ADMIN_EMAIL")
             admin_password = os.environ.get("ADMIN_PASSWORD")
 
@@ -271,14 +278,30 @@ def admin_login():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    form_data = {"name": "", "email": ""}
+
     if request.method == "POST":
         validate_csrf()
-        name = request.form.get("name", "").strip()
-        email = request.form.get("email", "").strip().lower()
-        password = request.form.get("password", "")
-        if len(name) < 2 or "@" not in email or len(password) < 6:
-            flash("Preencha corretamente. A senha deve ter ao menos 6 caracteres.", "danger")
-            return render_template("register.html")
+
+        name = (request.form.get("name") or "").strip()
+        email = (request.form.get("email") or "").strip().lower()
+        password = request.form.get("password") or ""
+
+        form_data = {"name": name, "email": email}
+
+        # Mensagens separadas para ficar claro qual campo está errado.
+        if len(name) < 2:
+            flash("Informe seu nome com pelo menos 2 caracteres.", "danger")
+            return render_template("register.html", form_data=form_data)
+
+        if not re.match(r"^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", email):
+            flash("Informe um e-mail válido, por exemplo nome@email.com.", "danger")
+            return render_template("register.html", form_data=form_data)
+
+        if len(password) < 6:
+            flash("A senha precisa ter pelo menos 6 caracteres.", "danger")
+            return render_template("register.html", form_data=form_data)
+
         try:
             with get_conn() as conn:
                 with conn.cursor() as cur:
@@ -290,11 +313,15 @@ def register():
                         (name, email, generate_password_hash(password))
                     )
                 conn.commit()
+
             flash("Cadastro enviado. Aguarde a aprovação de um administrador antes de entrar.", "success")
             return redirect(url_for("login"))
+
         except psycopg.errors.UniqueViolation:
-            flash("Este e-mail já está cadastrado.", "danger")
-    return render_template("register.html")
+            flash("Este e-mail já está cadastrado. Use outro e-mail ou entre na sua conta.", "danger")
+            return render_template("register.html", form_data=form_data)
+
+    return render_template("register.html", form_data=form_data)
 
 @app.route("/logout")
 def logout():
@@ -343,15 +370,86 @@ def submit():
 
     if request.method == "POST":
         validate_csrf()
-        goal_id = request.form.get("goal_id", type=int)
-        amount = request.form.get("amount", type=float)
-        note = request.form.get("note", "").strip()
-        image = request.files.get("image")
-        valid_goal = next((g for g in goals if int(g["id"]) == goal_id), None)
+        note = (request.form.get("note") or "").strip()
 
-        if not valid_goal or amount is None or amount <= 0:
-            flash("Selecione uma meta e informe um valor válido.", "danger")
+        # Lê todas as metas enviadas no mesmo formulário.
+        selected = []
+        valid_ids = {int(g["id"]): g for g in goals}
+        for key, raw_value in request.form.items():
+            if not key.startswith("amount_"):
+                continue
+            try:
+                goal_id = int(key.split("_", 1)[1])
+                amount = float(raw_value or 0)
+            except (ValueError, TypeError):
+                continue
+            if goal_id in valid_ids and amount > 0:
+                selected.append((goal_id, amount))
+
+        if not selected:
+            flash("Informe pelo menos uma quantidade antes de enviar.", "danger")
             return render_template("submit.html", cycle=cycle, goals=goals)
+
+        # Até 3 comprovantes por envio.
+        uploaded = request.files.getlist("images")
+        uploaded = [img for img in uploaded if img and img.filename]
+
+        if not uploaded:
+            flash("Adicione pelo menos uma foto/comprovante da entrega.", "danger")
+            return render_template("submit.html", cycle=cycle, goals=goals)
+
+        if len(uploaded) > 3:
+            flash("Envie no máximo 3 imagens por atualização.", "danger")
+            return render_template("submit.html", cycle=cycle, goals=goals)
+
+        images = []
+        for image in uploaded:
+            if image.mimetype not in ALLOWED_MIMES:
+                flash("Uma das imagens está em formato não permitido.", "danger")
+                return render_template("submit.html", cycle=cycle, goals=goals)
+
+            data = image.read()
+            if len(data) > 2_000_000:
+                flash("Cada imagem deve ter no máximo 2 MB.", "danger")
+                return render_template("submit.html", cycle=cycle, goals=goals)
+
+            images.append((data, image.mimetype, image.filename[:180]))
+
+        while len(images) < 3:
+            images.append((None, None, None))
+
+        (img1, mime1, name1), (img2, mime2, name2), (img3, mime3, name3) = images
+
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                for goal_id, amount in selected:
+                    cur.execute("""
+                        INSERT INTO submissions (
+                            user_id, goal_id, amount, note,
+                            image_data, image_mime, image_name,
+                            image2_data, image2_mime, image2_name,
+                            image3_data, image3_mime, image3_name,
+                            status
+                        )
+                        VALUES (
+                            %s,%s,%s,%s,
+                            %s,%s,%s,
+                            %s,%s,%s,
+                            %s,%s,%s,
+                            'pending'
+                        )
+                    """, (
+                        user["id"], goal_id, amount, note,
+                        img1, mime1, name1,
+                        img2, mime2, name2,
+                        img3, mime3, name3
+                    ))
+            conn.commit()
+
+        flash(f"{len(selected)} item(ns) enviado(s) para análise.", "success")
+        return redirect(url_for("dashboard"))
+
+    return render_template("submit.html", cycle=cycle, goals=goals)
 
         image_data = image_mime = image_name = None
         if not image or not image.filename:
@@ -409,21 +507,40 @@ def history():
 @login_required
 def submission_image(submission_id):
     user = get_current_user()
+    index = request.args.get("index", "1")
+
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                "SELECT user_id, image_data, image_mime, image_name FROM submissions WHERE id=%s",
-                (submission_id,)
-            )
+            cur.execute("""
+                SELECT user_id,
+                       image_data, image_mime, image_name,
+                       image2_data, image2_mime, image2_name,
+                       image3_data, image3_mime, image3_name
+                FROM submissions
+                WHERE id=%s
+            """, (submission_id,))
             item = cur.fetchone()
-    if not item or not item["image_data"]:
+
+    if not item:
         abort(404)
+
     if user["role"] != "admin" and int(item["user_id"]) != int(user["id"]):
         abort(403)
+
+    if index == "2":
+        data, mime, name = item["image2_data"], item["image2_mime"], item["image2_name"]
+    elif index == "3":
+        data, mime, name = item["image3_data"], item["image3_mime"], item["image3_name"]
+    else:
+        data, mime, name = item["image_data"], item["image_mime"], item["image_name"]
+
+    if not data:
+        abort(404)
+
     return send_file(
-        BytesIO(bytes(item["image_data"])),
-        mimetype=item["image_mime"] or "application/octet-stream",
-        download_name=item["image_name"] or f"comprovante-{submission_id}",
+        BytesIO(bytes(data)),
+        mimetype=mime or "application/octet-stream",
+        download_name=name or f"comprovante-{submission_id}-{index}",
         as_attachment=False
     )
 
@@ -567,6 +684,8 @@ def admin_submissions():
         SELECT s.id, s.user_id, s.amount, s.note, s.status, s.admin_note,
                s.created_at, s.reviewed_at,
                (s.image_data IS NOT NULL) AS has_image,
+               (s.image2_data IS NOT NULL) AS has_image2,
+               (s.image3_data IS NOT NULL) AS has_image3,
                u.name AS user_name, u.email,
                g.title AS goal_title, g.unit,
                c.title AS cycle_title
