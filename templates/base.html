@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}RPT Metas{% endblock %}</title>
+  <title>{% block title %}IRON Metas{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -11,7 +11,7 @@
   <header class="topbar">
     <a class="brand" href="{{ url_for('admin_dashboard' if current_user['role']=='admin' else 'dashboard') }}">
       <span class="brand-icon">◎</span>
-      <span><strong>RPT Metas</strong><small>{{ 'Painel administrativo' if current_user['role']=='admin' else 'Minhas metas' }}</small></span>
+      <span><strong>IRON Metas</strong><small>{{ 'Painel administrativo' if current_user['role']=='admin' else 'Minhas metas' }}</small></span>
     </a>
     <div class="top-actions">
       <span class="user-pill">{{ current_user['name'] }}</span>
