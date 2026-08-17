@@ -78,17 +78,37 @@ def init_db():
                     reviewed_by BIGINT REFERENCES users(id)
                 )
             """)
-            cur.execute("SELECT 1 FROM users WHERE role='admin' LIMIT 1")
-            if cur.fetchone() is None:
+            admin_email = os.environ.get("ADMIN_EMAIL")
+            admin_password = os.environ.get("ADMIN_PASSWORD")
+
+            # Se ADMIN_EMAIL e ADMIN_PASSWORD estiverem configurados na Vercel,
+            # garante que essas credenciais sejam sempre o administrador válido.
+            if admin_email and admin_password:
                 cur.execute("""
-                    INSERT INTO users (name,email,password_hash,role)
-                    VALUES (%s,%s,%s,'admin')
-                    ON CONFLICT (email) DO NOTHING
+                    INSERT INTO users (name,email,password_hash,role,active)
+                    VALUES (%s,%s,%s,'admin',TRUE)
+                    ON CONFLICT (email) DO UPDATE SET
+                        password_hash=EXCLUDED.password_hash,
+                        role='admin',
+                        active=TRUE
                 """, (
                     "Administrador",
-                    os.environ.get("ADMIN_EMAIL", "admin@iron.local"),
-                    generate_password_hash(os.environ.get("ADMIN_PASSWORD", "admin123"))
+                    admin_email.strip().lower(),
+                    generate_password_hash(admin_password)
                 ))
+            else:
+                # Fallback apenas para ambiente de teste/local.
+                cur.execute("SELECT 1 FROM users WHERE role='admin' LIMIT 1")
+                if cur.fetchone() is None:
+                    cur.execute("""
+                        INSERT INTO users (name,email,password_hash,role,active)
+                        VALUES (%s,%s,%s,'admin',TRUE)
+                        ON CONFLICT (email) DO NOTHING
+                    """, (
+                        "Administrador",
+                        "admin@iron.local",
+                        generate_password_hash("admin123")
+                    ))
         conn.commit()
 
 init_db()

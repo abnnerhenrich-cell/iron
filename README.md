@@ -41,3 +41,10 @@ PNG, JPG, WEBP ou GIF, até 3,5 MB por imagem.
 
 Substitua os arquivos do repositório GitHub pelos arquivos desta versão.
 A Vercel fará um novo deploy automaticamente.
+
+
+## Correção de login do administrador
+
+Nesta versão, quando `ADMIN_EMAIL` e `ADMIN_PASSWORD` estão configurados na Vercel,
+o sistema cria ou atualiza automaticamente esse usuário como administrador ativo.
+Isso resolve bancos que já tinham sido inicializados com credenciais antigas.
