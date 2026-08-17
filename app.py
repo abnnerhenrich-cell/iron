@@ -86,7 +86,7 @@ def init_db():
                     ON CONFLICT (email) DO NOTHING
                 """, (
                     "Administrador",
-                    os.environ.get("ADMIN_EMAIL", "admin@rpt.local"),
+                    os.environ.get("ADMIN_EMAIL", "admin@iron.local"),
                     generate_password_hash(os.environ.get("ADMIN_PASSWORD", "admin123"))
                 ))
         conn.commit()

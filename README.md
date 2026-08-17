@@ -1,4 +1,4 @@
-# RPT Metas — Vercel + Neon
+# IRON Metas — Vercel + Neon
 
 Versão preparada para publicação na Vercel com PostgreSQL Neon.
 
@@ -28,7 +28,7 @@ No projeto da Vercel, configure também:
 
 Caso não configure os dados de administrador, o primeiro admin será:
 
-E-mail: `admin@rpt.local`  
+E-mail: `admin@iron.local`  
 Senha: `admin123`
 
 Troque isso antes do uso real.
