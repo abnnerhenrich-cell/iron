@@ -91,13 +91,10 @@ A validação do cadastro agora informa separadamente:
 Nome e e-mail permanecem preenchidos caso ocorra algum erro.
 
 
-## Entrega múltipla
-
-A tela de atualização agora permite:
-- pesquisar materiais;
-- informar vários itens no mesmo envio;
-- usar botões + e -;
-- adicionar observação única para o envio;
-- anexar até 3 fotos;
-- enviar todos os itens de uma vez;
-- o Admin continua recebendo cada item para aprovação, com acesso às fotos.
+## Entrega múltipla V2
+- Vários materiais em um único envio.
+- Botões + e - por item.
+- Busca de materiais.
+- Até 3 fotos.
+- Um único botão de envio.
+- Cada material chega ao Admin como pendente para aprovação.

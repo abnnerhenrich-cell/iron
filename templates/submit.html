@@ -1,48 +1,62 @@
 {% extends "base.html" %}
-{% block title %}Atualizar entrega{% endblock %}
+{% block title %}Atualizar entrega · IRON{% endblock %}
 {% block content %}
-<section class="hero">
-  <div>
-    <span class="eyebrow">ATUALIZAÇÃO PARCIAL</span>
-    <h1>{{ cycle['title'] }}</h1>
-    <p>Informe vários materiais no mesmo envio e mande tudo de uma vez.</p>
-  </div>
+
+<section class="panel multi-head">
+  <span class="eyebrow">ATUALIZAÇÃO PARCIAL</span>
+  <h1>{{ cycle['title'] }}</h1>
+  <p>Registre vários itens de uma só vez.</p>
 </section>
 
-<form method="post" enctype="multipart/form-data" id="multiDeliveryForm">
+<form method="post" enctype="multipart/form-data" id="multiForm">
   <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
 
   <section class="panel">
-    <div class="delivery-search">
-      <input id="goalSearch" type="search" placeholder="Buscar material da meta..." autocomplete="off">
+    <div class="multi-search">
+      <input id="materialSearch" type="search" placeholder="⌕  Buscar material da meta..." autocomplete="off">
     </div>
 
-    <div class="delivery-grid" id="deliveryGrid">
+    <div class="material-grid" id="materialGrid">
       {% for g in goals %}
-      {% set available = (g['target'] - g['approved'] - g['pending']) %}
-      <article class="delivery-item" data-name="{{ g['title']|lower }} {{ g['category']|lower }}">
-        <div class="delivery-info">
+      {% set available = g['target'] - g['approved'] - g['pending'] %}
+      <article class="material-card"
+               data-search="{{ (g['title'] ~ ' ' ~ g['category'])|lower }}">
+        <div class="material-title">
           <span class="goal-icon">{{ g['icon'] }}</span>
           <div>
             <strong>{{ g['title'] }}</strong>
-            <small>Disponível: <b>{{ money(available) if g['unit']=='R$' else ((available|int)|string + ' ' + g['unit']) }}</b></small>
+            <small>
+              Disponível:
+              <b>
+                {% if g['unit'] == 'R$' %}
+                  {{ money(available) }}
+                {% else %}
+                  {{ available|int }} {{ g['unit'] }}
+                {% endif %}
+              </b>
+            </small>
           </div>
         </div>
 
-        <div class="delivery-bottom">
+        <div class="material-action">
           <span>Entregue agora</span>
-          <div class="stepper">
-            <button type="button" class="step-btn minus" data-target="amount_{{ g['id'] }}">−</button>
+
+          <div class="qty-control">
+            <button type="button" class="qty-btn qty-minus" data-input="amount_{{ g['id'] }}">−</button>
+
             <input
               id="amount_{{ g['id'] }}"
+              class="qty-input"
               name="amount_{{ g['id'] }}"
               type="number"
-              min="0"
-              step="{{ '0.01' if g['unit']=='R$' else '1' }}"
               value="0"
+              min="0"
+              step="{{ '0.01' if g['unit'] == 'R$' else '1' }}"
               inputmode="decimal"
+              aria-label="Quantidade de {{ g['title'] }}"
             >
-            <button type="button" class="step-btn plus" data-target="amount_{{ g['id'] }}">＋</button>
+
+            <button type="button" class="qty-btn qty-plus" data-input="amount_{{ g['id'] }}">+</button>
           </div>
         </div>
       </article>
@@ -50,90 +64,123 @@
     </div>
   </section>
 
-  <section class="delivery-extra">
-    <label class="note-box">
+  <section class="multi-bottom">
+    <label class="multi-note">
       <span>OBSERVAÇÃO <small>(OPCIONAL)</small></span>
       <textarea name="note" rows="5" placeholder="Ex.: primeira entrega da semana..."></textarea>
     </label>
 
-    <label class="upload-box">
-      <span>COMPROVAÇÕES <b>*</b><small>Até 3 imagens · 2 MB cada</small></span>
-      <input id="imagesInput" name="images" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple required hidden>
-      <div class="upload-drop" id="uploadTrigger">
-        <strong>＋ Adicionar fotos da entrega</strong>
-        <small>Câmera ou galeria</small>
+    <div class="multi-photos">
+      <div class="photos-title">
+        <span>COMPROVAÇÕES *</span>
+        <small>Até 3 fotos · 1,2 MB cada</small>
       </div>
-      <div id="filePreview" class="file-preview"></div>
-    </label>
+
+      <label class="photo-picker" for="imagesInput">
+        <span class="photo-plus">＋</span>
+        <strong>Adicionar fotos da entrega</strong>
+        <small>Câmera ou galeria</small>
+      </label>
+
+      <input
+        id="imagesInput"
+        name="images"
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        multiple
+        hidden
+      >
+
+      <div id="photoNames" class="photo-names"></div>
+    </div>
   </section>
 
-  <div class="sticky-submit">
-    <button class="btn primary delivery-submit" id="submitDelivery" type="submit" disabled>
+  <div class="multi-submit-bar">
+    <button id="sendButton" class="btn primary multi-send" type="submit" disabled>
       Enviar atualização para revisão
     </button>
   </div>
 </form>
 
 <script>
-(() => {
-  const form = document.getElementById('multiDeliveryForm');
-  const search = document.getElementById('goalSearch');
-  const cards = [...document.querySelectorAll('.delivery-item')];
-  const amountInputs = [...document.querySelectorAll('.stepper input')];
-  const submit = document.getElementById('submitDelivery');
-  const fileInput = document.getElementById('imagesInput');
-  const trigger = document.getElementById('uploadTrigger');
-  const preview = document.getElementById('filePreview');
+document.addEventListener("DOMContentLoaded", function () {
+  const search = document.getElementById("materialSearch");
+  const cards = Array.from(document.querySelectorAll(".material-card"));
+  const qtyInputs = Array.from(document.querySelectorAll(".qty-input"));
+  const fileInput = document.getElementById("imagesInput");
+  const photoNames = document.getElementById("photoNames");
+  const sendButton = document.getElementById("sendButton");
+  const form = document.getElementById("multiForm");
 
-  const updateButton = () => {
-    const hasAmount = amountInputs.some(i => Number(i.value) > 0);
-    const hasImage = fileInput.files && fileInput.files.length > 0;
-    submit.disabled = !(hasAmount && hasImage);
-  };
+  function refreshSendButton() {
+    const hasItem = qtyInputs.some(input => Number(input.value || 0) > 0);
+    const hasPhoto = fileInput.files && fileInput.files.length > 0;
+    sendButton.disabled = !(hasItem && hasPhoto);
+  }
 
-  document.querySelectorAll('.step-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const input = document.getElementById(btn.dataset.target);
+  document.querySelectorAll(".qty-btn").forEach(function (button) {
+    button.addEventListener("click", function () {
+      const input = document.getElementById(button.dataset.input);
       const step = Number(input.step || 1);
-      const current = Number(input.value || 0);
-      input.value = Math.max(0, current + (btn.classList.contains('plus') ? step : -step));
-      input.dispatchEvent(new Event('input'));
+      let current = Number(input.value || 0);
+
+      if (button.classList.contains("qty-plus")) {
+        current += step;
+      } else {
+        current = Math.max(0, current - step);
+      }
+
+      input.value = Number.isInteger(step) ? Math.round(current) : current.toFixed(2);
+      refreshSendButton();
     });
   });
 
-  amountInputs.forEach(i => i.addEventListener('input', updateButton));
+  qtyInputs.forEach(function (input) {
+    input.addEventListener("input", refreshSendButton);
+  });
 
-  search.addEventListener('input', () => {
-    const q = search.value.toLowerCase().trim();
-    cards.forEach(card => {
-      card.style.display = card.dataset.name.includes(q) ? '' : 'none';
+  search.addEventListener("input", function () {
+    const query = search.value.trim().toLowerCase();
+
+    cards.forEach(function (card) {
+      card.hidden = query && !card.dataset.search.includes(query);
     });
   });
 
-  trigger.addEventListener('click', () => fileInput.click());
-
-  fileInput.addEventListener('change', () => {
+  fileInput.addEventListener("change", function () {
     if (fileInput.files.length > 3) {
-      alert('Escolha no máximo 3 imagens.');
-      fileInput.value = '';
+      alert("Selecione no máximo 3 fotos.");
+      fileInput.value = "";
     }
-    preview.innerHTML = '';
-    [...fileInput.files].forEach(file => {
-      const pill = document.createElement('span');
-      pill.textContent = file.name;
-      preview.appendChild(pill);
+
+    photoNames.innerHTML = "";
+
+    Array.from(fileInput.files).forEach(function (file) {
+      const item = document.createElement("span");
+      item.textContent = file.name;
+      photoNames.appendChild(item);
     });
-    updateButton();
+
+    refreshSendButton();
   });
 
-  form.addEventListener('submit', e => {
-    if (![...amountInputs].some(i => Number(i.value) > 0)) {
-      e.preventDefault();
-      alert('Informe pelo menos uma quantidade.');
+  form.addEventListener("submit", function (event) {
+    const hasItem = qtyInputs.some(input => Number(input.value || 0) > 0);
+
+    if (!hasItem) {
+      event.preventDefault();
+      alert("Informe a quantidade de pelo menos um item.");
+      return;
+    }
+
+    if (!fileInput.files.length) {
+      event.preventDefault();
+      alert("Adicione pelo menos uma foto da entrega.");
     }
   });
 
-  updateButton();
-})();
+  refreshSendButton();
+});
 </script>
+
 {% endblock %}
