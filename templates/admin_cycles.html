@@ -28,12 +28,6 @@
           <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="btn ghost">Ativar</button>
         </form>{% endif %}
         <a class="btn ghost" href="{{ url_for('admin_cycle_detail', cycle_id=c['id']) }}">Abrir</a>
-        <form method="post"
-              action="{{ url_for('admin_cycle_delete', cycle_id=c['id']) }}"
-              onsubmit="return confirm('Tem certeza que deseja excluir este ciclo? Todas as metas e entregas ligadas a ele também serão apagadas. Esta ação não pode ser desfeita.')">
-          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-          <button class="btn danger" type="submit">Excluir</button>
-        </form>
       </div>
     </article>
   {% else %}<p class="muted">Nenhum ciclo criado.</p>{% endfor %}

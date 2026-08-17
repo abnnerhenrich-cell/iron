@@ -1,62 +1,48 @@
 {% extends "base.html" %}
-{% block title %}Atualizar entrega · IRON{% endblock %}
+{% block title %}Atualizar entrega{% endblock %}
 {% block content %}
-
-<section class="panel multi-head">
-  <span class="eyebrow">ATUALIZAÇÃO PARCIAL</span>
-  <h1>{{ cycle['title'] }}</h1>
-  <p>Registre vários itens de uma só vez.</p>
+<section class="hero">
+  <div>
+    <span class="eyebrow">ATUALIZAÇÃO PARCIAL</span>
+    <h1>{{ cycle['title'] }}</h1>
+    <p>Informe vários materiais no mesmo envio e mande tudo de uma vez.</p>
+  </div>
 </section>
 
-<form method="post" enctype="multipart/form-data" id="multiForm">
+<form method="post" enctype="multipart/form-data" id="multiDeliveryForm">
   <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
 
   <section class="panel">
-    <div class="multi-search">
-      <input id="materialSearch" type="search" placeholder="⌕  Buscar material da meta..." autocomplete="off">
+    <div class="delivery-search">
+      <input id="goalSearch" type="search" placeholder="Buscar material da meta..." autocomplete="off">
     </div>
 
-    <div class="material-grid" id="materialGrid">
+    <div class="delivery-grid" id="deliveryGrid">
       {% for g in goals %}
-      {% set available = g['target'] - g['approved'] - g['pending'] %}
-      <article class="material-card"
-               data-search="{{ (g['title'] ~ ' ' ~ g['category'])|lower }}">
-        <div class="material-title">
+      {% set available = (g['target'] - g['approved'] - g['pending']) %}
+      <article class="delivery-item" data-name="{{ g['title']|lower }} {{ g['category']|lower }}">
+        <div class="delivery-info">
           <span class="goal-icon">{{ g['icon'] }}</span>
           <div>
             <strong>{{ g['title'] }}</strong>
-            <small>
-              Disponível:
-              <b>
-                {% if g['unit'] == 'R$' %}
-                  {{ money(available) }}
-                {% else %}
-                  {{ available|int }} {{ g['unit'] }}
-                {% endif %}
-              </b>
-            </small>
+            <small>Disponível: <b>{{ money(available) if g['unit']=='R$' else ((available|int)|string + ' ' + g['unit']) }}</b></small>
           </div>
         </div>
 
-        <div class="material-action">
+        <div class="delivery-bottom">
           <span>Entregue agora</span>
-
-          <div class="qty-control">
-            <button type="button" class="qty-btn qty-minus" data-input="amount_{{ g['id'] }}">−</button>
-
+          <div class="stepper">
+            <button type="button" class="step-btn minus" data-target="amount_{{ g['id'] }}">−</button>
             <input
               id="amount_{{ g['id'] }}"
-              class="qty-input"
               name="amount_{{ g['id'] }}"
               type="number"
-              value="0"
               min="0"
-              step="{{ '0.01' if g['unit'] == 'R$' else '1' }}"
+              step="{{ '0.01' if g['unit']=='R$' else '1' }}"
+              value="0"
               inputmode="decimal"
-              aria-label="Quantidade de {{ g['title'] }}"
             >
-
-            <button type="button" class="qty-btn qty-plus" data-input="amount_{{ g['id'] }}">+</button>
+            <button type="button" class="step-btn plus" data-target="amount_{{ g['id'] }}">＋</button>
           </div>
         </div>
       </article>
@@ -64,123 +50,155 @@
     </div>
   </section>
 
-  <section class="multi-bottom">
-    <label class="multi-note">
+  <section class="delivery-extra">
+    <label class="note-box">
       <span>OBSERVAÇÃO <small>(OPCIONAL)</small></span>
       <textarea name="note" rows="5" placeholder="Ex.: primeira entrega da semana..."></textarea>
     </label>
 
-    <div class="multi-photos">
-      <div class="photos-title">
-        <span>COMPROVAÇÕES *</span>
-        <small>Até 3 fotos · 1,2 MB cada</small>
+    <label class="upload-box">
+      <span>COMPROVAÇÕES <b>*</b><small>Até 3 imagens · otimização automática</small></span>
+      <input id="imagesInput" name="images" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple required hidden>
+      <div class="upload-drop" id="uploadTrigger">
+        <strong>＋ Adicionar fotos da entrega</strong>
+        <small>Câmera ou galeria · o sistema reduz o tamanho antes de enviar</small>
       </div>
-
-      <label class="photo-picker" for="imagesInput">
-        <span class="photo-plus">＋</span>
-        <strong>Adicionar fotos da entrega</strong>
-        <small>Câmera ou galeria</small>
-      </label>
-
-      <input
-        id="imagesInput"
-        name="images"
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif"
-        multiple
-        hidden
-      >
-
-      <div id="photoNames" class="photo-names"></div>
-    </div>
+      <div id="filePreview" class="file-preview"></div>
+    </label>
   </section>
 
-  <div class="multi-submit-bar">
-    <button id="sendButton" class="btn primary multi-send" type="submit" disabled>
+  <div class="sticky-submit">
+    <button class="btn primary delivery-submit" id="submitDelivery" type="submit" disabled>
       Enviar atualização para revisão
     </button>
   </div>
 </form>
 
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-  const search = document.getElementById("materialSearch");
-  const cards = Array.from(document.querySelectorAll(".material-card"));
-  const qtyInputs = Array.from(document.querySelectorAll(".qty-input"));
-  const fileInput = document.getElementById("imagesInput");
-  const photoNames = document.getElementById("photoNames");
-  const sendButton = document.getElementById("sendButton");
-  const form = document.getElementById("multiForm");
+(() => {
+  const form = document.getElementById('multiDeliveryForm');
+  const search = document.getElementById('goalSearch');
+  const cards = [...document.querySelectorAll('.delivery-item')];
+  const amountInputs = [...document.querySelectorAll('.stepper input')];
+  const submit = document.getElementById('submitDelivery');
+  const fileInput = document.getElementById('imagesInput');
+  const trigger = document.getElementById('uploadTrigger');
+  const preview = document.getElementById('filePreview');
 
-  function refreshSendButton() {
-    const hasItem = qtyInputs.some(input => Number(input.value || 0) > 0);
-    const hasPhoto = fileInput.files && fileInput.files.length > 0;
-    sendButton.disabled = !(hasItem && hasPhoto);
-  }
+  const updateButton = () => {
+    const hasAmount = amountInputs.some(i => Number(i.value) > 0);
+    const hasImage = fileInput.files && fileInput.files.length > 0;
+    submit.disabled = !(hasAmount && hasImage);
+  };
 
-  document.querySelectorAll(".qty-btn").forEach(function (button) {
-    button.addEventListener("click", function () {
-      const input = document.getElementById(button.dataset.input);
+  document.querySelectorAll('.step-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const input = document.getElementById(btn.dataset.target);
       const step = Number(input.step || 1);
-      let current = Number(input.value || 0);
-
-      if (button.classList.contains("qty-plus")) {
-        current += step;
-      } else {
-        current = Math.max(0, current - step);
-      }
-
-      input.value = Number.isInteger(step) ? Math.round(current) : current.toFixed(2);
-      refreshSendButton();
+      const current = Number(input.value || 0);
+      input.value = Math.max(0, current + (btn.classList.contains('plus') ? step : -step));
+      input.dispatchEvent(new Event('input'));
     });
   });
 
-  qtyInputs.forEach(function (input) {
-    input.addEventListener("input", refreshSendButton);
-  });
+  amountInputs.forEach(i => i.addEventListener('input', updateButton));
 
-  search.addEventListener("input", function () {
-    const query = search.value.trim().toLowerCase();
-
-    cards.forEach(function (card) {
-      card.hidden = query && !card.dataset.search.includes(query);
+  search.addEventListener('input', () => {
+    const q = search.value.toLowerCase().trim();
+    cards.forEach(card => {
+      card.style.display = card.dataset.name.includes(q) ? '' : 'none';
     });
   });
 
-  fileInput.addEventListener("change", function () {
-    if (fileInput.files.length > 3) {
-      alert("Selecione no máximo 3 fotos.");
-      fileInput.value = "";
-    }
+  trigger.addEventListener('click', () => fileInput.click());
 
-    photoNames.innerHTML = "";
+  const compressImage = (file, maxWidth = 1600, quality = 0.72) => new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) return resolve(file);
 
-    Array.from(fileInput.files).forEach(function (file) {
-      const item = document.createElement("span");
-      item.textContent = file.name;
-      photoNames.appendChild(item);
-    });
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
 
-    refreshSendButton();
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        canvas.toBlob(blob => {
+          if (!blob) return reject(new Error('Falha ao comprimir imagem.'));
+          resolve(new File(
+            [blob],
+            (file.name.replace(/\.[^.]+$/, '') || 'comprovante') + '.jpg',
+            { type: 'image/jpeg' }
+          ));
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
 
-  form.addEventListener("submit", function (event) {
-    const hasItem = qtyInputs.some(input => Number(input.value || 0) > 0);
+  fileInput.addEventListener('change', async () => {
+    const chosen = [...fileInput.files];
 
-    if (!hasItem) {
-      event.preventDefault();
-      alert("Informe a quantidade de pelo menos um item.");
+    if (chosen.length > 3) {
+      alert('Escolha no máximo 3 imagens.');
+      fileInput.value = '';
+      updateButton();
       return;
     }
 
-    if (!fileInput.files.length) {
-      event.preventDefault();
-      alert("Adicione pelo menos uma foto da entrega.");
+    submit.disabled = true;
+    submit.textContent = 'Otimizando imagens...';
+
+    try {
+      const compressed = [];
+      for (const file of chosen) {
+        const optimized = await compressImage(file);
+        if (optimized.size > 1200000) {
+          alert('Uma imagem ainda ficou muito grande após a otimização. Tente outra foto.');
+          fileInput.value = '';
+          preview.innerHTML = '';
+          submit.textContent = 'Enviar atualização para revisão';
+          updateButton();
+          return;
+        }
+        compressed.push(optimized);
+      }
+
+      const transfer = new DataTransfer();
+      compressed.forEach(file => transfer.items.add(file));
+      fileInput.files = transfer.files;
+
+      preview.innerHTML = '';
+      compressed.forEach(file => {
+        const pill = document.createElement('span');
+        pill.textContent = `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB`;
+        preview.appendChild(pill);
+      });
+    } catch (err) {
+      alert('Não foi possível preparar uma das imagens. Tente outra foto.');
+      fileInput.value = '';
+      preview.innerHTML = '';
+    }
+
+    submit.textContent = 'Enviar atualização para revisão';
+    updateButton();
+  });
+
+  form.addEventListener('submit', e => {
+    if (![...amountInputs].some(i => Number(i.value) > 0)) {
+      e.preventDefault();
+      alert('Informe pelo menos uma quantidade.');
     }
   });
 
-  refreshSendButton();
-});
+  updateButton();
+})();
 </script>
-
 {% endblock %}
