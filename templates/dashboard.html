@@ -71,7 +71,7 @@
           <td>{{ s['goal_title'] }}</td>
           <td>{{ money(s['amount']) if s['unit']=='R$' else (s['amount']|int|string + ' ' + s['unit']) }}</td>
           <td><span class="status {{ s['status'] }}">{{ s['status'] }}</span></td>
-          <td>{{ s['created_at'][:16].replace('T',' ') }}</td>
+          <td>{{ s['created_at'].strftime('%d/%m/%Y %H:%M') if s['created_at'] else '—' }}</td>
         </tr>
       {% else %}
         <tr><td colspan="4" class="muted">Nenhuma entrega ainda.</td></tr>

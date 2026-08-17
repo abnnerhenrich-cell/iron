@@ -8,8 +8,8 @@
   <p class="muted">Solicite acesso ao IRON. Um administrador precisará aprovar seu cadastro antes do primeiro login.</p>
   <form method="post" class="stack">
     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-    <label>Nome<input name="name" value="{{ form_data.name if form_data else ''}" minlength="2" autocomplete="name" required></label>
-    <label>E-mail<input name="email" type="email" value="{{ form_data.email if form_data else ''}" autocomplete="email" required></label>
+    <label>Nome<input name="name" value="{{ form_data.name if form_data else '' }}" minlength="2" autocomplete="name" required></label>
+    <label>E-mail<input name="email" type="email" value="{{ form_data.email if form_data else '' }}" autocomplete="email" required></label>
     <label>Senha<input name="password" type="password" minlength="6" autocomplete="new-password" required><small>Mínimo de 6 caracteres.</small></label>
     <button class="btn primary" type="submit">Criar conta</button>
   </form>
