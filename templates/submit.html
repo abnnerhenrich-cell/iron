@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Enviar entrega{% endblock %}
+{% block content %}
+<section class="hero">
+  <div><span class="eyebrow">NOVA ENTREGA</span><h1>Atualize seu progresso</h1><p>{{ cycle['title'] }}</p></div>
+</section>
+<section class="panel form-panel">
+  <form method="post" enctype="multipart/form-data" class="stack">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label>Meta
+      <select name="goal_id" required>
+        <option value="">Selecione...</option>
+        {% for g in goals %}
+        <option value="{{ g['id'] }}">{{ g['title'] }} — meta {{ money(g['target']) if g['unit']=='R$' else (g['target']|int|string + ' ' + g['unit']) }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Quantidade/valor desta entrega
+      <input name="amount" type="number" min="0.01" step="0.01" required placeholder="Ex.: 5">
+    </label>
+    <label>Observação
+      <textarea name="note" rows="4" placeholder="Descreva brevemente o que está enviando..."></textarea>
+    </label>
+    <label>Imagem do comprovante
+      <input name="image" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+      <small>PNG, JPG, WEBP ou GIF. Máximo 8 MB.</small>
+    </label>
+    <button class="btn primary" type="submit">➤ Enviar para análise</button>
+  </form>
+</section>
+{% endblock %}

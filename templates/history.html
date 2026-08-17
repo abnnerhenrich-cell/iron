@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Histórico{% endblock %}
+{% block content %}
+<section class="hero">
+  <div><span class="eyebrow">HISTÓRICO PESSOAL</span><h1>Sua jornada de entregas</h1><p>Consulte tudo que já foi enviado.</p></div>
+  <a class="btn primary" href="{{ url_for('submit') }}">➤ Enviar entrega</a>
+</section>
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Ciclo</th><th>Meta</th><th>Valor</th><th>Status</th><th>Anexo</th><th>Observação</th></tr></thead>
+      <tbody>
+      {% for s in rows %}
+      <tr>
+        <td>{{ s['cycle_title'] }}</td>
+        <td>{{ s['goal_title'] }}</td>
+        <td>{{ money(s['amount']) if s['unit']=='R$' else (s['amount']|int|string + ' ' + s['unit']) }}</td>
+        <td><span class="status {{ s['status'] }}">{{ s['status'] }}</span></td>
+        <td>{% if s['image_filename'] %}<a href="{{ url_for('uploaded_file', filename=s['image_filename']) }}" target="_blank">Ver imagem</a>{% else %}—{% endif %}</td>
+        <td>{{ s['note'] or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6">Nenhuma entrega.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

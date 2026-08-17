@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Admin · Entregas{% endblock %}
+{% block content %}
+<section class="hero">
+  <div><span class="eyebrow">REVISÃO</span><h1>Entregas dos usuários</h1><p>Aprove ou reprove cada envio.</p></div>
+</section>
+<div class="filters">
+  {% for x, label in [('pending','Pendentes'),('approved','Aprovadas'),('rejected','Reprovadas'),('all','Todas')] %}
+  <a class="filter {{ 'active' if status==x }}" href="{{ url_for('admin_submissions', status=x) }}">{{ label }}</a>
+  {% endfor %}
+</div>
+<section class="cards-list">
+  {% for s in rows %}
+  <article class="review-card panel">
+    <div class="review-main">
+      <div>
+        <span class="eyebrow">{{ s['cycle_title'] }}</span>
+        <h2>{{ s['goal_title'] }}</h2>
+        <p><strong>{{ s['user_name'] }}</strong> · {{ s['email'] }}</p>
+        <p class="amount">{{ money(s['amount']) if s['unit']=='R$' else (s['amount']|int|string + ' ' + s['unit']) }}</p>
+        {% if s['note'] %}<p>{{ s['note'] }}</p>{% endif %}
+      </div>
+      <div>
+        <span class="status {{ s['status'] }}">{{ s['status'] }}</span>
+        {% if s['image_filename'] %}
+        <a class="proof" href="{{ url_for('uploaded_file', filename=s['image_filename']) }}" target="_blank">
+          <img src="{{ url_for('uploaded_file', filename=s['image_filename']) }}" alt="Comprovante">
+          <span>Abrir anexo</span>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% if s['status']=='pending' %}
+    <form method="post" action="{{ url_for('admin_review', submission_id=s['id']) }}" class="review-actions">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input name="admin_note" placeholder="Observação do administrador (opcional)">
+      <button class="btn success" name="decision" value="approved">✓ Aprovar</button>
+      <button class="btn danger" name="decision" value="rejected">✕ Reprovar</button>
+    </form>
+    {% else %}
+      <p class="muted">Observação: {{ s['admin_note'] or '—' }}</p>
+    {% endif %}
+  </article>
+  {% else %}
+  <div class="panel empty"><h2>Nenhuma entrega nesta categoria.</h2></div>
+  {% endfor %}
+</section>
+{% endblock %}

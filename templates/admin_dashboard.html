@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Admin · RPT Metas{% endblock %}
+{% block content %}
+<section class="hero">
+  <div><span class="eyebrow">PAINEL ADMIN</span><h1>Visão geral do sistema</h1><p>Gerencie usuários, ciclos, metas e aprovações.</p></div>
+  <a class="btn primary" href="{{ url_for('admin_cycles') }}">＋ Novo ciclo</a>
+</section>
+<section class="stats">
+  <div><strong>{{ stats.users }}</strong><span>USUÁRIOS</span></div>
+  <div><strong class="yellow">{{ stats.pending }}</strong><span>PENDENTES</span></div>
+  <div><strong class="green">{{ stats.approved }}</strong><span>APROVADAS</span></div>
+  <div><strong>{{ stats.cycles }}</strong><span>CICLOS</span></div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div><span class="eyebrow">CICLO ATIVO</span><h2>{{ cycle['title'] if cycle else 'Nenhum ciclo ativo' }}</h2></div>
+    <a href="{{ url_for('admin_cycles') }}">Gerenciar ciclos</a>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div><span class="eyebrow">ENTREGAS</span><h2>Atividade recente</h2></div>
+    <a href="{{ url_for('admin_submissions') }}">Ver todas</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Usuário</th><th>Meta</th><th>Valor</th><th>Status</th><th>Anexo</th></tr></thead>
+      <tbody>
+      {% for s in recent %}
+      <tr>
+        <td>{{ s['user_name'] }}</td><td>{{ s['goal_title'] }}</td>
+        <td>{{ money(s['amount']) if s['unit']=='R$' else (s['amount']|int|string + ' ' + s['unit']) }}</td>
+        <td><span class="status {{ s['status'] }}">{{ s['status'] }}</span></td>
+        <td>{% if s['image_filename'] %}<a target="_blank" href="{{ url_for('uploaded_file', filename=s['image_filename']) }}">Ver</a>{% else %}—{% endif %}</td>
+      </tr>
+      {% else %}<tr><td colspan="5">Sem entregas.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Admin · Usuários{% endblock %}
+{% block content %}
+<section class="hero">
+  <div><span class="eyebrow">USUÁRIOS</span><h1>Contas do sistema</h1><p>Visualize e bloqueie acessos quando necessário.</p></div>
+</section>
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Entregas</th><th>Aprovadas</th><th>Status</th><th>Ação</th></tr></thead>
+      <tbody>
+      {% for u in users %}
+      <tr>
+        <td>{{ u['name'] }}</td><td>{{ u['email'] }}</td><td>{{ u['role'] }}</td>
+        <td>{{ u['submissions_count'] }}</td><td>{{ u['approved_count'] or 0 }}</td>
+        <td><span class="status {{ 'approved' if u['active'] else 'rejected' }}">{{ 'ativo' if u['active'] else 'bloqueado' }}</span></td>
+        <td>
+          {% if u['id'] != current_user['id'] %}
+          <form method="post" action="{{ url_for('admin_user_toggle', user_id=u['id']) }}">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <button class="btn ghost">{{ 'Bloquear' if u['active'] else 'Ativar' }}</button>
+          </form>
+          {% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

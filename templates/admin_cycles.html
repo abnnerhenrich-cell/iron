@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Admin · Ciclos{% endblock %}
+{% block content %}
+<section class="hero">
+  <div><span class="eyebrow">CICLOS</span><h1>Criação de metas</h1><p>Crie uma semana/ciclo e cadastre as metas.</p></div>
+</section>
+<section class="panel form-panel">
+  <h2>Novo ciclo</h2>
+  <form method="post" class="form-grid">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label>Título<input name="title" required placeholder="Meta Semanal"></label>
+    <label>Início<input type="date" name="start_date" required></label>
+    <label>Fim<input type="date" name="end_date" required></label>
+    <label class="check"><input type="checkbox" name="active" value="1"> Ativar ao criar</label>
+    <button class="btn primary" type="submit">Criar ciclo</button>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><div><h2>Ciclos cadastrados</h2></div></div>
+  <div class="cards-list">
+  {% for c in cycles %}
+    <article class="list-card">
+      <div><strong>{{ c['title'] }}</strong><small>{{ c['start_date'] }} — {{ c['end_date'] }} · {{ c['goals_count'] }} metas</small></div>
+      <div class="row-actions">
+        {% if c['active'] %}<span class="badge success">ATIVO</span>{% else %}
+        <form method="post" action="{{ url_for('admin_cycle_activate', cycle_id=c['id']) }}">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="btn ghost">Ativar</button>
+        </form>{% endif %}
+        <a class="btn ghost" href="{{ url_for('admin_cycle_detail', cycle_id=c['id']) }}">Abrir</a>
+      </div>
+    </article>
+  {% else %}<p class="muted">Nenhum ciclo criado.</p>{% endfor %}
+  </div>
+</section>
+{% endblock %}

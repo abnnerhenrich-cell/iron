@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Entrar · RPT Metas{% endblock %}
+{% block mainclass %}login-page{% endblock %}
+{% block content %}
+<div class="login-card">
+  <div class="logo-box">RPT</div>
+  <h1>RPT Manager</h1>
+  <p class="muted">Sistema interno de metas e entregas</p>
+
+  <div class="feature-list">
+    <div>⚡ <span>Registro de entregas em tempo real</span></div>
+    <div>▥ <span>Dashboard de performance</span></div>
+    <div>◈ <span>Acesso seguro por usuário</span></div>
+  </div>
+
+  <form method="post" class="stack">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label>E-mail<input name="email" type="email" required placeholder="voce@empresa.com"></label>
+    <label>Senha<input name="password" type="password" required placeholder="••••••••"></label>
+    <button class="btn primary" type="submit">Entrar</button>
+  </form>
+  <p class="tiny">Ainda não tem conta? <a href="{{ url_for('register') }}">Cadastre-se</a></p>
+</div>
+{% endblock %}

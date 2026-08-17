@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}RPT Metas{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  {% if current_user %}
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('admin_dashboard' if current_user['role']=='admin' else 'dashboard') }}">
+      <span class="brand-icon">◎</span>
+      <span><strong>RPT Metas</strong><small>{{ 'Painel administrativo' if current_user['role']=='admin' else 'Minhas metas' }}</small></span>
+    </a>
+    <div class="top-actions">
+      <span class="user-pill">{{ current_user['name'] }}</span>
+      <a class="icon-btn" href="{{ url_for('logout') }}" title="Sair">↗</a>
+    </div>
+  </header>
+  {% endif %}
+
+  <main class="{% block mainclass %}page{% endblock %}">
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% if msgs %}
+        <div class="flash-wrap">
+          {% for cat, msg in msgs %}
+            <div class="flash {{ cat }}">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+
+  {% if current_user %}
+  <nav class="bottom-nav">
+    {% if current_user['role']=='admin' %}
+      <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}">⌂<span>Resumo</span></a>
+      <a class="{{ 'active' if 'cycle' in request.endpoint }}" href="{{ url_for('admin_cycles') }}">◎<span>Ciclos</span></a>
+      <a class="{{ 'active' if 'submission' in request.endpoint }}" href="{{ url_for('admin_submissions') }}">✓<span>Entregas</span></a>
+      <a class="{{ 'active' if request.endpoint=='admin_users' }}" href="{{ url_for('admin_users') }}">♟<span>Usuários</span></a>
+    {% else %}
+      <a class="{{ 'active' if request.endpoint=='dashboard' }}" href="{{ url_for('dashboard') }}">◎<span>Metas</span></a>
+      <a class="{{ 'active' if request.endpoint=='submit' }}" href="{{ url_for('submit') }}">＋<span>Entregar</span></a>
+      <a class="{{ 'active' if request.endpoint=='history' }}" href="{{ url_for('history') }}">◔<span>Histórico</span></a>
+    {% endif %}
+  </nav>
+  {% endif %}
+</body>
+</html>

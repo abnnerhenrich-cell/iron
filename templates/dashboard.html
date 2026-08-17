@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Minhas metas{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <span class="eyebrow">CICLO PESSOAL</span>
+    <h1>Acompanhe cada atualização</h1>
+    <p>Envie o que entregou agora e acompanhe a revisão.</p>
+  </div>
+  <div class="stats compact">
+    <div><strong>{{ counts['pending'] or 0 }}</strong><span>EM ANÁLISE</span></div>
+    <div><strong class="green">{{ counts['approved'] or 0 }}</strong><span>APROVADAS</span></div>
+    <div><strong class="red">{{ counts['rejected'] or 0 }}</strong><span>REPROVADAS</span></div>
+  </div>
+</section>
+
+{% if cycle %}
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <span class="badge">◉ EM ANDAMENTO</span>
+      <h2>{{ cycle['title'] }}</h2>
+      <p>▦ {{ cycle['start_date'] }} — {{ cycle['end_date'] }}</p>
+    </div>
+    <div class="big-percent">{{ overall }}%<small>APROVADO NO CICLO</small></div>
+  </div>
+
+  <div class="goals-grid">
+    {% for g in goals %}
+    {% set pct = ([((g['approved'] / g['target']) * 100)|round|int, 100]|min) if g['target'] else 0 %}
+    <article class="goal-card">
+      <div class="goal-top">
+        <span class="goal-icon">{{ g['icon'] }}</span>
+        <div><strong>{{ g['title'] }}</strong><small>{{ g['category'] }}</small></div>
+        <b class="{{ 'orange' if pct < 100 else 'green' }}">{{ pct }}%</b>
+      </div>
+      <div class="progress"><i style="width:{{ pct }}%"></i></div>
+      <div class="goal-values">
+        <span>Aprovado <b class="green">{{ money(g['approved']) if g['unit']=='R$' else (g['approved']|int|string + ' ' + g['unit']) }}</b></span>
+        <span>Em análise <b class="yellow">{{ money(g['pending']) if g['unit']=='R$' else (g['pending']|int|string + ' ' + g['unit']) }}</b></span>
+        <span>Meta <b>{{ money(g['target']) if g['unit']=='R$' else (g['target']|int|string + ' ' + g['unit']) }}</b></span>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+
+  <div class="panel-footer">
+    <span><i class="dot green-bg"></i> Aprovado</span>
+    <span><i class="dot yellow-bg"></i> Em análise</span>
+    <a class="btn primary" href="{{ url_for('submit') }}">➤ Atualizar entrega</a>
+  </div>
+</section>
+{% else %}
+<section class="empty panel">
+  <h2>Nenhum ciclo ativo</h2>
+  <p>O administrador ainda não publicou as metas.</p>
+</section>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-head">
+    <div><span class="eyebrow">RECENTES</span><h2>Últimas entregas</h2></div>
+    <a href="{{ url_for('history') }}">Ver tudo</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Meta</th><th>Valor</th><th>Status</th><th>Data</th></tr></thead>
+      <tbody>
+      {% for s in history %}
+        <tr>
+          <td>{{ s['goal_title'] }}</td>
+          <td>{{ money(s['amount']) if s['unit']=='R$' else (s['amount']|int|string + ' ' + s['unit']) }}</td>
+          <td><span class="status {{ s['status'] }}">{{ s['status'] }}</span></td>
+          <td>{{ s['created_at'][:16].replace('T',' ') }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="muted">Nenhuma entrega ainda.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
