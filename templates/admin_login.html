@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Painel Admin · IRON{% endblock %}
+{% block mainclass %}login-page{% endblock %}
+{% block content %}
+<div class="login-card admin-login-card">
+  <div class="logo-box">IRON</div>
+  <span class="eyebrow">ACESSO ADMINISTRATIVO</span>
+  <h1>IRON Admin</h1>
+  <p class="muted">Área exclusiva para administradores.</p>
+
+  <form method="post" class="stack">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label>E-mail administrativo
+      <input name="email" type="email" required placeholder="admin@empresa.com">
+    </label>
+    <label>Senha
+      <input name="password" type="password" required placeholder="••••••••">
+    </label>
+    <button class="btn primary" type="submit">Entrar no Painel Admin</button>
+  </form>
+
+  <p class="tiny"><a href="{{ url_for('login') }}">Ir para o acesso de membros</a></p>
+</div>
+{% endblock %}

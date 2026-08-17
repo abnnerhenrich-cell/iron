@@ -4,8 +4,8 @@
 {% block content %}
 <div class="login-card">
   <div class="logo-box">IRON</div>
-  <h1>IRON Manager</h1>
-  <p class="muted">Sistema interno de metas e entregas</p>
+  <h1>IRON Membros</h1>
+  <p class="muted">Portal de metas e entregas da equipe</p>
 
   <div class="feature-list">
     <div>⚡ <span>Registro de entregas em tempo real</span></div>
@@ -19,6 +19,6 @@
     <label>Senha<input name="password" type="password" required placeholder="••••••••"></label>
     <button class="btn primary" type="submit">Entrar</button>
   </form>
-  <p class="tiny">Ainda não tem conta? <a href="{{ url_for('register') }}">Cadastre-se</a></p>
+  <p class="tiny">Ainda não tem conta? <a href="{{ url_for('register') }}">Cadastre-se</a></p><p class="tiny"><a href="{{ url_for('admin_login') }}">Acesso administrativo</a></p>
 </div>
 {% endblock %}

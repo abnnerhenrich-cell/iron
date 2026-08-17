@@ -48,3 +48,15 @@ A Vercel fará um novo deploy automaticamente.
 Nesta versão, quando `ADMIN_EMAIL` e `ADMIN_PASSWORD` estão configurados na Vercel,
 o sistema cria ou atualiza automaticamente esse usuário como administrador ativo.
 Isso resolve bancos que já tinham sido inicializados com credenciais antigas.
+
+
+## Painéis separados e permissões
+
+- Membros entram em `/login`.
+- Administradores entram em `/admin/login`.
+- Novos cadastros ficam aguardando aprovação.
+- No Painel Admin > Usuários, um admin pode:
+  - aprovar ou recusar novos membros;
+  - bloquear/desbloquear contas;
+  - conceder permissão de administrador;
+  - remover permissão de administrador.

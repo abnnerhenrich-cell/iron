@@ -2,25 +2,71 @@
 {% block title %}Admin · Usuários{% endblock %}
 {% block content %}
 <section class="hero">
-  <div><span class="eyebrow">USUÁRIOS</span><h1>Contas do sistema</h1><p>Visualize e bloqueie acessos quando necessário.</p></div>
+  <div>
+    <span class="eyebrow">CONTROLE DE ACESSO</span>
+    <h1>Usuários e permissões</h1>
+    <p>Aprove novos membros e escolha quem também pode acessar o Painel Admin.</p>
+  </div>
 </section>
+
 <section class="panel">
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Entregas</th><th>Aprovadas</th><th>Status</th><th>Ação</th></tr></thead>
+      <thead>
+        <tr>
+          <th>Nome</th><th>E-mail</th><th>Perfil</th><th>Aprovação</th>
+          <th>Status</th><th>Entregas</th><th>Ações</th>
+        </tr>
+      </thead>
       <tbody>
       {% for u in users %}
       <tr>
-        <td>{{ u['name'] }}</td><td>{{ u['email'] }}</td><td>{{ u['role'] }}</td>
-        <td>{{ u['submissions_count'] }}</td><td>{{ u['approved_count'] or 0 }}</td>
-        <td><span class="status {{ 'approved' if u['active'] else 'rejected' }}">{{ 'ativo' if u['active'] else 'bloqueado' }}</span></td>
+        <td>{{ u['name'] }}</td>
+        <td>{{ u['email'] }}</td>
+        <td><span class="status {{ 'approved' if u['role']=='admin' else 'pending' }}">{{ 'ADMIN' if u['role']=='admin' else 'MEMBRO' }}</span></td>
         <td>
+          {% if u['role']=='admin' or u['approved'] %}
+            <span class="status approved">APROVADO</span>
+          {% else %}
+            <span class="status pending">AGUARDANDO</span>
+          {% endif %}
+        </td>
+        <td><span class="status {{ 'approved' if u['active'] else 'rejected' }}">{{ 'ATIVO' if u['active'] else 'BLOQUEADO' }}</span></td>
+        <td>{{ u['submissions_count'] }}</td>
+        <td>
+          <div class="row-actions wrap-actions">
           {% if u['id'] != current_user['id'] %}
-          <form method="post" action="{{ url_for('admin_user_toggle', user_id=u['id']) }}">
-            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-            <button class="btn ghost">{{ 'Bloquear' if u['active'] else 'Ativar' }}</button>
-          </form>
-          {% else %}—{% endif %}
+            {% if u['role']=='user' and not u['approved'] %}
+              <form method="post" action="{{ url_for('admin_user_approve', user_id=u['id']) }}">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <button class="btn success">Aprovar</button>
+              </form>
+              <form method="post" action="{{ url_for('admin_user_reject', user_id=u['id']) }}">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <button class="btn danger">Recusar</button>
+              </form>
+            {% endif %}
+
+            {% if u['role']=='user' and u['approved'] %}
+              <form method="post" action="{{ url_for('admin_user_make_admin', user_id=u['id']) }}" onsubmit="return confirm('Dar acesso ao Painel Admin para este membro?')">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <button class="btn ghost">Dar Admin</button>
+              </form>
+            {% elif u['role']=='admin' %}
+              <form method="post" action="{{ url_for('admin_user_remove_admin', user_id=u['id']) }}" onsubmit="return confirm('Remover a permissão de administrador?')">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <button class="btn danger">Remover Admin</button>
+              </form>
+            {% endif %}
+
+            <form method="post" action="{{ url_for('admin_user_toggle', user_id=u['id']) }}">
+              <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+              <button class="btn ghost">{{ 'Bloquear' if u['active'] else 'Desbloquear' }}</button>
+            </form>
+          {% else %}
+            <span class="muted">Sua conta</span>
+          {% endif %}
+          </div>
         </td>
       </tr>
       {% endfor %}

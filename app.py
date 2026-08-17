@@ -36,9 +36,16 @@ def init_db():
                     password_hash TEXT NOT NULL,
                     role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user','admin')),
                     active BOOLEAN NOT NULL DEFAULT TRUE,
+                    approved BOOLEAN NOT NULL DEFAULT FALSE,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                 )
             """)
+            cur.execute("""
+                ALTER TABLE users
+                ADD COLUMN IF NOT EXISTS approved BOOLEAN NOT NULL DEFAULT FALSE
+            """)
+            cur.execute("UPDATE users SET approved=TRUE WHERE role='admin'")
+
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS cycles (
                     id BIGSERIAL PRIMARY KEY,
@@ -85,12 +92,13 @@ def init_db():
             # garante que essas credenciais sejam sempre o administrador válido.
             if admin_email and admin_password:
                 cur.execute("""
-                    INSERT INTO users (name,email,password_hash,role,active)
-                    VALUES (%s,%s,%s,'admin',TRUE)
+                    INSERT INTO users (name,email,password_hash,role,active,approved)
+                    VALUES (%s,%s,%s,'admin',TRUE,TRUE)
                     ON CONFLICT (email) DO UPDATE SET
                         password_hash=EXCLUDED.password_hash,
                         role='admin',
-                        active=TRUE
+                        active=TRUE,
+                        approved=TRUE
                 """, (
                     "Administrador",
                     admin_email.strip().lower(),
@@ -101,8 +109,8 @@ def init_db():
                 cur.execute("SELECT 1 FROM users WHERE role='admin' LIMIT 1")
                 if cur.fetchone() is None:
                     cur.execute("""
-                        INSERT INTO users (name,email,password_hash,role,active)
-                        VALUES (%s,%s,%s,'admin',TRUE)
+                        INSERT INTO users (name,email,password_hash,role,active,approved)
+                        VALUES (%s,%s,%s,'admin',TRUE,TRUE)
                         ON CONFLICT (email) DO NOTHING
                     """, (
                         "Administrador",
@@ -144,7 +152,7 @@ def admin_required(fn):
     def wrapper(*args, **kwargs):
         user = get_current_user()
         if not user:
-            return redirect(url_for("login"))
+            return redirect(url_for("admin_login"))
         if user["role"] != "admin":
             abort(403)
         return fn(*args, **kwargs)
@@ -200,17 +208,66 @@ def login():
         validate_csrf()
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
+
         with get_conn() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT * FROM users WHERE LOWER(email)=%s AND active=TRUE", (email,))
+                cur.execute("SELECT * FROM users WHERE LOWER(email)=%s", (email,))
                 user = cur.fetchone()
-        if user and check_password_hash(user["password_hash"], password):
-            session.clear()
-            session["uid"] = user["id"]
-            session["_csrf"] = secrets.token_urlsafe(24)
-            return redirect(url_for("admin_dashboard" if user["role"] == "admin" else "dashboard"))
-        flash("E-mail ou senha inválidos.", "danger")
+
+        if not user or not check_password_hash(user["password_hash"], password):
+            flash("E-mail ou senha inválidos.", "danger")
+            return render_template("login.html")
+
+        if user["role"] == "admin":
+            flash("Administradores devem entrar pelo Painel Admin.", "danger")
+            return redirect(url_for("admin_login"))
+
+        if not user["active"]:
+            flash("Seu acesso está bloqueado. Procure um administrador.", "danger")
+            return render_template("login.html")
+
+        if not user["approved"]:
+            flash("Cadastro aguardando aprovação de um administrador.", "danger")
+            return render_template("login.html")
+
+        session.clear()
+        session["uid"] = user["id"]
+        session["_csrf"] = secrets.token_urlsafe(24)
+        return redirect(url_for("dashboard"))
+
     return render_template("login.html")
+
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    if request.method == "POST":
+        validate_csrf()
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT * FROM users WHERE LOWER(email)=%s", (email,))
+                user = cur.fetchone()
+
+        if not user or not check_password_hash(user["password_hash"], password):
+            flash("E-mail ou senha inválidos.", "danger")
+            return render_template("admin_login.html")
+
+        if user["role"] != "admin":
+            flash("Esta conta não possui permissão administrativa.", "danger")
+            return render_template("admin_login.html")
+
+        if not user["active"]:
+            flash("Esta conta administrativa está bloqueada.", "danger")
+            return render_template("admin_login.html")
+
+        session.clear()
+        session["uid"] = user["id"]
+        session["_csrf"] = secrets.token_urlsafe(24)
+        return redirect(url_for("admin_dashboard"))
+
+    return render_template("admin_login.html")
+
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -226,11 +283,11 @@ def register():
             with get_conn() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
-                        "INSERT INTO users (name,email,password_hash,role) VALUES (%s,%s,%s,'user')",
+                        "INSERT INTO users (name,email,password_hash,role,approved,active) VALUES (%s,%s,%s,'user',FALSE,TRUE)",
                         (name, email, generate_password_hash(password))
                     )
                 conn.commit()
-            flash("Conta criada. Agora faça login.", "success")
+            flash("Cadastro enviado. Aguarde a aprovação de um administrador antes de entrar.", "success")
             return redirect(url_for("login"))
         except psycopg.errors.UniqueViolation:
             flash("Este e-mail já está cadastrado.", "danger")
@@ -568,6 +625,71 @@ def admin_user_toggle(user_id):
             cur.execute("UPDATE users SET active=NOT active WHERE id=%s", (user_id,))
         conn.commit()
     flash("Status do usuário alterado.", "success")
+    return redirect(url_for("admin_users"))
+
+@app.post("/admin/users/<int:user_id>/approve")
+@admin_required
+def admin_user_approve(user_id):
+    validate_csrf()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE users
+                SET approved=TRUE, active=TRUE
+                WHERE id=%s AND role='user'
+            """, (user_id,))
+        conn.commit()
+    flash("Membro aprovado e liberado para acessar o painel.", "success")
+    return redirect(url_for("admin_users"))
+
+@app.post("/admin/users/<int:user_id>/reject")
+@admin_required
+def admin_user_reject(user_id):
+    validate_csrf()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE users
+                SET approved=FALSE, active=FALSE
+                WHERE id=%s AND role='user'
+            """, (user_id,))
+        conn.commit()
+    flash("Cadastro recusado/bloqueado.", "success")
+    return redirect(url_for("admin_users"))
+
+@app.post("/admin/users/<int:user_id>/make-admin")
+@admin_required
+def admin_user_make_admin(user_id):
+    validate_csrf()
+    if int(user_id) == int(get_current_user()["id"]):
+        return redirect(url_for("admin_users"))
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE users
+                SET role='admin', approved=TRUE, active=TRUE
+                WHERE id=%s
+            """, (user_id,))
+        conn.commit()
+    flash("Permissão de administrador concedida.", "success")
+    return redirect(url_for("admin_users"))
+
+@app.post("/admin/users/<int:user_id>/remove-admin")
+@admin_required
+def admin_user_remove_admin(user_id):
+    validate_csrf()
+    if int(user_id) == int(get_current_user()["id"]):
+        flash("Você não pode remover sua própria permissão administrativa.", "danger")
+        return redirect(url_for("admin_users"))
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE users
+                SET role='user', approved=TRUE, active=TRUE
+                WHERE id=%s
+            """, (user_id,))
+        conn.commit()
+    flash("Permissão administrativa removida. A conta voltou a ser membro.", "success")
     return redirect(url_for("admin_users"))
 
 @app.errorhandler(413)
