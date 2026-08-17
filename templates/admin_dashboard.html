@@ -33,7 +33,7 @@
         <td>{{ s['user_name'] }}</td><td>{{ s['goal_title'] }}</td>
         <td>{{ money(s['amount']) if s['unit']=='R$' else (s['amount']|int|string + ' ' + s['unit']) }}</td>
         <td><span class="status {{ s['status'] }}">{{ s['status'] }}</span></td>
-        <td>{% if s['image_filename'] %}<a target="_blank" href="{{ url_for('uploaded_file', filename=s['image_filename']) }}">Ver</a>{% else %}—{% endif %}</td>
+        <td>{% if s['has_image'] %}<a target="_blank" href="{{ url_for('uploaded_file', filename=s['has_image']) }}">Ver</a>{% else %}—{% endif %}</td>
       </tr>
       {% else %}<tr><td colspan="5">Sem entregas.</td></tr>{% endfor %}
       </tbody>
