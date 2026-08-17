@@ -111,3 +111,12 @@ Nesta versão:
 - são convertidas para JPEG;
 - cada arquivo otimizado fica limitado a aproximadamente 1,2 MB;
 - até 3 fotos cabem com margem dentro do limite total da requisição.
+
+
+## Correção do erro 500 após entrega múltipla
+
+A entrega múltipla agora cria um lote (`delivery_batches`) e salva as fotos apenas uma vez.
+Os itens individuais referenciam o mesmo lote.
+
+Isso evita gravar as mesmas fotos repetidamente para cada material selecionado, reduzindo
+fortemente o volume de dados enviado ao PostgreSQL e o risco de erro/timeout no servidor.

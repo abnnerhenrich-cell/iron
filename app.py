@@ -92,6 +92,25 @@ def init_db():
             cur.execute("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS image3_data BYTEA")
             cur.execute("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS image3_mime TEXT")
             cur.execute("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS image3_name TEXT")
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS delivery_batches (
+                    id BIGSERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    cycle_id BIGINT NOT NULL REFERENCES cycles(id) ON DELETE CASCADE,
+                    note TEXT,
+                    image_data BYTEA,
+                    image_mime TEXT,
+                    image_name TEXT,
+                    image2_data BYTEA,
+                    image2_mime TEXT,
+                    image2_name TEXT,
+                    image3_data BYTEA,
+                    image3_mime TEXT,
+                    image3_name TEXT,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS batch_id BIGINT REFERENCES delivery_batches(id) ON DELETE SET NULL")
             admin_email = os.environ.get("ADMIN_EMAIL")
             admin_password = os.environ.get("ADMIN_PASSWORD")
 
@@ -372,9 +391,9 @@ def submit():
         validate_csrf()
         note = (request.form.get("note") or "").strip()
 
-        # Lê todas as metas enviadas no mesmo formulário.
         selected = []
         valid_ids = {int(g["id"]): g for g in goals}
+
         for key, raw_value in request.form.items():
             if not key.startswith("amount_"):
                 continue
@@ -383,6 +402,7 @@ def submit():
                 amount = float(raw_value or 0)
             except (ValueError, TypeError):
                 continue
+
             if goal_id in valid_ids and amount > 0:
                 selected.append((goal_id, amount))
 
@@ -390,9 +410,7 @@ def submit():
             flash("Informe pelo menos uma quantidade antes de enviar.", "danger")
             return render_template("submit.html", cycle=cycle, goals=goals)
 
-        # Até 3 comprovantes por envio.
-        uploaded = request.files.getlist("images")
-        uploaded = [img for img in uploaded if img and img.filename]
+        uploaded = [img for img in request.files.getlist("images") if img and img.filename]
 
         if not uploaded:
             flash("Adicione pelo menos uma foto/comprovante da entrega.", "danger")
@@ -403,46 +421,65 @@ def submit():
             return render_template("submit.html", cycle=cycle, goals=goals)
 
         images = []
+        total_bytes = 0
+
         for image in uploaded:
             if image.mimetype not in ALLOWED_MIMES:
                 flash("Uma das imagens está em formato não permitido.", "danger")
                 return render_template("submit.html", cycle=cycle, goals=goals)
 
             data = image.read()
+            total_bytes += len(data)
+
             if len(data) > 1_250_000:
-                flash("Uma das imagens ficou grande demais. Tente novamente; o site normalmente reduz as fotos automaticamente.", "danger")
+                flash("Uma das imagens ficou grande demais. Tente novamente.", "danger")
                 return render_template("submit.html", cycle=cycle, goals=goals)
 
             images.append((data, image.mimetype, image.filename[:180]))
+
+        if total_bytes > 3_600_000:
+            flash("As fotos juntas ficaram grandes demais. Tente novamente com menos fotos.", "danger")
+            return render_template("submit.html", cycle=cycle, goals=goals)
 
         while len(images) < 3:
             images.append((None, None, None))
 
         (img1, mime1, name1), (img2, mime2, name2), (img3, mime3, name3) = images
 
+        # As imagens são gravadas UMA única vez no lote da entrega.
+        # Cada item da meta apenas referencia esse lote.
         with get_conn() as conn:
             with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO delivery_batches (
+                        user_id, cycle_id, note,
+                        image_data, image_mime, image_name,
+                        image2_data, image2_mime, image2_name,
+                        image3_data, image3_mime, image3_name
+                    )
+                    VALUES (
+                        %s,%s,%s,
+                        %s,%s,%s,
+                        %s,%s,%s,
+                        %s,%s,%s
+                    )
+                    RETURNING id
+                """, (
+                    user["id"], cycle["id"], note,
+                    img1, mime1, name1,
+                    img2, mime2, name2,
+                    img3, mime3, name3
+                ))
+                batch_id = cur.fetchone()["id"]
+
                 for goal_id, amount in selected:
                     cur.execute("""
                         INSERT INTO submissions (
-                            user_id, goal_id, amount, note,
-                            image_data, image_mime, image_name,
-                            image2_data, image2_mime, image2_name,
-                            image3_data, image3_mime, image3_name,
-                            status
+                            user_id, goal_id, amount, note, batch_id, status
                         )
-                        VALUES (
-                            %s,%s,%s,%s,
-                            %s,%s,%s,
-                            %s,%s,%s,
-                            %s,%s,%s,
-                            'pending'
-                        )
+                        VALUES (%s,%s,%s,%s,%s,'pending')
                     """, (
-                        user["id"], goal_id, amount, note,
-                        img1, mime1, name1,
-                        img2, mime2, name2,
-                        img3, mime3, name3
+                        user["id"], goal_id, amount, note, batch_id
                     ))
             conn.commit()
 
@@ -451,36 +488,6 @@ def submit():
 
     return render_template("submit.html", cycle=cycle, goals=goals)
 
-        image_data = image_mime = image_name = None
-        if not image or not image.filename:
-            flash("Anexe uma foto/comprovante da entrega.", "danger")
-            return render_template("submit.html", cycle=cycle, goals=goals)
-
-        if image.mimetype not in ALLOWED_MIMES:
-            flash("Formato de imagem não permitido.", "danger")
-            return render_template("submit.html", cycle=cycle, goals=goals)
-
-        image_data = image.read()
-        if len(image_data) > 3_500_000:
-            flash("A imagem deve ter no máximo 3,5 MB.", "danger")
-            return render_template("submit.html", cycle=cycle, goals=goals)
-
-        image_mime = image.mimetype
-        image_name = image.filename[:180]
-
-        with get_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO submissions
-                    (user_id, goal_id, amount, note, image_data, image_mime, image_name, status)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,'pending')
-                """, (user["id"], goal_id, amount, note, image_data, image_mime, image_name))
-            conn.commit()
-
-        flash("Entrega enviada para análise.", "success")
-        return redirect(url_for("dashboard"))
-
-    return render_template("submit.html", cycle=cycle, goals=goals)
 
 @app.route("/history")
 @login_required
@@ -512,12 +519,23 @@ def submission_image(submission_id):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT user_id,
-                       image_data, image_mime, image_name,
-                       image2_data, image2_mime, image2_name,
-                       image3_data, image3_mime, image3_name
-                FROM submissions
-                WHERE id=%s
+                SELECT
+                    s.user_id,
+                    s.image_data, s.image_mime, s.image_name,
+                    s.image2_data, s.image2_mime, s.image2_name,
+                    s.image3_data, s.image3_mime, s.image3_name,
+                    b.image_data AS batch_image_data,
+                    b.image_mime AS batch_image_mime,
+                    b.image_name AS batch_image_name,
+                    b.image2_data AS batch_image2_data,
+                    b.image2_mime AS batch_image2_mime,
+                    b.image2_name AS batch_image2_name,
+                    b.image3_data AS batch_image3_data,
+                    b.image3_mime AS batch_image3_mime,
+                    b.image3_name AS batch_image3_name
+                FROM submissions s
+                LEFT JOIN delivery_batches b ON b.id=s.batch_id
+                WHERE s.id=%s
             """, (submission_id,))
             item = cur.fetchone()
 
@@ -528,11 +546,17 @@ def submission_image(submission_id):
         abort(403)
 
     if index == "2":
-        data, mime, name = item["image2_data"], item["image2_mime"], item["image2_name"]
+        data = item["batch_image2_data"] or item["image2_data"]
+        mime = item["batch_image2_mime"] or item["image2_mime"]
+        name = item["batch_image2_name"] or item["image2_name"]
     elif index == "3":
-        data, mime, name = item["image3_data"], item["image3_mime"], item["image3_name"]
+        data = item["batch_image3_data"] or item["image3_data"]
+        mime = item["batch_image3_mime"] or item["image3_mime"]
+        name = item["batch_image3_name"] or item["image3_name"]
     else:
-        data, mime, name = item["image_data"], item["image_mime"], item["image_name"]
+        data = item["batch_image_data"] or item["image_data"]
+        mime = item["batch_image_mime"] or item["image_mime"]
+        name = item["batch_image_name"] or item["image_name"]
 
     if not data:
         abort(404)
@@ -543,6 +567,7 @@ def submission_image(submission_id):
         download_name=name or f"comprovante-{submission_id}-{index}",
         as_attachment=False
     )
+
 
 @app.route("/admin")
 @admin_required
@@ -683,9 +708,9 @@ def admin_submissions():
     sql = """
         SELECT s.id, s.user_id, s.amount, s.note, s.status, s.admin_note,
                s.created_at, s.reviewed_at,
-               (s.image_data IS NOT NULL) AS has_image,
-               (s.image2_data IS NOT NULL) AS has_image2,
-               (s.image3_data IS NOT NULL) AS has_image3,
+               ((b.image_data IS NOT NULL) OR (s.image_data IS NOT NULL)) AS has_image,
+               ((b.image2_data IS NOT NULL) OR (s.image2_data IS NOT NULL)) AS has_image2,
+               ((b.image3_data IS NOT NULL) OR (s.image3_data IS NOT NULL)) AS has_image3,
                u.name AS user_name, u.email,
                g.title AS goal_title, g.unit,
                c.title AS cycle_title
@@ -693,6 +718,7 @@ def admin_submissions():
         JOIN users u ON u.id=s.user_id
         JOIN goals g ON g.id=s.goal_id
         JOIN cycles c ON c.id=g.cycle_id
+        LEFT JOIN delivery_batches b ON b.id=s.batch_id
     """
     params = []
     if status != "all":
