@@ -57,7 +57,7 @@
     </label>
 
     <label class="upload-box">
-      <span>COMPROVAÇÕES <b>*</b><small>Até 3 imagens · otimização automática</small></span>
+      <span>COMPROVAÇÕES <b>*</b><small>Até 3 imagens · compressão automática</small></span>
       <input id="imagesInput" name="images" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple required hidden>
       <div class="upload-drop" id="uploadTrigger">
         <strong>＋ Adicionar fotos da entrega</strong>
@@ -112,7 +112,7 @@
 
   trigger.addEventListener('click', () => fileInput.click());
 
-  const compressImage = (file, maxWidth = 1600, quality = 0.72) => new Promise((resolve, reject) => {
+  const compressImage = (file, maxWidth = 1280, quality = 0.62) => new Promise((resolve, reject) => {
     if (!file.type.startsWith('image/')) return resolve(file);
 
     const reader = new FileReader();
@@ -160,7 +160,7 @@
       const compressed = [];
       for (const file of chosen) {
         const optimized = await compressImage(file);
-        if (optimized.size > 1200000) {
+        if (optimized.size > 1000000) {
           alert('Uma imagem ainda ficou muito grande após a otimização. Tente outra foto.');
           fileInput.value = '';
           preview.innerHTML = '';
