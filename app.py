@@ -192,6 +192,17 @@ def money(value):
     formatted = f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     return f"R$ {formatted}"
 
+
+@app.template_filter("dt")
+def format_datetime(value):
+    if not value:
+        return "—"
+    try:
+        return value.strftime("%d/%m/%Y %H:%M")
+    except AttributeError:
+        text = str(value)
+        return text.replace("T", " ")[:16]
+
 @app.context_processor
 def inject_globals():
     return {

@@ -120,3 +120,11 @@ Os itens individuais referenciam o mesmo lote.
 
 Isso evita gravar as mesmas fotos repetidamente para cada material selecionado, reduzindo
 fortemente o volume de dados enviado ao PostgreSQL e o risco de erro/timeout no servidor.
+
+
+## Hotfix baseado nos Runtime Logs
+
+Corrigidos:
+- `TypeError: 'datetime.datetime' object is not subscriptable` no dashboard.
+- `jinja2.exceptions.TemplateSyntaxError: unexpected '}'` no cadastro.
+- Todos os templates Jinja foram validados antes da geração do pacote.
