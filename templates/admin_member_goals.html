@@ -42,11 +42,7 @@
       <input name="title" required placeholder="Ex.: Bateria AA+">
     </label>
 
-    <label>Categoria
-      <input name="category" value="GERAL" placeholder="Ex.: Eletrônicos">
-    </label>
-
-    <label>Quantidade / alvo
+    <label>Quantidade
       <input name="target" type="number" min="0.01" step="0.01" inputmode="decimal" required placeholder="Ex.: 100">
     </label>
 
@@ -103,7 +99,6 @@
         <div>
           <span class="goal-icon">{{ g['icon'] }}</span>
           <strong>{{ g['title'] }}</strong>
-          <small>{{ g['category'] }}</small>
         </div>
         <span class="status {{ 'approved' if g['complete'] else 'pending' }}">{{ 'COMPLETA' if g['complete'] else 'EM ANDAMENTO' }}</span>
       </div>

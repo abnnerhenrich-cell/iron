@@ -5,12 +5,11 @@
   <div class="hero-copy">
     <span class="eyebrow">PAINEL PESSOAL</span>
     <h1>Olá, {{ current_user['name'].split(' ')[0] }}.</h1>
-    <p>Veja exatamente onde você está no ciclo, o que já foi aprovado e o que ainda precisa ser entregue.</p>
     {% if cycle %}<div class="hero-kicker"><span class="hero-chip">◉ {{ cycle['title'] }}</span><span class="hero-chip">{{ cycle['start_date'] }} → {{ cycle['end_date'] }}</span></div>{% endif %}
   </div>
   <div class="hero-side">
-    <div class="progress-orb" style="--progress: {{ overall if cycle else 0 }}">
-      <div class="progress-orb-content"><strong>{{ overall if cycle else 0 }}%</strong><span>PROGRESSO APROVADO</span></div>
+    <div class="progress-orb" style="--progress: {{ overall_activity if cycle else 0 }}">
+      <div class="progress-orb-content"><strong>{{ overall_activity if cycle else 0 }}%</strong><span>APROVADO + EM ANÁLISE</span></div>
     </div>
   </div>
 </section>
@@ -25,7 +24,7 @@
   <div class="profile-avatar-large">
     {% if current_user.get('has_profile_image') %}<img src="{{ url_for('profile_photo', user_id=current_user['id']) }}" alt="Foto de perfil">{% else %}<span>{{ current_user['name'][0]|upper }}</span>{% endif %}
   </div>
-  <div class="profile-photo-info"><strong>Seu perfil</strong><small>Personalize sua conta com uma foto. JPG, PNG ou WEBP de até 3 MB.</small></div>
+  <div class="profile-photo-info member-name-only"><strong>{{ current_user['name'] }}</strong></div>
   <div class="profile-card-action">
     <form method="post" action="{{ url_for('profile_photo_upload') }}" enctype="multipart/form-data" class="profile-upload-form">
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
@@ -38,15 +37,17 @@
 {% if cycle %}
 <section class="panel">
   <div class="panel-head">
-    <div><span class="eyebrow">SUAS METAS</span><h2>Metas do ciclo</h2><p>A barra considera apenas valores já aprovados. Valores em análise ficam destacados separadamente.</p></div>
+    <div><span class="eyebrow">SUAS METAS</span><h2>Metas do ciclo</h2><p>A porcentagem considera o que já foi aprovado e também o que está em análise.</p></div>
     <a class="btn primary" href="{{ url_for('submit') }}">＋ Nova entrega</a>
   </div>
   <div class="goals-grid">
     {% for g in goals %}
-    {% set pct = ([((g['approved'] / g['target']) * 100)|round|int, 100]|min) if g['target'] else 0 %}
+    {% set pct_approved = ([((g['approved'] / g['target']) * 100)|round|int, 100]|min) if g['target'] else 0 %}
+    {% set pct_pending = ([((g['pending'] / g['target']) * 100)|round|int, 100 - pct_approved]|min) if g['target'] else 0 %}
+    {% set pct = ([((((g['approved'] + g['pending']) / g['target']) * 100)|round|int), 100]|min) if g['target'] else 0 %}
     <article class="goal-card">
-      <div class="goal-top"><span class="goal-icon">{{ g['icon'] }}</span><div><strong>{{ g['title'] }}</strong><small>{{ g['category'] }}</small></div><b class="{{ 'green' if pct >= 100 else 'silver' }}">{{ pct }}%</b></div>
-      <div class="progress"><i style="width:{{ pct }}%"></i></div>
+      <div class="goal-top"><span class="goal-icon">{{ g['icon'] }}</span><div><strong>{{ g['title'] }}</strong></div><b class="{{ 'green' if pct >= 100 else 'silver' }}">{{ pct }}%</b></div>
+      <div class="progress progress-segmented"><i class="approved-segment" style="width:{{ pct_approved }}%"></i><i class="pending-segment" style="width:{{ pct_pending }}%; left:{{ pct_approved }}%"></i></div>
       <div class="goal-values">
         <span>Aprovado<b class="green">{{ money(g['approved']) if g['unit']=='R$' else (g['approved']|int|string + ' ' + g['unit']) }}</b></span>
         <span>Em análise<b class="yellow">{{ money(g['pending']) if g['unit']=='R$' else (g['pending']|int|string + ' ' + g['unit']) }}</b></span>

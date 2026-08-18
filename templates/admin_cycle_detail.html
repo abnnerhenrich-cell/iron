@@ -26,7 +26,6 @@
       <div>
         <strong>{{ g['icon'] }} {{ g['title'] }}</strong>
         <small>
-          {{ g['category'] }} ·
           {{ money(g['target']) if g['unit']=='R$' else (g['target']|int|string + ' ' + g['unit']) }}
           · <b>{{ g['member_name'] if g['member_name'] else 'Meta antiga sem membro' }}</b>
         </small>

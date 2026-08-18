@@ -1,11 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Central Admin · IRON{% endblock %}
 {% block content %}
-<section class="hero admin-hero">
+<section class="hero admin-hero hierarchy-hero">
   <div>
-    <span class="eyebrow">CENTRAL ADMINISTRATIVA</span>
-    <h1>Controle o IRON<br>em um só lugar.</h1>
-    <p>Acompanhe membros, cadastros, metas e aprovações com atalhos diretos para as tarefas que exigem sua atenção.</p>
+    <h1>Painel da Hierarquia</h1>
     <div class="hero-kicker"><span class="hero-chip">{{ stats.users }} membros</span><span class="hero-chip">{{ stats.pending }} revisões pendentes</span>{% if cycle %}<span class="hero-chip">Ciclo ativo: {{ cycle['title'] }}</span>{% endif %}</div>
   </div>
   <a class="btn primary" href="{{ url_for('admin_members') }}">Abrir membros →</a>

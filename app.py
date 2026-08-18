@@ -471,7 +471,9 @@ def dashboard():
     cycle, goals = active_cycle_with_goals(user["id"])
     total_target = sum(float(g["target"]) for g in goals)
     total_approved = sum(float(g["approved"]) for g in goals)
-    overall = round((total_approved / total_target) * 100) if total_target else 0
+    total_pending = sum(float(g["pending"]) for g in goals)
+    overall = min(100, round((total_approved / total_target) * 100)) if total_target else 0
+    overall_activity = min(100, round(((total_approved + total_pending) / total_target) * 100)) if total_target else 0
 
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -494,7 +496,7 @@ def dashboard():
             """, (user["id"],))
             counts = cur.fetchone()
 
-    return render_template("dashboard.html", cycle=cycle, goals=goals, overall=overall, history=history, counts=counts)
+    return render_template("dashboard.html", cycle=cycle, goals=goals, overall=overall, overall_activity=overall_activity, history=history, counts=counts)
 
 @app.route("/submit", methods=["GET", "POST"])
 @login_required
@@ -916,7 +918,7 @@ def admin_members():
                        (profile_image IS NOT NULL) AS has_profile_image
                 FROM users
                 WHERE approved=TRUE
-                ORDER BY name ASC
+                ORDER BY LOWER(name) ASC, name ASC
             """)
             members = cur.fetchall()
 
