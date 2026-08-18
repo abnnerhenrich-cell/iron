@@ -3,49 +3,62 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#090b0e">
+  <meta name="theme-color" content="#07090d">
   <meta name="color-scheme" content="dark">
   <title>{% block title %}IRON Metas{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
-  {% set member_mode = request.endpoint in ['dashboard','submit','history','member_home'] %}
+{% set member_mode = request.endpoint in ['dashboard','submit','history','member_home'] %}
+<body class="{{ 'is-auth' if current_user else 'is-guest' }} {{ 'is-member-mode' if member_mode else 'is-admin-mode' }}">
   {% if current_user %}
-  <header class="topbar">
-    <a class="brand" href="{{ url_for('dashboard' if member_mode else ('admin_dashboard' if current_user['role']=='admin' else 'dashboard')) }}" aria-label="Início do IRON">
-      <span class="brand-icon">I</span>
-      <span><strong>IRON</strong><small>{{ 'Área do membro' if member_mode or current_user['role']!='admin' else 'Administração' }}</small></span>
+  <aside class="app-sidebar">
+    <a class="sidebar-brand" href="{{ url_for('dashboard' if member_mode else ('admin_dashboard' if current_user['role']=='admin' else 'dashboard')) }}">
+      <span class="brand-mark">I</span>
+      <span class="brand-copy"><strong>IRON</strong><small>{{ 'ESPAÇO DO MEMBRO' if member_mode or current_user['role']!='admin' else 'CENTRAL ADMIN' }}</small></span>
     </a>
-    <div class="top-actions">
-      {% if current_user['role']=='admin' %}
-        {% if member_mode %}
-          <a class="mode-switch" href="{{ url_for('admin_dashboard') }}">Admin</a>
-        {% else %}
-          <a class="mode-switch" href="{{ url_for('dashboard') }}">Meu painel</a>
-        {% endif %}
+
+    <div class="sidebar-section-label">NAVEGAÇÃO</div>
+    <nav class="sidebar-nav">
+      {% if current_user['role']=='admin' and not member_mode %}
+        <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}"><span class="nav-ico">⌂</span><span>Visão geral</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] }}" href="{{ url_for('admin_members') }}"><span class="nav-ico">◉</span><span>Membros</span></a>
+        <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}"><span class="nav-ico">＋</span><span>Cadastros</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" href="{{ url_for('admin_cycles') }}"><span class="nav-ico">◇</span><span>Ciclos e metas</span></a>
+        <a class="{{ 'active' if request.endpoint=='admin_permissions' }}" href="{{ url_for('admin_permissions') }}"><span class="nav-ico">⌘</span><span>Permissões</span></a>
+      {% else %}
+        <a class="{{ 'active' if request.endpoint=='dashboard' }}" href="{{ url_for('dashboard') }}"><span class="nav-ico">⌂</span><span>Meu progresso</span></a>
+        <a class="{{ 'active' if request.endpoint=='submit' }}" href="{{ url_for('submit') }}"><span class="nav-ico">＋</span><span>Nova entrega</span></a>
+        <a class="{{ 'active' if request.endpoint=='history' }}" href="{{ url_for('history') }}"><span class="nav-ico">◔</span><span>Histórico</span></a>
       {% endif %}
-      <span class="user-pill">{{ current_user['name'] }}</span>
-      <a class="icon-btn" href="{{ url_for('logout') }}" title="Sair" aria-label="Sair">↗</a>
+    </nav>
+
+    <div class="sidebar-spacer"></div>
+    {% if current_user['role']=='admin' %}
+      <a class="context-switch" href="{{ url_for('admin_dashboard' if member_mode else 'dashboard') }}">
+        <span>⇄</span><div><strong>{{ 'Abrir administração' if member_mode else 'Ver como membro' }}</strong><small>Trocar de ambiente</small></div>
+      </a>
+    {% endif %}
+    <div class="sidebar-user">
+      <div class="sidebar-avatar">{{ current_user['name'][0]|upper }}</div>
+      <div><strong>{{ current_user['name'] }}</strong><small>{{ 'Administrador' if current_user['role']=='admin' else 'Membro' }}</small></div>
+      <a href="{{ url_for('logout') }}" title="Sair">↗</a>
+    </div>
+  </aside>
+
+  <header class="mobile-topbar">
+    <a class="mobile-brand" href="{{ url_for('dashboard' if member_mode else ('admin_dashboard' if current_user['role']=='admin' else 'dashboard')) }}"><span class="brand-mark">I</span><strong>IRON</strong></a>
+    <div class="mobile-top-actions">
+      {% if current_user['role']=='admin' %}<a href="{{ url_for('admin_dashboard' if member_mode else 'dashboard') }}">⇄</a>{% endif %}
+      <a href="{{ url_for('logout') }}">↗</a>
     </div>
   </header>
-  {% if current_user['role']=='admin' and not member_mode %}
-  <nav class="admin-section-nav" aria-label="Navegação administrativa">
-    <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}">Resumo</a>
-    <a class="{{ 'active' if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] }}" href="{{ url_for('admin_members') }}">Membros</a>
-    <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}">Cadastros</a>
-    <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" href="{{ url_for('admin_cycles') }}">Ciclos e metas</a>
-    <a class="{{ 'active' if request.endpoint=='admin_permissions' }}" href="{{ url_for('admin_permissions') }}">Permissões</a>
-  </nav>
-  {% endif %}
   {% endif %}
 
   <main class="{% block mainclass %}page{% endblock %}">
     {% with msgs = get_flashed_messages(with_categories=true) %}
       {% if msgs %}
         <div class="flash-wrap" role="status" aria-live="polite">
-          {% for cat, msg in msgs %}
-            <div class="flash {{ cat }}"><span>{{ msg }}</span><button type="button" aria-label="Fechar aviso">×</button></div>
-          {% endfor %}
+          {% for cat, msg in msgs %}<div class="flash {{ cat }}"><span>{{ msg }}</span><button type="button" aria-label="Fechar aviso">×</button></div>{% endfor %}
         </div>
       {% endif %}
     {% endwith %}
@@ -55,11 +68,12 @@
   {% if current_user %}
   <nav class="bottom-nav" aria-label="Navegação principal">
     {% if current_user['role']=='admin' and not member_mode %}
-      <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}"><b>⌂</b><span>Resumo</span></a>
-      <a class="{{ 'active' if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] }}" href="{{ url_for('admin_members') }}"><b>♟</b><span>Membros</span></a>
-      <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" href="{{ url_for('admin_cycles') }}"><b>◎</b><span>Metas</span></a>
+      <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}"><b>⌂</b><span>Início</span></a>
+      <a class="{{ 'active' if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] }}" href="{{ url_for('admin_members') }}"><b>◉</b><span>Membros</span></a>
+      <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}"><b>＋</b><span>Cadastros</span></a>
+      <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" href="{{ url_for('admin_cycles') }}"><b>◇</b><span>Metas</span></a>
     {% else %}
-      <a class="{{ 'active' if request.endpoint=='dashboard' }}" href="{{ url_for('dashboard') }}"><b>◎</b><span>Metas</span></a>
+      <a class="{{ 'active' if request.endpoint=='dashboard' }}" href="{{ url_for('dashboard') }}"><b>⌂</b><span>Início</span></a>
       <a class="{{ 'active' if request.endpoint=='submit' }}" href="{{ url_for('submit') }}"><b>＋</b><span>Entregar</span></a>
       <a class="{{ 'active' if request.endpoint=='history' }}" href="{{ url_for('history') }}"><b>◔</b><span>Histórico</span></a>
     {% endif %}
@@ -70,8 +84,8 @@
   (() => {
     document.querySelectorAll('.flash').forEach((el, i) => {
       el.querySelector('button')?.addEventListener('click', () => el.remove());
-      setTimeout(() => { if (el.isConnected) el.classList.add('flash-hide'); }, 4600 + i * 300);
-      setTimeout(() => { if (el.isConnected) el.remove(); }, 5100 + i * 300);
+      setTimeout(() => { if (el.isConnected) el.classList.add('flash-hide'); }, 4600 + i * 250);
+      setTimeout(() => { if (el.isConnected) el.remove(); }, 5100 + i * 250);
     });
   })();
   </script>

@@ -1,111 +1,69 @@
 {% extends "base.html" %}
-{% block title %}Minhas metas{% endblock %}
+{% block title %}Meu progresso · IRON{% endblock %}
 {% block content %}
-<section class="hero">
-  <div>
-    <span class="eyebrow">CICLO PESSOAL</span>
-    <h1>Acompanhe cada atualização</h1>
-    <p>Envie o que entregou agora e acompanhe a revisão.</p>
+<section class="hero dashboard-hero">
+  <div class="hero-copy">
+    <span class="eyebrow">PAINEL PESSOAL</span>
+    <h1>Olá, {{ current_user['name'].split(' ')[0] }}.</h1>
+    <p>Veja exatamente onde você está no ciclo, o que já foi aprovado e o que ainda precisa ser entregue.</p>
+    {% if cycle %}<div class="hero-kicker"><span class="hero-chip">◉ {{ cycle['title'] }}</span><span class="hero-chip">{{ cycle['start_date'] }} → {{ cycle['end_date'] }}</span></div>{% endif %}
   </div>
-  <div class="stats compact">
-    <div><strong>{{ counts['pending'] or 0 }}</strong><span>EM ANÁLISE</span></div>
-    <div><strong class="green">{{ counts['approved'] or 0 }}</strong><span>APROVADAS</span></div>
-    <div><strong class="red">{{ counts['rejected'] or 0 }}</strong><span>REPROVADAS</span></div>
+  <div class="hero-side">
+    <div class="progress-orb" style="--progress: {{ overall if cycle else 0 }}">
+      <div class="progress-orb-content"><strong>{{ overall if cycle else 0 }}%</strong><span>PROGRESSO APROVADO</span></div>
+    </div>
   </div>
+</section>
+
+<section class="quick-stats">
+  <div class="quick-stat"><span>Em análise</span><strong class="yellow">{{ counts['pending'] or 0 }}</strong><small>aguardando revisão</small></div>
+  <div class="quick-stat"><span>Aprovadas</span><strong class="green">{{ counts['approved'] or 0 }}</strong><small>entregas confirmadas</small></div>
+  <div class="quick-stat"><span>Recusadas</span><strong class="red">{{ counts['rejected'] or 0 }}</strong><small>precisam de atenção</small></div>
 </section>
 
 <div class="profile-photo-card">
   <div class="profile-avatar-large">
-    {% if current_user.get('has_profile_image') %}
-      <img src="{{ url_for('profile_photo', user_id=current_user['id']) }}" alt="Foto de perfil">
-    {% else %}
-      <span>{{ current_user['name'][0]|upper }}</span>
-    {% endif %}
+    {% if current_user.get('has_profile_image') %}<img src="{{ url_for('profile_photo', user_id=current_user['id']) }}" alt="Foto de perfil">{% else %}<span>{{ current_user['name'][0]|upper }}</span>{% endif %}
   </div>
-  <div class="profile-photo-info">
-    <strong>Minha foto</strong>
-    <small>JPG, PNG ou WEBP · até 3 MB</small>
+  <div class="profile-photo-info"><strong>Seu perfil</strong><small>Personalize sua conta com uma foto. JPG, PNG ou WEBP de até 3 MB.</small></div>
+  <div class="profile-card-action">
     <form method="post" action="{{ url_for('profile_photo_upload') }}" enctype="multipart/form-data" class="profile-upload-form">
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-      <label class="btn ghost profile-file-btn">
-        Escolher foto
-        <input type="file" name="profile_image" accept="image/jpeg,image/png,image/webp" required onchange="this.form.submit()">
-      </label>
+      <label class="btn ghost profile-file-btn">{{ 'Trocar foto' if current_user.get('has_profile_image') else 'Adicionar foto' }}<input type="file" name="profile_image" accept="image/jpeg,image/png,image/webp" required onchange="this.form.submit()"></label>
     </form>
-    {% if current_user.get('has_profile_image') %}
-    <form method="post" action="{{ url_for('profile_photo_remove') }}">
-      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-      <button class="profile-remove" type="submit">Remover foto</button>
-    </form>
-    {% endif %}
+    {% if current_user.get('has_profile_image') %}<form method="post" action="{{ url_for('profile_photo_remove') }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="profile-remove" type="submit">Remover</button></form>{% endif %}
   </div>
 </div>
-
 
 {% if cycle %}
 <section class="panel">
   <div class="panel-head">
-    <div>
-      <span class="badge">◉ EM ANDAMENTO</span>
-      <h2>{{ cycle['title'] }}</h2>
-      <p>▦ {{ cycle['start_date'] }} — {{ cycle['end_date'] }}</p>
-    </div>
-    <div class="big-percent">{{ overall }}%<small>APROVADO NO CICLO</small></div>
+    <div><span class="eyebrow">SUAS METAS</span><h2>Metas do ciclo</h2><p>A barra considera apenas valores já aprovados. Valores em análise ficam destacados separadamente.</p></div>
+    <a class="btn primary" href="{{ url_for('submit') }}">＋ Nova entrega</a>
   </div>
-
   <div class="goals-grid">
     {% for g in goals %}
     {% set pct = ([((g['approved'] / g['target']) * 100)|round|int, 100]|min) if g['target'] else 0 %}
     <article class="goal-card">
-      <div class="goal-top">
-        <span class="goal-icon">{{ g['icon'] }}</span>
-        <div><strong>{{ g['title'] }}</strong><small>{{ g['category'] }}</small></div>
-        <b class="{{ 'orange' if pct < 100 else 'green' }}">{{ pct }}%</b>
-      </div>
+      <div class="goal-top"><span class="goal-icon">{{ g['icon'] }}</span><div><strong>{{ g['title'] }}</strong><small>{{ g['category'] }}</small></div><b class="{{ 'green' if pct >= 100 else 'silver' }}">{{ pct }}%</b></div>
       <div class="progress"><i style="width:{{ pct }}%"></i></div>
       <div class="goal-values">
-        <span>Aprovado <b class="green">{{ money(g['approved']) if g['unit']=='R$' else (g['approved']|int|string + ' ' + g['unit']) }}</b></span>
-        <span>Em análise <b class="yellow">{{ money(g['pending']) if g['unit']=='R$' else (g['pending']|int|string + ' ' + g['unit']) }}</b></span>
-        <span>Meta <b>{{ money(g['target']) if g['unit']=='R$' else (g['target']|int|string + ' ' + g['unit']) }}</b></span>
+        <span>Aprovado<b class="green">{{ money(g['approved']) if g['unit']=='R$' else (g['approved']|int|string + ' ' + g['unit']) }}</b></span>
+        <span>Em análise<b class="yellow">{{ money(g['pending']) if g['unit']=='R$' else (g['pending']|int|string + ' ' + g['unit']) }}</b></span>
+        <span>Meta<b>{{ money(g['target']) if g['unit']=='R$' else (g['target']|int|string + ' ' + g['unit']) }}</b></span>
       </div>
     </article>
     {% endfor %}
   </div>
-
-  <div class="panel-footer">
-    <span><i class="dot green-bg"></i> Aprovado</span>
-    <span><i class="dot yellow-bg"></i> Em análise</span>
-    <a class="btn primary" href="{{ url_for('submit') }}">➤ Atualizar entrega</a>
-  </div>
 </section>
 {% else %}
-<section class="empty panel">
-  <h2>Nenhum ciclo ativo</h2>
-  <p>O administrador ainda não criou metas personalizadas para você neste ciclo.</p>
-</section>
+<section class="empty panel"><h2>Nenhum ciclo ativo</h2><p>Assim que o administrador criar suas metas, elas aparecerão aqui.</p></section>
 {% endif %}
 
 <section class="panel">
-  <div class="panel-head">
-    <div><span class="eyebrow">RECENTES</span><h2>Últimas entregas</h2></div>
-    <a href="{{ url_for('history') }}">Ver tudo</a>
-  </div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Meta</th><th>Valor</th><th>Status</th><th>Data</th></tr></thead>
-      <tbody>
-      {% for s in history %}
-        <tr>
-          <td>{{ s['goal_title'] }}</td>
-          <td>{{ money(s['amount']) if s['unit']=='R$' else (s['amount']|int|string + ' ' + s['unit']) }}</td>
-          <td><span class="status {{ s['status'] }}">{{ {'approved':'Aprovada','pending':'Em análise','rejected':'Recusada'}.get(s['status'], s['status']) }}</span></td>
-          <td>{{ s['created_at'].strftime('%d/%m/%Y %H:%M') if s['created_at'] else '—' }}</td>
-        </tr>
-      {% else %}
-        <tr><td colspan="4" class="muted">Nenhuma entrega ainda.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  <div class="panel-head"><div><span class="eyebrow">ATIVIDADE RECENTE</span><h2>Últimas entregas</h2><p>Um resumo rápido das suas atualizações mais recentes.</p></div><a href="{{ url_for('history') }}">Ver histórico completo →</a></div>
+  <div class="table-wrap"><table><thead><tr><th>Meta</th><th>Valor</th><th>Status</th><th>Enviado em</th></tr></thead><tbody>
+    {% for s in history %}<tr><td><strong>{{ s['goal_title'] }}</strong></td><td>{{ money(s['amount']) if s['unit']=='R$' else (s['amount']|int|string + ' ' + s['unit']) }}</td><td><span class="status {{ s['status'] }}">{{ {'approved':'Aprovada','pending':'Em análise','rejected':'Recusada'}.get(s['status'], s['status']) }}</span></td><td>{{ s['created_at'].strftime('%d/%m/%Y %H:%M') if s['created_at'] else '—' }}</td></tr>{% else %}<tr><td colspan="4" class="muted">Nenhuma entrega ainda. Use “Nova entrega” para começar.</td></tr>{% endfor %}
+  </tbody></table></div>
 </section>
 {% endblock %}

@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Atualizar entrega{% endblock %}
 {% block content %}
-<section class="hero">
+<section class="hero admin-hero">
   <div>
     <span class="eyebrow">ATUALIZAÇÃO PARCIAL</span>
-    <h1>{{ cycle['title'] }}</h1>
-    <p>Informe vários materiais no mesmo envio e mande tudo de uma vez.</p>
+    <h1>Registre sua entrega.</h1>
+    <p>Selecione uma ou mais metas, informe as quantidades e anexe os comprovantes. Tudo segue em um único envio para revisão.</p>
+    <div class="hero-kicker"><span class="hero-chip">Ciclo: {{ cycle['title'] }}</span><span class="hero-chip">Até 3 comprovantes</span></div>
   </div>
 </section>
 
@@ -70,6 +71,7 @@
   </section>
 
   <div class="sticky-submit">
+    <div class="delivery-summary"><strong id="selectedCount">0</strong><span>metas selecionadas</span></div>
     <button class="btn primary delivery-submit" id="submitDelivery" type="submit" disabled>
       Enviar atualização para revisão
     </button>
@@ -86,9 +88,13 @@
   const fileInput = document.getElementById('imagesInput');
   const trigger = document.getElementById('uploadTrigger');
   const preview = document.getElementById('filePreview');
+  const selectedCount = document.getElementById('selectedCount');
 
   const updateButton = () => {
-    const hasAmount = amountInputs.some(i => Number(i.value) > 0);
+    const selected = amountInputs.filter(i => Number(i.value) > 0);
+    const hasAmount = selected.length > 0;
+    cards.forEach(card => { const i = card.querySelector('.stepper input'); card.classList.toggle('selected', !!i && Number(i.value) > 0); });
+    if (selectedCount) selectedCount.textContent = selected.length;
     const hasImage = fileInput.files && fileInput.files.length > 0;
     submit.disabled = !(hasAmount && hasImage);
   };

@@ -1,59 +1,32 @@
 {% extends "base.html" %}
-{% block title %}Admin · IRON{% endblock %}
+{% block title %}Central Admin · IRON{% endblock %}
 {% block content %}
-<section class="hero">
+<section class="hero admin-hero">
   <div>
-    <span class="eyebrow">PAINEL ADMINISTRATIVO</span>
-    <h1>Central IRON</h1>
-    <p>Cada função do sistema está separada em sua própria área.</p>
+    <span class="eyebrow">CENTRAL ADMINISTRATIVA</span>
+    <h1>Controle o IRON<br>em um só lugar.</h1>
+    <p>Acompanhe membros, cadastros, metas e aprovações com atalhos diretos para as tarefas que exigem sua atenção.</p>
+    <div class="hero-kicker"><span class="hero-chip">{{ stats.users }} membros</span><span class="hero-chip">{{ stats.pending }} revisões pendentes</span>{% if cycle %}<span class="hero-chip">Ciclo ativo: {{ cycle['title'] }}</span>{% endif %}</div>
   </div>
+  <a class="btn primary" href="{{ url_for('admin_members') }}">Abrir membros →</a>
 </section>
 
 <section class="stats">
-  <div><strong>{{ stats.users }}</strong><span>MEMBROS</span></div>
+  <div><strong>{{ stats.users }}</strong><span>MEMBROS APROVADOS</span></div>
   <div><strong class="yellow">{{ stats.pending_users }}</strong><span>CADASTROS PENDENTES</span></div>
   <div><strong class="yellow">{{ stats.pending }}</strong><span>ENTREGAS EM ANÁLISE</span></div>
   <div><strong class="green">{{ stats.approved }}</strong><span>ENTREGAS APROVADAS</span></div>
 </section>
 
-<section class="admin-area-grid">
-  <a class="admin-area-card" href="{{ url_for('admin_members') }}">
-    <span class="admin-area-icon">♟</span>
-    <div><strong>Membros</strong><small>Uma pasta individual para cada membro, com progresso, metas e histórico.</small></div>
-    <b>→</b>
-  </a>
+{% if cycle %}<section class="cycle-highlight"><div><span class="eyebrow">CICLO ATIVO</span><strong>{{ cycle['title'] }}</strong><small>{{ cycle['start_date'] }} até {{ cycle['end_date'] }}</small></div><a class="btn ghost" href="{{ url_for('admin_cycle_detail', cycle_id=cycle['id']) }}">Gerenciar ciclo</a></section>{% endif %}
 
-  <a class="admin-area-card" href="{{ url_for('admin_registrations') }}">
-    <span class="admin-area-icon">＋</span>
-    <div><strong>Cadastros</strong><small>Somente pedidos de novos membros aguardando aprovação.</small></div>
-    <b>→</b>
-  </a>
-
-  <a class="admin-area-card" href="{{ url_for('admin_cycles') }}">
-    <span class="admin-area-icon">◎</span>
-    <div><strong>Ciclos e Metas</strong><small>Criação dos ciclos e definição dos itens que todos devem cumprir.</small></div>
-    <b>→</b>
-  </a>
-
-  <a class="admin-area-card" href="{{ url_for('admin_members') }}">
-    <span class="admin-area-icon">✓</span>
-    <div><strong>Aprovações por membro</strong><small>Abra a pasta do membro e aprove as metas diretamente no histórico individual dele.</small></div>
-    <b>→</b>
-  </a>
-
-  <a class="admin-area-card" href="{{ url_for('admin_permissions') }}">
-    <span class="admin-area-icon">◇</span>
-    <div><strong>Permissões</strong><small>Defina quem pode acessar o Painel Admin. Nada de metas aqui.</small></div>
-    <b>→</b>
-  </a>
-</section>
-
-{% if cycle %}
 <section class="panel">
-  <div class="panel-head">
-    <div><span class="eyebrow">CICLO ATIVO</span><h2>{{ cycle['title'] }}</h2><p>{{ cycle['start_date'] }} até {{ cycle['end_date'] }}</p></div>
-    <a class="btn ghost" href="{{ url_for('admin_cycle_detail', cycle_id=cycle['id']) }}">Abrir ciclo</a>
+  <div class="panel-head"><div><span class="eyebrow">ATALHOS</span><h2>O que você quer fazer?</h2><p>As áreas estão separadas para reduzir cliques e deixar a administração mais rápida.</p></div></div>
+  <div class="admin-area-grid">
+    <a class="admin-area-card" href="{{ url_for('admin_members') }}"><span class="admin-area-icon">◉</span><div><strong>Gerenciar membros</strong><small>Abra a pasta de cada pessoa, veja o progresso e configure metas individuais.</small></div><b>→</b></a>
+    <a class="admin-area-card" href="{{ url_for('admin_registrations') }}"><span class="admin-area-icon">＋</span><div><strong>Revisar cadastros</strong><small>Aprove ou recuse novas solicitações de acesso ao sistema.</small></div><b>→</b></a>
+    <a class="admin-area-card" href="{{ url_for('admin_cycles') }}"><span class="admin-area-icon">◇</span><div><strong>Ciclos e metas</strong><small>Crie períodos de trabalho e acompanhe as metas vinculadas aos membros.</small></div><b>→</b></a>
+    <a class="admin-area-card" href="{{ url_for('admin_permissions') }}"><span class="admin-area-icon">⌘</span><div><strong>Permissões</strong><small>Controle quem pode acessar recursos administrativos do IRON.</small></div><b>→</b></a>
   </div>
 </section>
-{% endif %}
 {% endblock %}
