@@ -16,7 +16,7 @@
   <div><strong class="green">{{ stats.approved }}</strong><span>ENTREGAS APROVADAS</span></div>
 </section>
 
-{% if cycle %}<section class="cycle-highlight"><div><span class="cycle-status-label">META ATIVA</span><strong class="cycle-status-title">{{ cycle['title'] }}</strong><small class="cycle-status-date">{{ cycle['start_date'] }} até {{ cycle['end_date'] }}</small></div><a class="btn ghost" href="{{ url_for('admin_cycle_detail', cycle_id=cycle['id']) }}">Gerenciar meta</a></section>{% endif %}
+{% if cycle %}<section class="cycle-highlight active-goal-card"><div class="active-goal-copy"><span class="cycle-status-label">META ATIVA</span><strong class="cycle-status-title">{{ cycle['title'] }}</strong><small class="cycle-status-date">{{ cycle['start_date'] }} até {{ cycle['end_date'] }}</small></div><a class="btn ghost" href="{{ url_for('admin_cycle_detail', cycle_id=cycle['id']) }}">Gerenciar meta</a></section>{% endif %}
 
 <section class="panel">
   <div class="panel-head"><div><span class="eyebrow">ATALHOS</span><h2>O que você quer fazer?</h2><p>As áreas estão separadas para reduzir cliques e deixar a administração mais rápida.</p></div></div>

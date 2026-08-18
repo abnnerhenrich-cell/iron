@@ -135,3 +135,22 @@ p{font-size:clamp(.9rem,.12vw + .87rem,1rem);line-height:1.65}
 .admin-area-card>div,.section-choice>div,.sidebar-brand,.sidebar-user>div,.member-title-with-photo,.goal-admin-top>div,.delivery-info>div{min-width:0}
 .admin-area-card strong,.admin-area-card small,.section-choice strong,.section-choice small,.sidebar-user strong,.sidebar-user small{overflow-wrap:anywhere}
 img{max-width:100%}
+
+
+/* IRON V5 — correção definitiva do HUD e responsividade */
+.active-goal-card{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;gap:18px!important;padding:20px 22px!important}
+.active-goal-copy{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:7px!important;min-width:0!important}
+.active-goal-card .cycle-status-label,.active-goal-card .cycle-status-title,.active-goal-card .cycle-status-date{position:static!important;float:none!important;width:auto!important;margin:0!important;padding:0!important;transform:none!important}
+.active-goal-card .cycle-status-label{display:inline-flex!important;font-size:clamp(.66rem,.15vw + .62rem,.74rem)!important;line-height:1.2!important}
+.active-goal-card .cycle-status-title{display:block!important;font-size:clamp(1.05rem,.55vw + .95rem,1.35rem)!important;line-height:1.2!important;letter-spacing:-.025em!important;white-space:normal!important;overflow-wrap:anywhere!important}
+.active-goal-card .cycle-status-date{display:block!important;font-size:clamp(.72rem,.15vw + .69rem,.8rem)!important;line-height:1.35!important;color:var(--muted)!important}
+@media(max-width:680px){
+  .active-goal-card{grid-template-columns:1fr!important;padding:17px 18px!important;gap:14px!important}
+  .active-goal-card .btn{width:100%!important}
+}
+
+/* Garantir leitura confortável em telas muito pequenas e monitores grandes */
+html{font-size:clamp(14px,.18vw + 13.2px,17px)}
+body{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+input,button,select,textarea{font-size:max(16px,1rem)}
+@media(min-width:900px){input,button,select,textarea{font-size:inherit}}

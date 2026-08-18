@@ -17,6 +17,7 @@ from psycopg.rows import dict_row
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "troque-esta-chave-no-vercel")
 app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
@@ -1370,7 +1371,7 @@ def web_manifest():
     return send_file(
         os.path.join(app.static_folder, "manifest.webmanifest"),
         mimetype="application/manifest+json",
-        max_age=3600,
+        max_age=0,
     )
 
 
@@ -1382,7 +1383,7 @@ def service_worker():
         max_age=0,
     )
     response.headers["Service-Worker-Allowed"] = "/"
-    response.headers["Cache-Control"] = "no-cache"
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     return response
 
 

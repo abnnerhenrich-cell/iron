@@ -1,6 +1,6 @@
-const CACHE = 'iron-static-v4';
-const STATIC_ASSETS = [
-  '/static/style.css',
+const CACHE = 'iron-shell-v5';
+const SHELL = [
+  '/static/style.css?v=5.0.0',
   '/static/icons/favicon-32.png',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
@@ -8,27 +8,28 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(STATIC_ASSETS)));
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL).catch(() => {})));
   self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key))))
+    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
   );
   self.clients.claim();
 });
 
 self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
-  if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
-  // Dynamic pages always come from the network so metas/status never become stale.
+  if (url.origin !== self.location.origin) return;
+  // Páginas e dados dinâmicos nunca usam cache-first.
   if (!url.pathname.startsWith('/static/')) return;
   event.respondWith(
-    caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
+    fetch(event.request).then(response => {
       const copy = response.clone();
       caches.open(CACHE).then(cache => cache.put(event.request, copy));
       return response;
-    }))
+    }).catch(() => caches.match(event.request))
   );
 });

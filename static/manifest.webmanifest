@@ -1,15 +1,26 @@
 {
-  "name": "IRON Metas",
+  "name": "IRON",
   "short_name": "IRON",
-  "description": "Painel IRON para gerenciamento e acompanhamento de metas.",
-  "start_url": "/",
+  "description": "Painel da Hierarquia IRON para metas, entregas e acompanhamento.",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "background_color": "#07090d",
   "theme_color": "#07090d",
   "orientation": "any",
   "icons": [
-    {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
-    {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
-  ]
+    {
+      "src": "/static/icons/icon-192.png?v=5",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png?v=5",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "id": "/"
 }

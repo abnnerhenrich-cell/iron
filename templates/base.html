@@ -11,10 +11,11 @@
   <meta name="apple-mobile-web-app-title" content="IRON">
   <title>{% block title %}IRON Metas{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
-  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32.png') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32.png') }}?v=5">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v=5">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
-  <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="manifest" href="/manifest.webmanifest?v=5">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=5.0.0">
 </head>
 {% set member_mode = request.endpoint in ['dashboard','submit','history','member_home'] %}
 <body class="{{ 'is-auth' if current_user else 'is-guest' }} {{ 'is-member-mode' if member_mode else 'is-admin-mode' }}">
@@ -41,7 +42,7 @@
     </nav>
 
     <div class="sidebar-spacer"></div>
-    <button class="install-app-sidebar js-install-app" type="button" hidden>
+    <button class="install-app-sidebar js-install-app" type="button">
       <span class="install-app-icon">↓</span>
       <span><strong>Instalar IRON</strong><small>Adicionar ao dispositivo</small></span>
     </button>
@@ -60,7 +61,7 @@
   <header class="mobile-topbar">
     <a class="mobile-brand" href="{{ url_for('dashboard' if member_mode else ('admin_dashboard' if current_user['role']=='admin' else 'dashboard')) }}"><span class="brand-mark">I</span><strong>IRON</strong></a>
     <div class="mobile-top-actions">
-      <button class="mobile-install js-install-app" type="button" aria-label="Instalar IRON" title="Instalar IRON" hidden>↓</button>
+      <button class="mobile-install js-install-app" type="button" aria-label="Instalar IRON" title="Instalar IRON">↓</button>
       {% if current_user['role']=='admin' %}<a href="{{ url_for('admin_dashboard' if member_mode else 'dashboard') }}">⇄</a>{% endif %}
       <a href="{{ url_for('logout') }}">↗</a>
     </div>
@@ -79,7 +80,7 @@
   </main>
 
   {% if not current_user %}
-  <button class="guest-install-app js-install-app" type="button" hidden><span>↓</span> Instalar IRON</button>
+  <button class="guest-install-app js-install-app" type="button"><span>↓</span> Instalar IRON</button>
   {% endif %}
 
   {% if current_user %}
@@ -104,7 +105,7 @@
       <div class="install-sheet-brand"><span class="brand-mark">I</span></div>
       <span class="eyebrow">IRON NO CELULAR</span>
       <h2 id="installTitle">Adicionar à Tela de Início</h2>
-      <p>No iPhone/iPad, toque em <strong>Compartilhar</strong> no Safari e depois em <strong>Adicionar à Tela de Início</strong>.</p>
+      <p id="installHelpText">Você pode instalar o IRON no celular ou computador para abrir como aplicativo.</p>
       <button class="btn primary" type="button" data-close-install>Entendi</button>
     </section>
   </div>
@@ -128,12 +129,12 @@
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
     const setInstallVisible = visible => installButtons.forEach(btn => { btn.hidden = !visible; });
-    if (!standalone && isIOS) setInstallVisible(true);
+    setInstallVisible(!standalone);
 
     window.addEventListener('beforeinstallprompt', event => {
       event.preventDefault();
       deferredInstallPrompt = event;
-      if (!standalone) setInstallVisible(true);
+      setInstallVisible(!standalone);
     });
 
     const closeInstallSheet = () => {
@@ -152,7 +153,13 @@
         setInstallVisible(false);
         return;
       }
-      if (isIOS && sheet) {
+      if (sheet) {
+        const help = document.getElementById('installHelpText');
+        if (help) {
+          help.innerHTML = isIOS
+            ? 'No iPhone/iPad, abra no <strong>Safari</strong>, toque em <strong>Compartilhar</strong> e escolha <strong>Adicionar à Tela de Início</strong>.'
+            : 'No Android/Chrome ou no computador, abra o menu do navegador e escolha <strong>Instalar app</strong> ou <strong>Adicionar à tela inicial</strong>. Se o navegador liberar a instalação automática, este botão abrirá a janela de instalação.';
+        }
         sheet.classList.add('open');
         sheet.setAttribute('aria-hidden', 'false');
       }

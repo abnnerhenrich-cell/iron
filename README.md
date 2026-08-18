@@ -7,7 +7,7 @@ Versão preparada para publicação na Vercel com PostgreSQL Neon.
 - Login e cadastro de usuários.
 - Painel de usuário.
 - Painel administrativo.
-- Criação de ciclos e metas.
+- Criação de períodos e metas.
 - Entrega de quantidade/valor.
 - Aprovação e reprovação pelo administrador.
 - Histórico.
@@ -137,21 +137,21 @@ Esta versão separa completamente as funções administrativas:
 - Resumo: apenas visão geral.
 - Membros: uma pasta separada para cada membro aprovado.
 - Cadastros: apenas solicitações pendentes.
-- Ciclos e Metas: somente criação e edição das metas gerais.
+- Metas: somente criação e edição das metas gerais.
 - Entregas: somente aprovação/reprovação dos envios.
 - Permissões: somente concessão/remoção de acesso Admin.
 
 Dentro de cada membro existem três telas independentes:
 - Resumo individual.
-- Metas do ciclo.
+- Metas do período.
 - Histórico individual.
 
 
 ## Exclusões e números inteiros
 
 - Admin > Membros agora possui `Excluir membro`, removendo completamente a conta e os registros vinculados.
-- Admin > Ciclos agora possui `Excluir ciclo`.
-- Ao excluir um ciclo, metas, entregas e histórico ligados a ele são apagados definitivamente por CASCADE.
+- Admin > Metas agora possui `Excluir meta`.
+- Ao excluir uma meta, metas, entregas e histórico ligados a ele são apagados definitivamente por CASCADE.
 - Os totais de Aprovado, Falta e Em análise na aba Membros são exibidos como números inteiros, sem `.00`.
 
 
@@ -218,7 +218,7 @@ Corrigido erro interno ao salvar a foto:
 Novo fluxo:
 - Admin > Membros > Abrir pasta > Metas personalizadas.
 - A nova meta é criada ali mesmo e já fica vinculada ao membro.
-- A área Ciclos não cria mais metas; serve apenas para criar/ativar/excluir ciclos.
+- A área Metas não cria mais metas; serve apenas para criar/ativar/excluir metas.
 - Cada membro pode ter itens, quantidades, categorias e objetivos totalmente diferentes.
 
 
