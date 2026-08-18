@@ -302,3 +302,11 @@ body{
   .member-summary{grid-template-columns:1fr 1fr}
   .goal-numbers{grid-template-columns:1fr 1fr}
 }
+
+.member-card-actions{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:stretch}
+.member-card-actions form{margin:0}
+.member-delete-btn{height:100%;white-space:nowrap}
+@media(max-width:800px){
+  .member-card-actions{grid-template-columns:1fr}
+  .member-delete-btn{width:100%}
+}

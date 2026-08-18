@@ -324,7 +324,7 @@ def register():
             flash("Informe seu nome com pelo menos 2 caracteres.", "danger")
             return render_template("register.html", form_data=form_data)
 
-        if not re.match(r"^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", email):
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
             flash("Informe um e-mail válido, por exemplo nome@email.com.", "danger")
             return render_template("register.html", form_data=form_data)
 
