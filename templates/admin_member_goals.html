@@ -33,10 +33,10 @@
       <div class="progress"><i style="width:{{ g['percent'] }}%"></i></div>
 
       <div class="goal-numbers">
-        <div><span>Meta</span><strong>{{ g['target'] }} {{ g['unit'] }}</strong></div>
-        <div><span>Aprovado</span><strong>{{ g['approved'] }} {{ g['unit'] }}</strong></div>
-        <div><span>Falta</span><strong>{{ g['remaining'] }} {{ g['unit'] }}</strong></div>
-        <div><span>Em análise</span><strong>{{ g['pending'] }} {{ g['unit'] }}</strong></div>
+        <div><span>Meta</span><strong>{{ g['target_f']|round|int }} {{ g['unit'] }}</strong></div>
+        <div><span>Aprovado</span><strong>{{ g['approved_f']|round|int }} {{ g['unit'] }}</strong></div>
+        <div><span>Falta</span><strong>{{ g['remaining']|round|int }} {{ g['unit'] }}</strong></div>
+        <div><span>Em análise</span><strong>{{ g['pending_f']|round|int }} {{ g['unit'] }}</strong></div>
       </div>
     </article>
     {% else %}

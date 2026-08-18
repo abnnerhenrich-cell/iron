@@ -43,12 +43,18 @@
     </div>
 
     <div class="folder-stats">
-      <div><span>Aprovado</span><strong>{{ "%.2f"|format(m['approved_total']) }}</strong></div>
-      <div><span>Falta</span><strong>{{ "%.2f"|format(m['remaining']) }}</strong></div>
-      <div><span>Em análise</span><strong>{{ "%.2f"|format(m['pending_total']) }}</strong></div>
+      <div><span>Aprovado</span><strong>{{ m['approved_total']|round|int }}</strong></div>
+      <div><span>Falta</span><strong>{{ m['remaining']|round|int }}</strong></div>
+      <div><span>Em análise</span><strong>{{ m['pending_total']|round|int }}</strong></div>
     </div>
 
-    <a class="btn primary folder-open" href="{{ url_for('admin_member_detail', user_id=m['id']) }}">Abrir pasta do membro</a>
+    <div class="member-card-actions">
+      <a class="btn primary folder-open" href="{{ url_for('admin_member_detail', user_id=m['id']) }}">Abrir pasta do membro</a>
+      <form method="post" action="{{ url_for('admin_member_delete', user_id=m['id']) }}" onsubmit="return confirm('Excluir {{ m['name'] }} totalmente? Todas as entregas e o histórico deste membro serão apagados. Essa ação não pode ser desfeita.')">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button class="btn danger member-delete-btn" type="submit">Excluir membro</button>
+      </form>
+    </div>
   </article>
   {% else %}
   <div class="panel empty">

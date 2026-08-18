@@ -29,12 +29,12 @@
   </div>
   <div class="summary-card">
     <span>Total aprovado</span>
-    <strong>{{ "%.2f"|format(total_approved) }}</strong>
-    <small>de {{ "%.2f"|format(total_target) }}</small>
+    <strong>{{ total_approved|round|int }}</strong>
+    <small>de {{ total_target|round|int }}</small>
   </div>
   <div class="summary-card">
     <span>Ainda falta</span>
-    <strong>{{ "%.2f"|format(remaining) }}</strong>
+    <strong>{{ remaining|round|int }}</strong>
     <small>para completar o ciclo</small>
   </div>
 </section>

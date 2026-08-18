@@ -657,6 +657,26 @@ def admin_cycle_activate(cycle_id):
     flash("Ciclo ativado.", "success")
     return redirect(url_for("admin_cycles"))
 
+@app.post("/admin/cycles/<int:cycle_id>/delete")
+@admin_required
+def admin_cycle_delete(cycle_id):
+    validate_csrf()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, title FROM cycles WHERE id=%s", (cycle_id,))
+            cycle = cur.fetchone()
+            if not cycle:
+                abort(404)
+
+            # Apaga o ciclo. As metas, entregas e lotes/histórico vinculados
+            # são removidos automaticamente pelas chaves ON DELETE CASCADE.
+            cur.execute("DELETE FROM cycles WHERE id=%s", (cycle_id,))
+        conn.commit()
+
+    flash(f"Ciclo '{cycle['title']}' excluído com todo o histórico relacionado.", "success")
+    return redirect(url_for("admin_cycles"))
+
+
 @app.route("/admin/cycles/<int:cycle_id>", methods=["GET", "POST"])
 @admin_required
 def admin_cycle_detail(cycle_id):
@@ -1015,6 +1035,40 @@ def admin_permissions():
 @app.route("/admin/users")
 @admin_required
 def admin_users():
+    return redirect(url_for("admin_members"))
+
+
+@app.post("/admin/members/<int:user_id>/delete")
+@admin_required
+def admin_member_delete(user_id):
+    validate_csrf()
+    current = get_current_user()
+
+    if int(user_id) == int(current["id"]):
+        flash("Você não pode excluir sua própria conta por esta tela.", "danger")
+        return redirect(url_for("admin_members"))
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, name, email, role
+                FROM users
+                WHERE id=%s
+            """, (user_id,))
+            member = cur.fetchone()
+
+            if not member:
+                abort(404)
+
+            if member["role"] == "admin":
+                flash("Para excluir um administrador, remova primeiro a permissão Admin.", "danger")
+                return redirect(url_for("admin_permissions"))
+
+            # A exclusão do usuário remove entregas e lotes vinculados por CASCADE.
+            cur.execute("DELETE FROM users WHERE id=%s", (user_id,))
+        conn.commit()
+
+    flash(f"Membro '{member['name']}' excluído totalmente do sistema.", "success")
     return redirect(url_for("admin_members"))
 
 

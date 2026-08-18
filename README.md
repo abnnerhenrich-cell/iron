@@ -145,3 +145,11 @@ Dentro de cada membro existem três telas independentes:
 - Resumo individual.
 - Metas do ciclo.
 - Histórico individual.
+
+
+## Exclusões e números inteiros
+
+- Admin > Membros agora possui `Excluir membro`, removendo completamente a conta e os registros vinculados.
+- Admin > Ciclos agora possui `Excluir ciclo`.
+- Ao excluir um ciclo, metas, entregas e histórico ligados a ele são apagados definitivamente por CASCADE.
+- Os totais de Aprovado, Falta e Em análise na aba Membros são exibidos como números inteiros, sem `.00`.
