@@ -72,7 +72,22 @@
   </form>
 </section>
 
-<section class="panel">
+<section class="panel member-goals-panel">
+  <div class="admin-member-goal-identity">
+    <div class="avatar-silver admin-goal-avatar">
+      {% if member.get('has_profile_image') %}
+        <img src="{{ url_for('profile_photo', user_id=member['id']) }}" alt="Foto de {{ member['name'] }}">
+      {% else %}
+        <span>{{ member['name'][0]|upper }}</span>
+      {% endif %}
+    </div>
+    <div>
+      <span class="eyebrow">METAS DO MEMBRO</span>
+      <strong>{{ member['name'] }}</strong>
+      <small>{{ member['email'] }}</small>
+    </div>
+  </div>
+
   <div class="panel-head">
     <div>
       <span class="eyebrow">METAS DE {{ member['name']|upper }}</span>
