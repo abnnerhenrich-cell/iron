@@ -16,7 +16,7 @@ from psycopg.rows import dict_row
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "troque-esta-chave-no-vercel")
-app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 102424
+app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 ALLOWED_MIMES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
@@ -1026,6 +1026,12 @@ def admin_member_detail(user_id):
 def admin_member_goals(user_id):
     with get_conn() as conn:
         with conn.cursor() as cur:
+            # Garante que bancos criados em versões antigas tenham a coluna necessária.
+            cur.execute("""
+                ALTER TABLE goals
+                ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id) ON DELETE CASCADE
+            """)
+
             cur.execute("""
                 SELECT id, name, email, active, approved,
                        (profile_image IS NOT NULL) AS has_profile_image
@@ -1036,45 +1042,85 @@ def admin_member_goals(user_id):
             if not member:
                 abort(404)
 
-            cur.execute("SELECT * FROM cycles WHERE active=TRUE ORDER BY id DESC LIMIT 1")
+            cur.execute("""
+                SELECT *
+                FROM cycles
+                WHERE active=TRUE
+                ORDER BY id DESC
+                LIMIT 1
+            """)
             cycle = cur.fetchone()
 
             if request.method == "POST":
                 validate_csrf()
 
                 if not cycle:
-                    flash("Não existe ciclo ativo para receber esta meta.", "danger")
+                    flash("Não existe ciclo ativo. Crie e ative um ciclo primeiro.", "danger")
                     return redirect(url_for("admin_member_goals", user_id=user_id))
 
                 title = (request.form.get("title") or "").strip()
                 category = (request.form.get("category") or "GERAL").strip() or "GERAL"
-                target = request.form.get("target", type=float)
                 unit = (request.form.get("unit") or "un").strip() or "un"
                 icon = (request.form.get("icon") or "📦").strip() or "📦"
 
-                if not title or not target or target <= 0:
-                    flash("Informe o nome da meta e uma quantidade válida.", "danger")
+                target_raw = (request.form.get("target") or "").strip().replace(",", ".")
+                try:
+                    target = float(target_raw)
+                except (TypeError, ValueError):
+                    target = 0
+
+                if not title:
+                    flash("Digite o nome da meta.", "danger")
                     return redirect(url_for("admin_member_goals", user_id=user_id))
 
-                cur.execute("""
-                    SELECT COALESCE(MAX(sort_order),0)+1 AS n
-                    FROM goals
-                    WHERE cycle_id=%s AND user_id=%s
-                """, (cycle["id"], user_id))
-                sort_order = cur.fetchone()["n"]
+                if target <= 0:
+                    flash("Informe uma quantidade maior que zero.", "danger")
+                    return redirect(url_for("admin_member_goals", user_id=user_id))
 
-                cur.execute("""
-                    INSERT INTO goals(
-                        cycle_id,title,category,target,unit,icon,sort_order,user_id
+                try:
+                    cur.execute("""
+                        SELECT COALESCE(MAX(sort_order),0)+1 AS next_order
+                        FROM goals
+                        WHERE cycle_id=%s AND user_id=%s
+                    """, (cycle["id"], user_id))
+                    order_row = cur.fetchone()
+                    sort_order = int(order_row["next_order"] or 1)
+
+                    cur.execute("""
+                        INSERT INTO goals (
+                            cycle_id,
+                            title,
+                            category,
+                            target,
+                            unit,
+                            icon,
+                            sort_order,
+                            user_id
+                        )
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                    """, (
+                        cycle["id"],
+                        title,
+                        category,
+                        target,
+                        unit,
+                        icon,
+                        sort_order,
+                        user_id
+                    ))
+
+                    conn.commit()
+                except Exception:
+                    conn.rollback()
+                    app.logger.exception(
+                        "Erro ao criar meta personalizada: user_id=%s cycle_id=%s",
+                        user_id,
+                        cycle["id"]
                     )
-                    VALUES(%s,%s,%s,%s,%s,%s,%s,%s)
-                """, (
-                    cycle["id"], title, category, target, unit,
-                    icon, sort_order, user_id
-                ))
-                conn.commit()
+                    flash("Não foi possível criar a meta. Tente novamente.", "danger")
+                    return redirect(url_for("admin_member_goals", user_id=user_id))
 
-                flash(f"Meta personalizada criada para {member['name']}.", "success")
+                flash(f"Meta criada para {member['name']}.", "success")
                 return redirect(url_for("admin_member_goals", user_id=user_id))
 
             goals = []
@@ -1085,7 +1131,9 @@ def admin_member_goals(user_id):
                            COALESCE(SUM(CASE WHEN s.status='pending' THEN s.amount ELSE 0 END),0) AS pending,
                            COALESCE(SUM(CASE WHEN s.status='rejected' THEN s.amount ELSE 0 END),0) AS rejected
                     FROM goals g
-                    LEFT JOIN submissions s ON s.goal_id=g.id AND s.user_id=%s
+                    LEFT JOIN submissions s
+                      ON s.goal_id=g.id
+                     AND s.user_id=%s
                     WHERE g.cycle_id=%s
                       AND g.user_id=%s
                     GROUP BY g.id
@@ -1097,8 +1145,9 @@ def admin_member_goals(user_id):
                     target = float(g["target"] or 0)
                     approved = float(g["approved"] or 0)
                     pending = float(g["pending"] or 0)
-                    remaining = max(target-approved, 0)
-                    percent = min(100, round((approved/target)*100)) if target else 0
+                    remaining = max(target - approved, 0)
+                    percent = min(100, round((approved / target) * 100)) if target else 0
+
                     goals.append({
                         **dict(g),
                         "target_f": target,
@@ -1109,7 +1158,13 @@ def admin_member_goals(user_id):
                         "complete": target > 0 and approved >= target,
                     })
 
-    return render_template("admin_member_goals.html", member=member, cycle=cycle, goals=goals)
+    return render_template(
+        "admin_member_goals.html",
+        member=member,
+        cycle=cycle,
+        goals=goals
+    )
+
 
 
 
