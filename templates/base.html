@@ -18,6 +18,16 @@
       <a class="icon-btn" href="{{ url_for('logout') }}" title="Sair">↗</a>
     </div>
   </header>
+  {% if current_user and current_user['role']=='admin' %}
+  <nav class="admin-section-nav">
+    <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}">Resumo</a>
+    <a class="{{ 'active' if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] }}" href="{{ url_for('admin_members') }}">Membros</a>
+    <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}">Cadastros</a>
+    <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" href="{{ url_for('admin_cycles') }}">Ciclos e Metas</a>
+    <a class="{{ 'active' if request.endpoint in ['admin_submissions','admin_review'] }}" href="{{ url_for('admin_submissions') }}">Entregas</a>
+    <a class="{{ 'active' if request.endpoint=='admin_permissions' }}" href="{{ url_for('admin_permissions') }}">Permissões</a>
+  </nav>
+  {% endif %}
   {% endif %}
 
   <main class="{% block mainclass %}page{% endblock %}">
@@ -37,10 +47,9 @@
   <nav class="bottom-nav">
     {% if current_user['role']=='admin' %}
       <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}">⌂<span>Resumo</span></a>
-      <a class="{{ 'active' if 'cycle' in request.endpoint }}" href="{{ url_for('admin_cycles') }}">◎<span>Ciclos</span></a>
-      <a class="{{ 'active' if 'submission' in request.endpoint }}" href="{{ url_for('admin_submissions') }}">✓<span>Entregas</span></a>
-      <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}">✚<span>Cadastros</span></a>
-      <a class="{{ 'active' if request.endpoint=='admin_users' }}" href="{{ url_for('admin_users') }}">♟<span>Usuários</span></a>
+      <a class="{{ 'active' if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] }}" href="{{ url_for('admin_members') }}">♟<span>Membros</span></a>
+      <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" href="{{ url_for('admin_cycles') }}">◎<span>Metas</span></a>
+      <a class="{{ 'active' if request.endpoint in ['admin_submissions','admin_review'] }}" href="{{ url_for('admin_submissions') }}">✓<span>Entregas</span></a>
     {% else %}
       <a class="{{ 'active' if request.endpoint=='dashboard' }}" href="{{ url_for('dashboard') }}">◎<span>Metas</span></a>
       <a class="{{ 'active' if request.endpoint=='submit' }}" href="{{ url_for('submit') }}">＋<span>Entregar</span></a>

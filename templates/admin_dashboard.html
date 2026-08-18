@@ -1,51 +1,59 @@
 {% extends "base.html" %}
-{% block title %}Admin · IRON Metas{% endblock %}
+{% block title %}Admin · IRON{% endblock %}
 {% block content %}
 <section class="hero">
-  <div><span class="eyebrow">PAINEL ADMIN</span><h1>Visão geral do sistema</h1><p>Gerencie usuários, ciclos, metas e aprovações.</p></div>
-  <div class="row-actions wrap-actions">
-    {% if stats.pending_users > 0 %}
-      <a class="btn primary" href="{{ url_for('admin_registrations') }}">👤 {{ stats.pending_users }} cadastro(s) aguardando</a>
-    {% endif %}
-    {% if stats.pending > 0 %}
-      <a class="btn success" href="{{ url_for('admin_submissions', status='pending') }}">✓ {{ stats.pending }} entrega(s) para aprovar</a>
-    {% endif %}
-    <a class="btn ghost" href="{{ url_for('admin_cycles') }}">＋ Novo ciclo</a>
+  <div>
+    <span class="eyebrow">PAINEL ADMINISTRATIVO</span>
+    <h1>Central IRON</h1>
+    <p>Cada função do sistema está separada em sua própria área.</p>
   </div>
 </section>
+
 <section class="stats">
-  <div><strong>{{ stats.users }}</strong><span>USUÁRIOS</span></div>
-  <div><strong class="yellow">{{ stats.pending }}</strong><span>PENDENTES</span></div>
-  <div><strong class="green">{{ stats.approved }}</strong><span>APROVADAS</span></div>
-  <div><strong>{{ stats.cycles }}</strong><span>CICLOS</span></div>
+  <div><strong>{{ stats.users }}</strong><span>MEMBROS</span></div>
+  <div><strong class="yellow">{{ stats.pending_users }}</strong><span>CADASTROS PENDENTES</span></div>
+  <div><strong class="yellow">{{ stats.pending }}</strong><span>ENTREGAS EM ANÁLISE</span></div>
+  <div><strong class="green">{{ stats.approved }}</strong><span>ENTREGAS APROVADAS</span></div>
 </section>
 
-<section class="panel">
-  <div class="panel-head">
-    <div><span class="eyebrow">CICLO ATIVO</span><h2>{{ cycle['title'] if cycle else 'Nenhum ciclo ativo' }}</h2></div>
-    <a href="{{ url_for('admin_cycles') }}">Gerenciar ciclos</a>
-  </div>
+<section class="admin-area-grid">
+  <a class="admin-area-card" href="{{ url_for('admin_members') }}">
+    <span class="admin-area-icon">♟</span>
+    <div><strong>Membros</strong><small>Uma pasta individual para cada membro, com progresso, metas e histórico.</small></div>
+    <b>→</b>
+  </a>
+
+  <a class="admin-area-card" href="{{ url_for('admin_registrations') }}">
+    <span class="admin-area-icon">＋</span>
+    <div><strong>Cadastros</strong><small>Somente pedidos de novos membros aguardando aprovação.</small></div>
+    <b>→</b>
+  </a>
+
+  <a class="admin-area-card" href="{{ url_for('admin_cycles') }}">
+    <span class="admin-area-icon">◎</span>
+    <div><strong>Ciclos e Metas</strong><small>Criação dos ciclos e definição dos itens que todos devem cumprir.</small></div>
+    <b>→</b>
+  </a>
+
+  <a class="admin-area-card" href="{{ url_for('admin_submissions') }}">
+    <span class="admin-area-icon">✓</span>
+    <div><strong>Entregas</strong><small>Aprovar ou reprovar somente os registros enviados pelos membros.</small></div>
+    <b>→</b>
+  </a>
+
+  <a class="admin-area-card" href="{{ url_for('admin_permissions') }}">
+    <span class="admin-area-icon">◇</span>
+    <div><strong>Permissões</strong><small>Defina quem pode acessar o Painel Admin. Nada de metas aqui.</small></div>
+    <b>→</b>
+  </a>
 </section>
 
+{% if cycle %}
 <section class="panel">
   <div class="panel-head">
-    <div><span class="eyebrow">ENTREGAS</span><h2>Atividade recente</h2></div>
-    <a href="{{ url_for('admin_submissions') }}">Ver todas</a>
-  </div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Usuário</th><th>Meta</th><th>Valor</th><th>Status</th><th>Anexo</th></tr></thead>
-      <tbody>
-      {% for s in recent %}
-      <tr>
-        <td>{{ s['user_name'] }}</td><td>{{ s['goal_title'] }}</td>
-        <td>{{ money(s['amount']) if s['unit']=='R$' else (s['amount']|int|string + ' ' + s['unit']) }}</td>
-        <td><span class="status {{ s['status'] }}">{{ s['status'] }}</span></td>
-        <td>{% if s['has_image'] %}<a target="_blank" href="{{ url_for('submission_image', submission_id=s['id']) }}">Ver</a>{% else %}—{% endif %}</td>
-      </tr>
-      {% else %}<tr><td colspan="5">Sem entregas.</td></tr>{% endfor %}
-      </tbody>
-    </table>
+    <div><span class="eyebrow">CICLO ATIVO</span><h2>{{ cycle['title'] }}</h2><p>{{ cycle['start_date'] }} até {{ cycle['end_date'] }}</p></div>
+    <a class="btn ghost" href="{{ url_for('admin_cycle_detail', cycle_id=cycle['id']) }}">Abrir ciclo</a>
   </div>
 </section>
+{% endif %}
 {% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Admin · Membros{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <span class="eyebrow">MEMBROS</span>
+    <h1>Pastas individuais</h1>
+    <p>Cada membro tem sua própria área de acompanhamento, separada dos demais.</p>
+  </div>
+  <a class="btn ghost" href="{{ url_for('admin_registrations') }}">Ver solicitações de cadastro</a>
+</section>
+
+{% if cycle %}
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">CICLO ATUAL</span>
+      <h2>{{ cycle['title'] }}</h2>
+      <p>{{ cycle['start_date'] }} até {{ cycle['end_date'] }}</p>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section class="member-folder-grid">
+  {% for m in members %}
+  <article class="member-folder">
+    <div class="member-folder-head">
+      <div class="avatar-silver">{{ m['name'][:1]|upper }}</div>
+      <div>
+        <h3>{{ m['name'] }}</h3>
+        <p>{{ m['email'] }}</p>
+      </div>
+      <span class="status {{ 'approved' if m['active'] else 'rejected' }}">{{ 'ATIVO' if m['active'] else 'BLOQUEADO' }}</span>
+    </div>
+
+    <div class="folder-progress">
+      <div class="folder-progress-row">
+        <span>Progresso do ciclo</span>
+        <strong>{{ m['percent'] }}%</strong>
+      </div>
+      <div class="progress"><i style="width:{{ m['percent'] }}%"></i></div>
+    </div>
+
+    <div class="folder-stats">
+      <div><span>Aprovado</span><strong>{{ "%.2f"|format(m['approved_total']) }}</strong></div>
+      <div><span>Falta</span><strong>{{ "%.2f"|format(m['remaining']) }}</strong></div>
+      <div><span>Em análise</span><strong>{{ "%.2f"|format(m['pending_total']) }}</strong></div>
+    </div>
+
+    <a class="btn primary folder-open" href="{{ url_for('admin_member_detail', user_id=m['id']) }}">Abrir pasta do membro</a>
+  </article>
+  {% else %}
+  <div class="panel empty">
+    <h2>Nenhum membro aprovado</h2>
+    <p>Quando você aprovar um cadastro, o membro aparecerá aqui.</p>
+  </div>
+  {% endfor %}
+</section>
+{% endblock %}

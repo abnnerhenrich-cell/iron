@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Admin · Permissões{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <span class="eyebrow">PERMISSÕES</span>
+    <h1>Acessos administrativos</h1>
+    <p>Esta área serve somente para definir quem pode ou não entrar no Painel Admin.</p>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil atual</th><th>Status</th><th>Ação</th></tr></thead>
+      <tbody>
+      {% for u in users %}
+      <tr>
+        <td>{{ u['name'] }}</td>
+        <td>{{ u['email'] }}</td>
+        <td><span class="status {{ 'approved' if u['role']=='admin' else 'pending' }}">{{ 'ADMIN' if u['role']=='admin' else 'MEMBRO' }}</span></td>
+        <td>{{ 'Ativo' if u['active'] else 'Bloqueado' }}</td>
+        <td>
+          {% if u['id'] == current_user['id'] %}
+            <span class="muted">Sua conta</span>
+          {% elif u['role']=='admin' %}
+            <form method="post" action="{{ url_for('admin_user_remove_admin', user_id=u['id']) }}">
+              <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+              <button class="btn danger" type="submit">Remover Admin</button>
+            </form>
+          {% else %}
+            <form method="post" action="{{ url_for('admin_user_make_admin', user_id=u['id']) }}">
+              <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+              <button class="btn primary" type="submit">Dar acesso Admin</button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

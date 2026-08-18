@@ -585,7 +585,7 @@ def submission_image(submission_id):
 def admin_dashboard():
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) AS c FROM users WHERE role='user'")
+            cur.execute("SELECT COUNT(*) AS c FROM users WHERE role='user' AND approved=TRUE")
             users = cur.fetchone()["c"]
             cur.execute("SELECT COUNT(*) AS c FROM submissions WHERE status='pending'")
             pending = cur.fetchone()["c"]
@@ -776,22 +776,71 @@ def admin_registrations():
             users = cur.fetchall()
     return render_template("admin_registrations.html", users=users)
 
-@app.route("/admin/users")
+@app.route("/admin/members")
 @admin_required
-def admin_users():
+def admin_members():
     with get_conn() as conn:
         with conn.cursor() as cur:
+            cur.execute("SELECT * FROM cycles WHERE active=TRUE ORDER BY id DESC LIMIT 1")
+            cycle = cur.fetchone()
+
             cur.execute("""
-                SELECT u.*,
-                       COUNT(s.id) AS submissions_count,
-                       COUNT(s.id) FILTER (WHERE s.status='approved') AS approved_count
-                FROM users u
-                LEFT JOIN submissions s ON s.user_id=u.id
-                GROUP BY u.id
-                ORDER BY u.id DESC
+                SELECT id, name, email, active, approved, created_at
+                FROM users
+                WHERE role='user' AND approved=TRUE
+                ORDER BY name ASC
             """)
-            users = cur.fetchall()
-    return render_template("admin_users.html", users=users)
+            members = cur.fetchall()
+
+            rows = []
+            for member in members:
+                total_target = 0.0
+                total_approved = 0.0
+                total_pending = 0.0
+
+                if cycle:
+                    cur.execute("""
+                        SELECT
+                            COALESCE(SUM(g.target),0) AS target,
+                            COALESCE(SUM((
+                                SELECT COALESCE(SUM(s.amount),0)
+                                FROM submissions s
+                                WHERE s.goal_id=g.id
+                                  AND s.user_id=%s
+                                  AND s.status='approved'
+                            )),0) AS approved,
+                            COALESCE(SUM((
+                                SELECT COALESCE(SUM(s.amount),0)
+                                FROM submissions s
+                                WHERE s.goal_id=g.id
+                                  AND s.user_id=%s
+                                  AND s.status='pending'
+                            )),0) AS pending
+                        FROM goals g
+                        WHERE g.cycle_id=%s
+                    """, (member["id"], member["id"], cycle["id"]))
+                    totals = cur.fetchone()
+                    total_target = float(totals["target"] or 0)
+                    total_approved = float(totals["approved"] or 0)
+                    total_pending = float(totals["pending"] or 0)
+
+                percent = min(100, round((total_approved / total_target) * 100)) if total_target else 0
+                rows.append({
+                    "id": member["id"],
+                    "name": member["name"],
+                    "email": member["email"],
+                    "active": member["active"],
+                    "approved": member["approved"],
+                    "created_at": member["created_at"],
+                    "target": total_target,
+                    "approved_total": total_approved,
+                    "pending_total": total_pending,
+                    "percent": percent,
+                    "remaining": max(total_target - total_approved, 0),
+                })
+
+    return render_template("admin_members.html", members=rows, cycle=cycle)
+
 
 @app.route("/admin/members/<int:user_id>")
 @admin_required
@@ -799,7 +848,77 @@ def admin_member_detail(user_id):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT id, name, email, role, active, approved, created_at
+                SELECT id, name, email, active, approved, created_at
+                FROM users
+                WHERE id=%s AND role='user'
+            """, (user_id,))
+            member = cur.fetchone()
+            if not member:
+                abort(404)
+
+            cur.execute("SELECT * FROM cycles WHERE active=TRUE ORDER BY id DESC LIMIT 1")
+            cycle = cur.fetchone()
+
+            total_target = total_approved = total_pending = 0.0
+            goals_completed = goals_total = 0
+
+            if cycle:
+                cur.execute("""
+                    SELECT g.id, g.target,
+                           COALESCE(SUM(CASE WHEN s.status='approved' THEN s.amount ELSE 0 END),0) AS approved,
+                           COALESCE(SUM(CASE WHEN s.status='pending' THEN s.amount ELSE 0 END),0) AS pending
+                    FROM goals g
+                    LEFT JOIN submissions s ON s.goal_id=g.id AND s.user_id=%s
+                    WHERE g.cycle_id=%s
+                    GROUP BY g.id
+                    ORDER BY g.sort_order, g.id
+                """, (user_id, cycle["id"]))
+                goal_rows = cur.fetchall()
+                goals_total = len(goal_rows)
+                for g in goal_rows:
+                    target = float(g["target"] or 0)
+                    approved = float(g["approved"] or 0)
+                    pending = float(g["pending"] or 0)
+                    total_target += target
+                    total_approved += approved
+                    total_pending += pending
+                    if target > 0 and approved >= target:
+                        goals_completed += 1
+
+            overall = min(100, round((total_approved / total_target) * 100)) if total_target else 0
+
+            cur.execute("""
+                SELECT COUNT(*) FILTER (WHERE status='pending') AS pending_count,
+                       COUNT(*) FILTER (WHERE status='approved') AS approved_count,
+                       COUNT(*) FILTER (WHERE status='rejected') AS rejected_count,
+                       COUNT(*) AS total_count
+                FROM submissions
+                WHERE user_id=%s
+            """, (user_id,))
+            submission_counts = cur.fetchone()
+
+    return render_template(
+        "admin_member_detail.html",
+        member=member,
+        cycle=cycle,
+        overall=overall,
+        total_target=total_target,
+        total_approved=total_approved,
+        total_pending=total_pending,
+        remaining=max(total_target-total_approved, 0),
+        goals_completed=goals_completed,
+        goals_total=goals_total,
+        submission_counts=submission_counts
+    )
+
+
+@app.route("/admin/members/<int:user_id>/goals")
+@admin_required
+def admin_member_goals(user_id):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, name, email, active, approved
                 FROM users
                 WHERE id=%s AND role='user'
             """, (user_id,))
@@ -810,10 +929,6 @@ def admin_member_detail(user_id):
             cur.execute("SELECT * FROM cycles WHERE active=TRUE ORDER BY id DESC LIMIT 1")
             cycle = cur.fetchone()
             goals = []
-            overall = 0
-            total_target = 0.0
-            total_approved = 0.0
-            total_pending = 0.0
 
             if cycle:
                 cur.execute("""
@@ -827,11 +942,40 @@ def admin_member_detail(user_id):
                     GROUP BY g.id
                     ORDER BY g.sort_order, g.id
                 """, (user_id, cycle["id"]))
-                goals = cur.fetchall()
-                total_target = sum(float(g["target"] or 0) for g in goals)
-                total_approved = sum(float(g["approved"] or 0) for g in goals)
-                total_pending = sum(float(g["pending"] or 0) for g in goals)
-                overall = min(100, round((total_approved / total_target) * 100)) if total_target else 0
+                rows = cur.fetchall()
+
+                for g in rows:
+                    target = float(g["target"] or 0)
+                    approved = float(g["approved"] or 0)
+                    pending = float(g["pending"] or 0)
+                    remaining = max(target-approved, 0)
+                    percent = min(100, round((approved/target)*100)) if target else 0
+                    goals.append({
+                        **dict(g),
+                        "target_f": target,
+                        "approved_f": approved,
+                        "pending_f": pending,
+                        "remaining": remaining,
+                        "percent": percent,
+                        "complete": target > 0 and approved >= target,
+                    })
+
+    return render_template("admin_member_goals.html", member=member, cycle=cycle, goals=goals)
+
+
+@app.route("/admin/members/<int:user_id>/history")
+@admin_required
+def admin_member_history(user_id):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, name, email, active, approved
+                FROM users
+                WHERE id=%s AND role='user'
+            """, (user_id,))
+            member = cur.fetchone()
+            if not member:
+                abort(404)
 
             cur.execute("""
                 SELECT s.id, s.amount, s.note, s.status, s.admin_note,
@@ -839,22 +983,39 @@ def admin_member_detail(user_id):
                        ((b.image_data IS NOT NULL) OR (s.image_data IS NOT NULL)) AS has_image,
                        ((b.image2_data IS NOT NULL) OR (s.image2_data IS NOT NULL)) AS has_image2,
                        ((b.image3_data IS NOT NULL) OR (s.image3_data IS NOT NULL)) AS has_image3,
-                       g.title AS goal_title, g.unit, c.title AS cycle_title
+                       g.title AS goal_title, g.unit,
+                       c.title AS cycle_title
                 FROM submissions s
                 JOIN goals g ON g.id=s.goal_id
                 JOIN cycles c ON c.id=g.cycle_id
                 LEFT JOIN delivery_batches b ON b.id=s.batch_id
                 WHERE s.user_id=%s
-                ORDER BY s.id DESC
+                ORDER BY s.created_at DESC, s.id DESC
             """, (user_id,))
             history = cur.fetchall()
 
-    return render_template(
-        "admin_member_detail.html",
-        member=member, cycle=cycle, goals=goals, history=history,
-        overall=overall, total_target=total_target,
-        total_approved=total_approved, total_pending=total_pending
-    )
+    return render_template("admin_member_history.html", member=member, history=history)
+
+
+@app.route("/admin/permissions")
+@admin_required
+def admin_permissions():
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, name, email, role, active, approved, created_at
+                FROM users
+                WHERE approved=TRUE
+                ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END, name ASC
+            """)
+            users = cur.fetchall()
+    return render_template("admin_permissions.html", users=users)
+
+
+@app.route("/admin/users")
+@admin_required
+def admin_users():
+    return redirect(url_for("admin_members"))
 
 
 @app.post("/admin/users/<int:user_id>/toggle")
@@ -916,7 +1077,7 @@ def admin_user_make_admin(user_id):
             """, (user_id,))
         conn.commit()
     flash("Permissão de administrador concedida.", "success")
-    return redirect(url_for("admin_users"))
+    return redirect(url_for("admin_permissions"))
 
 @app.post("/admin/users/<int:user_id>/remove-admin")
 @admin_required
@@ -934,7 +1095,7 @@ def admin_user_remove_admin(user_id):
             """, (user_id,))
         conn.commit()
     flash("Permissão administrativa removida. A conta voltou a ser membro.", "success")
-    return redirect(url_for("admin_users"))
+    return redirect(url_for("admin_permissions"))
 
 @app.errorhandler(413)
 def too_large(_):

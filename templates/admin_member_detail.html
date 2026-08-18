@@ -1,76 +1,67 @@
 {% extends "base.html" %}
 {% block title %}Admin · {{ member['name'] }}{% endblock %}
 {% block content %}
-<section class="hero member-hero">
+<section class="hero">
   <div>
-    <span class="eyebrow">PASTA INDIVIDUAL DO MEMBRO</span>
+    <span class="eyebrow">PASTA INDIVIDUAL</span>
     <h1>{{ member['name'] }}</h1>
-    <p>{{ member['email'] }} · {{ 'Ativo' if member['active'] else 'Bloqueado' }} · {{ 'Aprovado' if member['approved'] else 'Aguardando aprovação' }}</p>
+    <p>{{ member['email'] }}</p>
   </div>
-  <div class="hero-actions"><a class="btn ghost" href="{{ url_for('admin_users') }}">← Voltar aos membros</a></div>
+  <a class="btn ghost" href="{{ url_for('admin_members') }}">← Voltar para membros</a>
 </section>
 
-{% if cycle %}
+<nav class="member-tabs">
+  <a class="active" href="{{ url_for('admin_member_detail', user_id=member['id']) }}">Resumo</a>
+  <a href="{{ url_for('admin_member_goals', user_id=member['id']) }}">Metas do ciclo</a>
+  <a href="{{ url_for('admin_member_history', user_id=member['id']) }}">Histórico</a>
+</nav>
+
 <section class="member-summary">
-  <div class="summary-card"><span>Ciclo atual</span><strong>{{ cycle['title'] }}</strong><small>{{ cycle['start_date'] }} até {{ cycle['end_date'] }}</small></div>
-  <div class="summary-card"><span>Progresso geral</span><strong>{{ overall }}%</strong><div class="progress"><i style="width:{{ overall }}%"></i></div></div>
-  <div class="summary-card"><span>Entregue e aprovado</span><strong>{{ "%.2f"|format(total_approved) }}</strong><small>de {{ "%.2f"|format(total_target) }} no total</small></div>
-  <div class="summary-card"><span>Em análise</span><strong>{{ "%.2f"|format(total_pending) }}</strong><small>aguardando revisão</small></div>
+  <div class="summary-card">
+    <span>Progresso geral</span>
+    <strong>{{ overall }}%</strong>
+    <div class="progress"><i style="width:{{ overall }}%"></i></div>
+  </div>
+  <div class="summary-card">
+    <span>Metas completas</span>
+    <strong>{{ goals_completed }}/{{ goals_total }}</strong>
+    <small>no ciclo atual</small>
+  </div>
+  <div class="summary-card">
+    <span>Total aprovado</span>
+    <strong>{{ "%.2f"|format(total_approved) }}</strong>
+    <small>de {{ "%.2f"|format(total_target) }}</small>
+  </div>
+  <div class="summary-card">
+    <span>Ainda falta</span>
+    <strong>{{ "%.2f"|format(remaining) }}</strong>
+    <small>para completar o ciclo</small>
+  </div>
+</section>
+
+<section class="section-choice-grid">
+  <a class="section-choice" href="{{ url_for('admin_member_goals', user_id=member['id']) }}">
+    <span class="section-choice-icon">◎</span>
+    <div><strong>Metas do ciclo</strong><small>Veja item por item, quanto completou e quanto falta.</small></div>
+    <b>→</b>
+  </a>
+  <a class="section-choice" href="{{ url_for('admin_member_history', user_id=member['id']) }}">
+    <span class="section-choice-icon">◔</span>
+    <div><strong>Histórico de entregas</strong><small>Todos os registros deste membro, separados por data e status.</small></div>
+    <b>→</b>
+  </a>
 </section>
 
 <section class="panel">
-  <div class="section-head">
-    <div><span class="eyebrow">METAS DO MEMBRO</span><h2>O que completou e o que falta</h2></div>
+  <div class="panel-head">
+    <div><span class="eyebrow">SITUAÇÃO</span><h2>Status do membro</h2></div>
   </div>
-  <div class="goal-admin-grid">
-    {% for g in goals %}
-      {% set target = g['target']|float %}
-      {% set approved = g['approved']|float %}
-      {% set pending = g['pending']|float %}
-      {% set remaining = [target-approved, 0]|max %}
-      {% set pct = [((approved/target)*100)|round|int if target else 0, 100]|min %}
-      <article class="goal-admin-card {{ 'goal-complete' if remaining <= 0 else '' }}">
-        <div class="goal-admin-top">
-          <div><span class="goal-icon">{{ g['icon'] }}</span><strong>{{ g['title'] }}</strong><small>{{ g['category'] }}</small></div>
-          <span class="status {{ 'approved' if remaining <= 0 else 'pending' }}">{{ 'COMPLETA' if remaining <= 0 else 'EM ANDAMENTO' }}</span>
-        </div>
-        <div class="progress"><i style="width:{{ pct }}%"></i></div>
-        <div class="goal-numbers">
-          <div><span>Meta</span><strong>{{ g['target'] }} {{ g['unit'] }}</strong></div>
-          <div><span>Aprovado</span><strong>{{ g['approved'] }} {{ g['unit'] }}</strong></div>
-          <div><span>Falta</span><strong>{{ remaining }} {{ g['unit'] }}</strong></div>
-          <div><span>Em análise</span><strong>{{ g['pending'] }} {{ g['unit'] }}</strong></div>
-        </div>
-      </article>
-    {% else %}
-      <p class="muted">Este ciclo ainda não possui metas.</p>
-    {% endfor %}
-  </div>
-</section>
-{% else %}
-<section class="panel"><h2>Nenhum ciclo ativo</h2><p class="muted">Ative um ciclo para acompanhar o progresso individual deste membro.</p></section>
-{% endif %}
-
-<section class="panel">
-  <div class="section-head"><div><span class="eyebrow">HISTÓRICO INDIVIDUAL</span><h2>Todos os registros de {{ member['name'] }}</h2></div></div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Data</th><th>Ciclo</th><th>Meta</th><th>Quantidade</th><th>Status</th><th>Observação</th></tr></thead>
-      <tbody>
-      {% for s in history %}
-      <tr>
-        <td>{{ s['created_at']|dt }}</td>
-        <td>{{ s['cycle_title'] }}</td>
-        <td>{{ s['goal_title'] }}</td>
-        <td><strong>{{ s['amount'] }} {{ s['unit'] }}</strong></td>
-        <td><span class="status {{ s['status'] }}">{{ {'approved':'APROVADA','pending':'EM ANÁLISE','rejected':'RECUSADA'}.get(s['status'], s['status']) }}</span></td>
-        <td>{{ s['note'] or '—' }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="6" class="muted">Nenhuma entrega registrada por este membro.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+  <div class="status-strip">
+    <div><span>Conta</span><strong>{{ 'ATIVA' if member['active'] else 'BLOQUEADA' }}</strong></div>
+    <div><span>Aprovação</span><strong>{{ 'APROVADO' if member['approved'] else 'PENDENTE' }}</strong></div>
+    <div><span>Entregas aprovadas</span><strong>{{ submission_counts['approved_count'] or 0 }}</strong></div>
+    <div><span>Em análise</span><strong>{{ submission_counts['pending_count'] or 0 }}</strong></div>
+    <div><span>Recusadas</span><strong>{{ submission_counts['rejected_count'] or 0 }}</strong></div>
   </div>
 </section>
 {% endblock %}

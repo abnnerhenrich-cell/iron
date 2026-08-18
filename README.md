@@ -128,3 +128,20 @@ Corrigidos:
 - `TypeError: 'datetime.datetime' object is not subscriptable` no dashboard.
 - `jinja2.exceptions.TemplateSyntaxError: unexpected '}'` no cadastro.
 - Todos os templates Jinja foram validados antes da geração do pacote.
+
+
+## Painel Admin reorganizado
+
+Esta versão separa completamente as funções administrativas:
+
+- Resumo: apenas visão geral.
+- Membros: uma pasta separada para cada membro aprovado.
+- Cadastros: apenas solicitações pendentes.
+- Ciclos e Metas: somente criação e edição das metas gerais.
+- Entregas: somente aprovação/reprovação dos envios.
+- Permissões: somente concessão/remoção de acesso Admin.
+
+Dentro de cada membro existem três telas independentes:
+- Resumo individual.
+- Metas do ciclo.
+- Histórico individual.

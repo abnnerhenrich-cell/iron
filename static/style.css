@@ -165,3 +165,140 @@ body{
  .member-summary,.goal-admin-grid{grid-template-columns:1fr}
  .goal-numbers{grid-template-columns:repeat(2,1fr)}
 }
+
+
+/* =========================================================
+   ADMIN REESTRUTURADO — cada função em sua própria área
+   ========================================================= */
+.admin-section-nav{
+  position:sticky;top:76px;z-index:18;
+  display:flex;gap:8px;overflow-x:auto;
+  padding:10px 22px;
+  background:rgba(5,5,5,.96);
+  border-bottom:1px solid #232323;
+  scrollbar-width:none
+}
+.admin-section-nav::-webkit-scrollbar{display:none}
+.admin-section-nav a{
+  white-space:nowrap;padding:9px 13px;border-radius:9px;
+  color:#8f949b;font-size:12px;font-weight:800;border:1px solid transparent
+}
+.admin-section-nav a:hover,.admin-section-nav a.active{
+  color:#f1f3f5;background:#17191c;border-color:#3b4047
+}
+
+.admin-area-grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:22px
+}
+.admin-area-card{
+  min-height:118px;display:grid;grid-template-columns:52px 1fr auto;
+  gap:14px;align-items:center;padding:20px;
+  background:linear-gradient(145deg,#17191c,#0b0c0e);
+  border:1px solid #333840;border-radius:16px;
+  transition:.18s ease
+}
+.admin-area-card:hover{transform:translateY(-2px);border-color:#707780}
+.admin-area-card strong{display:block;color:#f4f5f6;font-size:18px}
+.admin-area-card small{display:block;color:#949aa2;line-height:1.45;margin-top:5px}
+.admin-area-card>b{font-size:24px;color:#d5d9dd}
+.admin-area-icon,.section-choice-icon{
+  width:46px;height:46px;display:grid;place-items:center;
+  border-radius:12px;background:#0b0c0e;border:1px solid #41464e;
+  color:#e5e7ea;font-size:21px
+}
+
+.member-folder-grid{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:24px
+}
+.member-folder{
+  background:linear-gradient(150deg,#17191c,#0b0c0e);
+  border:1px solid #343941;border-radius:17px;padding:18px
+}
+.member-folder-head{
+  display:grid;grid-template-columns:48px 1fr auto;gap:12px;align-items:center
+}
+.member-folder-head h3{margin:0;font-size:18px}
+.member-folder-head p{margin:3px 0 0;color:#9298a0;font-size:12px}
+.avatar-silver{
+  width:48px;height:48px;border-radius:14px;display:grid;place-items:center;
+  background:linear-gradient(145deg,#d5d9de,#747b84);color:#070809;
+  font-weight:950;font-size:20px
+}
+.folder-progress{margin:18px 0 14px}
+.folder-progress-row{display:flex;justify-content:space-between;color:#9ca2aa;font-size:12px}
+.folder-progress-row strong{color:#f1f3f5}
+.folder-stats{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px
+}
+.folder-stats div{
+  background:#0b0c0e;border:1px solid #252930;border-radius:11px;padding:10px
+}
+.folder-stats span{display:block;color:#858c95;font-size:10px;text-transform:uppercase}
+.folder-stats strong{display:block;color:#eceff2;margin-top:5px;font-size:14px}
+.folder-open{width:100%}
+
+.member-tabs{
+  display:flex;gap:8px;overflow-x:auto;margin:-5px 0 18px;
+  padding:4px 0 8px;scrollbar-width:none
+}
+.member-tabs::-webkit-scrollbar{display:none}
+.member-tabs a{
+  white-space:nowrap;padding:10px 14px;border-radius:10px;
+  border:1px solid #30353c;background:#101215;color:#9298a0;
+  font-size:12px;font-weight:850
+}
+.member-tabs a.active{color:#070809;background:linear-gradient(180deg,#e2e5e8,#969da5);border-color:#c8cdd2}
+
+.member-summary{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px
+}
+.summary-card{
+  background:linear-gradient(145deg,#17191c,#0b0c0e);
+  border:1px solid #353a42;border-radius:15px;padding:17px
+}
+.summary-card>span{display:block;color:#8d949d;font-size:10px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+.summary-card>strong{display:block;color:#f0f2f4;font-size:25px;margin:8px 0}
+.summary-card>small{color:#969ca4}
+
+.section-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin-bottom:22px}
+.section-choice{
+  display:grid;grid-template-columns:46px 1fr auto;align-items:center;gap:13px;
+  background:#111316;border:1px solid #343941;border-radius:14px;padding:16px
+}
+.section-choice strong{display:block;color:#f0f2f4}
+.section-choice small{display:block;color:#9298a1;margin-top:4px;line-height:1.4}
+.section-choice>b{font-size:22px;color:#d2d6da}
+
+.status-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.status-strip div{background:#0b0c0e;border:1px solid #252a30;border-radius:11px;padding:12px}
+.status-strip span{display:block;color:#818891;font-size:10px;text-transform:uppercase}
+.status-strip strong{display:block;color:#eceff2;margin-top:5px}
+
+.goal-admin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.goal-admin-card{
+  background:linear-gradient(145deg,#17191c,#0b0c0e);
+  border:1px solid #343941;border-radius:15px;padding:16px
+}
+.goal-admin-card.goal-complete{border-color:#89919a}
+.goal-admin-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.goal-admin-top>div{display:grid;grid-template-columns:auto 1fr;column-gap:10px}
+.goal-admin-top .goal-icon{grid-row:1/3}
+.goal-admin-top small{grid-column:2;color:#8c939c}
+.goal-numbers{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.goal-numbers div{background:#0a0b0d;border:1px solid #23272d;border-radius:10px;padding:9px}
+.goal-numbers span{display:block;color:#858c95;font-size:9px;text-transform:uppercase}
+.goal-numbers strong{display:block;color:#eceff2;margin-top:4px;font-size:12px}
+
+@media(max-width:900px){
+  .admin-area-grid,.member-folder-grid,.section-choice-grid,.goal-admin-grid{grid-template-columns:1fr}
+  .member-summary{grid-template-columns:repeat(2,1fr)}
+  .status-strip{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:800px){
+  .admin-section-nav{top:62px;padding:8px 12px}
+  .member-folder-head{grid-template-columns:44px 1fr}
+  .member-folder-head .status{grid-column:1/-1;width:max-content}
+  .folder-stats{grid-template-columns:1fr 1fr 1fr}
+  .member-summary{grid-template-columns:1fr 1fr}
+  .goal-numbers{grid-template-columns:1fr 1fr}
+}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Admin · Histórico de {{ member['name'] }}{% endblock %}
+{% block content %}
+<section class="hero">
+  <div><span class="eyebrow">HISTÓRICO DO MEMBRO</span><h1>{{ member['name'] }}</h1><p>Todos os registros ficam somente nesta pasta.</p></div>
+  <a class="btn ghost" href="{{ url_for('admin_members') }}">← Membros</a>
+</section>
+
+<nav class="member-tabs">
+  <a href="{{ url_for('admin_member_detail', user_id=member['id']) }}">Resumo</a>
+  <a href="{{ url_for('admin_member_goals', user_id=member['id']) }}">Metas do ciclo</a>
+  <a class="active" href="{{ url_for('admin_member_history', user_id=member['id']) }}">Histórico</a>
+</nav>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Data</th><th>Ciclo</th><th>Meta</th><th>Quantidade</th><th>Status</th><th>Comprovante</th><th>Observação</th></tr>
+      </thead>
+      <tbody>
+      {% for s in history %}
+      <tr>
+        <td>{{ s['created_at']|dt }}</td>
+        <td>{{ s['cycle_title'] }}</td>
+        <td>{{ s['goal_title'] }}</td>
+        <td><strong>{{ s['amount'] }} {{ s['unit'] }}</strong></td>
+        <td><span class="status {{ s['status'] }}">{{ {'approved':'APROVADA','pending':'EM ANÁLISE','rejected':'RECUSADA'}.get(s['status'], s['status']) }}</span></td>
+        <td>
+          {% if s['has_image'] %}
+          <a href="{{ url_for('submission_image', submission_id=s['id'], index=1) }}" target="_blank">Abrir foto</a>
+          {% else %}—{% endif %}
+        </td>
+        <td>{{ s['note'] or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="muted">Nenhum registro encontrado.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

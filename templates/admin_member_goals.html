@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Admin · Metas de {{ member['name'] }}{% endblock %}
+{% block content %}
+<section class="hero">
+  <div><span class="eyebrow">METAS DO MEMBRO</span><h1>{{ member['name'] }}</h1><p>Progresso separado, item por item.</p></div>
+  <a class="btn ghost" href="{{ url_for('admin_members') }}">← Membros</a>
+</section>
+
+<nav class="member-tabs">
+  <a href="{{ url_for('admin_member_detail', user_id=member['id']) }}">Resumo</a>
+  <a class="active" href="{{ url_for('admin_member_goals', user_id=member['id']) }}">Metas do ciclo</a>
+  <a href="{{ url_for('admin_member_history', user_id=member['id']) }}">Histórico</a>
+</nav>
+
+{% if cycle %}
+<section class="panel">
+  <div class="panel-head">
+    <div><span class="eyebrow">CICLO ATUAL</span><h2>{{ cycle['title'] }}</h2><p>{{ cycle['start_date'] }} até {{ cycle['end_date'] }}</p></div>
+  </div>
+
+  <div class="goal-admin-grid">
+    {% for g in goals %}
+    <article class="goal-admin-card {{ 'goal-complete' if g['complete'] else '' }}">
+      <div class="goal-admin-top">
+        <div>
+          <span class="goal-icon">{{ g['icon'] }}</span>
+          <strong>{{ g['title'] }}</strong>
+          <small>{{ g['category'] }}</small>
+        </div>
+        <span class="status {{ 'approved' if g['complete'] else 'pending' }}">{{ 'COMPLETA' if g['complete'] else 'EM ANDAMENTO' }}</span>
+      </div>
+
+      <div class="progress"><i style="width:{{ g['percent'] }}%"></i></div>
+
+      <div class="goal-numbers">
+        <div><span>Meta</span><strong>{{ g['target'] }} {{ g['unit'] }}</strong></div>
+        <div><span>Aprovado</span><strong>{{ g['approved'] }} {{ g['unit'] }}</strong></div>
+        <div><span>Falta</span><strong>{{ g['remaining'] }} {{ g['unit'] }}</strong></div>
+        <div><span>Em análise</span><strong>{{ g['pending'] }} {{ g['unit'] }}</strong></div>
+      </div>
+    </article>
+    {% else %}
+      <p class="muted">Este ciclo ainda não possui metas.</p>
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<section class="panel empty"><h2>Nenhum ciclo ativo</h2><p>Ative um ciclo para visualizar as metas deste membro.</p></section>
+{% endif %}
+{% endblock %}
