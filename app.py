@@ -229,7 +229,7 @@ def active_cycle_with_goals(user_id=None):
                     FROM goals g
                     LEFT JOIN submissions s ON s.goal_id=g.id
                     WHERE g.cycle_id=%s
-                      AND (g.user_id IS NULL OR g.user_id=%s)
+                      AND g.user_id=%s
                     GROUP BY g.id
                     ORDER BY g.sort_order, g.id
                 """, (user_id or -1, user_id or -1, cycle["id"], user_id or -1))
@@ -781,11 +781,18 @@ def admin_cycle_detail(cycle_id):
                     cur.execute("SELECT COALESCE(MAX(sort_order),0)+1 AS n FROM goals WHERE cycle_id=%s", (cycle_id,))
                     max_order = cur.fetchone()["n"]
                     member_id = request.form.get("member_id", type=int)
-                    if member_id:
-                        cur.execute("SELECT 1 FROM users WHERE id=%s AND approved=TRUE", (member_id,))
-                        if not cur.fetchone():
-                            flash("Membro inválido.", "danger")
-                            return redirect(url_for("admin_cycle_detail", cycle_id=cycle_id))
+                    if not member_id:
+                        flash("Escolha o membro que receberá esta meta.", "danger")
+                        return redirect(url_for("admin_cycle_detail", cycle_id=cycle_id))
+
+                    cur.execute("""
+                        SELECT 1
+                        FROM users
+                        WHERE id=%s AND approved=TRUE
+                    """, (member_id,))
+                    if not cur.fetchone():
+                        flash("Membro inválido.", "danger")
+                        return redirect(url_for("admin_cycle_detail", cycle_id=cycle_id))
 
                     cur.execute("""
                         INSERT INTO goals(cycle_id,title,category,target,unit,icon,sort_order,user_id)
@@ -944,7 +951,7 @@ def admin_members():
                             )),0) AS pending
                         FROM goals g
                         WHERE g.cycle_id=%s
-                          AND (g.user_id IS NULL OR g.user_id=%s)
+                          AND g.user_id=%s
                     """, (member["id"], member["id"], cycle["id"], member["id"]))
                     totals = cur.fetchone()
                     total_target = float(totals["target"] or 0)
@@ -999,7 +1006,7 @@ def admin_member_detail(user_id):
                     FROM goals g
                     LEFT JOIN submissions s ON s.goal_id=g.id AND s.user_id=%s
                     WHERE g.cycle_id=%s
-                      AND (g.user_id IS NULL OR g.user_id=%s)
+                      AND g.user_id=%s
                     GROUP BY g.id
                     ORDER BY g.sort_order, g.id
                 """, (user_id, cycle["id"], user_id))
@@ -1070,7 +1077,7 @@ def admin_member_goals(user_id):
                     FROM goals g
                     LEFT JOIN submissions s ON s.goal_id=g.id AND s.user_id=%s
                     WHERE g.cycle_id=%s
-                      AND (g.user_id IS NULL OR g.user_id=%s)
+                      AND g.user_id=%s
                     GROUP BY g.id
                     ORDER BY g.sort_order, g.id
                 """, (user_id, cycle["id"], user_id))

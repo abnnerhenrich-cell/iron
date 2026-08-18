@@ -191,3 +191,14 @@ Uma conta que recebe permissão de administrador continua sendo também membro d
 - A imagem fica salva no PostgreSQL, portanto não é perdida em novos deploys da Vercel.
 - A foto aparece na aba Membros e nas páginas individuais do membro.
 - O próprio membro pode trocar ou remover sua foto.
+
+
+## Metas 100% personalizadas por membro
+
+Nesta versão não existe mais meta geral para todos.
+
+- Toda nova meta exige a escolha de um membro.
+- Cada membro vê somente as metas criadas especificamente para ele.
+- O progresso de um membro considera somente as próprias metas.
+- O Admin pode criar quantidades, itens e objetivos completamente diferentes para cada pessoa.
+- Metas antigas sem membro (`user_id` nulo) ficam ignoradas para não misturar objetivos antigos.
