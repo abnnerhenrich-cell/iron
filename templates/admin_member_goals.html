@@ -31,7 +31,7 @@
     <div>
       <span class="eyebrow">NOVA META INDIVIDUAL</span>
       <h2>Criar meta para {{ member['name'] }}</h2>
-      <p>Esta meta será visível somente para este membro no ciclo <strong>{{ cycle['title'] }}</strong>.</p>
+      <p>Esta meta será visível somente para este membro na meta ativa <strong>{{ cycle['title'] }}</strong>.</p>
     </div>
   </div>
 
@@ -129,9 +129,9 @@
 </section>
 {% else %}
 <section class="panel empty">
-  <h2>Nenhum ciclo ativo</h2>
-  <p>Primeiro crie e ative um ciclo. Depois volte à pasta deste membro para criar as metas dele.</p>
-  <a class="btn primary" href="{{ url_for('admin_cycles') }}">Ir para Ciclos</a>
+  <h2>Nenhuma meta ativa</h2>
+  <p>Primeiro crie e ative uma meta. Depois volte à pasta deste membro para criar as metas individuais dele.</p>
+  <a class="btn primary" href="{{ url_for('admin_cycles') }}">Ir para Metas</a>
 </section>
 {% endif %}
 {% endblock %}

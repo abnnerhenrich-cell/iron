@@ -93,3 +93,45 @@ p{font-size:clamp(.9rem,.12vw + .87rem,1rem);line-height:1.65}
 @media (max-width:680px){h1{font-size:clamp(1.9rem,9vw,2.55rem)}h2{font-size:clamp(1.18rem,5vw,1.48rem)}p{font-size:.9rem}.panel{padding:clamp(15px,4vw,19px)}.quick-stat span,.stats span,.goal-values span,.goal-numbers span{font-size:.67rem}.btn{min-height:44px;font-size:.82rem}.member-folder h3{font-size:1.08rem}.profile-photo-card{gap:12px}.profile-photo-info{min-width:0}.profile-photo-info strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}.delivery-summary{display:none}.sticky-submit{padding:10px 12px calc(10px + env(safe-area-inset-bottom))}.delivery-submit{min-height:48px}}
 @media (max-width:420px){.page{padding-left:10px;padding-right:10px}.hero,.panel,.member-folder,.goal-card,.goal-admin-card{border-radius:16px}.quick-stats,.stats,.member-summary,.status-strip,.goal-numbers{grid-template-columns:1fr 1fr}.hero-chip{width:auto;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.profile-photo-card{grid-template-columns:50px minmax(0,1fr)}.profile-avatar-large{width:50px;height:50px}.profile-card-action{grid-column:1/-1}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+/* ===== IRON V4: HUD fixes + installable app ===== */
+.cycle-highlight{min-width:0}
+.cycle-highlight>div{display:grid;grid-template-columns:minmax(0,1fr);align-content:center;gap:5px;min-width:0}
+.cycle-status-label{display:inline-flex;align-items:center;gap:7px;width:max-content;max-width:100%;color:#9da8b6;font-size:.68rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;line-height:1.2}
+.cycle-status-label::before{content:"";width:14px;height:1px;background:#6e7886;flex:0 0 auto}
+.cycle-status-title{display:block!important;max-width:100%;font-family:var(--font-display);font-size:clamp(1.05rem,.6vw + .95rem,1.35rem)!important;line-height:1.16;letter-spacing:-.025em;overflow-wrap:anywhere}
+.cycle-status-date{display:block!important;margin:0!important;color:var(--muted);font-size:.75rem!important;line-height:1.35}
+
+.install-app-sidebar{width:100%;display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;gap:10px;margin:0 0 9px;padding:10px;border:1px solid #2d3744;border-radius:13px;background:linear-gradient(145deg,#151b23,#0e1218);color:#dce2e9;text-align:left;cursor:pointer;transition:transform .2s var(--ease-out),border-color .2s ease,background-color .2s ease}
+.install-app-sidebar[hidden]{display:none}
+.install-app-sidebar:hover{transform:translateY(-1px);border-color:#4a5768}
+.install-app-sidebar .install-app-icon{width:34px;height:34px;display:grid;place-items:center;border:1px solid #3a4553;border-radius:10px;background:#1a212b;font-size:18px;font-weight:800}
+.install-app-sidebar strong,.install-app-sidebar small{display:block}.install-app-sidebar strong{font-size:.78rem}.install-app-sidebar small{margin-top:2px;color:var(--muted);font-size:.65rem}
+.mobile-install{width:36px;height:36px;place-items:center;border:1px solid var(--stroke);border-radius:10px;background:#12171e;color:#bac2cc;font:inherit;font-weight:900;cursor:pointer}
+.mobile-install:not([hidden]){display:grid}.mobile-install[hidden]{display:none}
+
+.install-sheet{position:fixed;inset:0;z-index:120;display:none;place-items:end center;padding:16px}.install-sheet.open{display:grid}
+.install-sheet-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.66);backdrop-filter:blur(8px)}
+.install-sheet-card{position:relative;z-index:1;width:min(100%,460px);padding:26px;border:1px solid #303a47;border-radius:24px;background:linear-gradient(145deg,#171d26,#0c1016);box-shadow:0 28px 80px rgba(0,0,0,.55);animation:installSheetIn .28s var(--ease-out) both}
+.install-sheet-card h2{margin:3px 0 9px}.install-sheet-card p{margin:0 0 20px;color:var(--muted)}.install-sheet-card .btn{width:100%}
+.install-sheet-brand{margin-bottom:18px}.install-sheet-brand .brand-mark{width:48px;height:48px;border-radius:14px;font-size:20px}
+.install-sheet-close{position:absolute;right:15px;top:15px;width:36px;height:36px;border:1px solid var(--stroke);border-radius:10px;background:#10151c;color:#b9c2cd;font-size:20px;cursor:pointer}
+@keyframes installSheetIn{from{opacity:0;transform:translateY(18px) scale(.985)}to{opacity:1;transform:none}}
+
+@media(max-width:680px){
+  .cycle-highlight{align-items:stretch;flex-direction:column;padding:17px 18px}
+  .cycle-highlight .btn{width:100%}
+  .cycle-status-title{font-size:1.08rem!important}
+  .cycle-status-date{font-size:.72rem!important}
+  .install-sheet{padding:10px 10px calc(10px + env(safe-area-inset-bottom))}
+  .install-sheet-card{padding:23px 20px;border-radius:22px}
+}
+@media(prefers-reduced-motion:reduce){.install-sheet-card{animation:none}}
+.guest-install-app{position:fixed;right:18px;bottom:18px;z-index:70;align-items:center;gap:8px;padding:10px 14px;border:1px solid #34404e;border-radius:999px;background:rgba(18,23,31,.94);color:#e8ecf1;box-shadow:0 12px 35px rgba(0,0,0,.3);backdrop-filter:blur(12px);font:700 .78rem var(--font-ui);cursor:pointer}
+.guest-install-app:not([hidden]){display:flex}.guest-install-app[hidden]{display:none}
+@media(max-width:680px){.guest-install-app{right:12px;bottom:12px}}
+
+/* Defensive layout rules: prevent long names/titles from breaking the HUD. */
+.admin-area-card>div,.section-choice>div,.sidebar-brand,.sidebar-user>div,.member-title-with-photo,.goal-admin-top>div,.delivery-info>div{min-width:0}
+.admin-area-card strong,.admin-area-card small,.section-choice strong,.section-choice small,.sidebar-user strong,.sidebar-user small{overflow-wrap:anywhere}
+img{max-width:100%}

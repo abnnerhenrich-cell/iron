@@ -3,17 +3,17 @@
 {% block content %}
 <section class="hero">
   <div>
-    <span class="eyebrow">CICLO</span>
+    <span class="eyebrow">META</span>
     <h1>{{ cycle['title'] }}</h1>
     <p>{{ cycle['start_date'] }} até {{ cycle['end_date'] }}</p>
   </div>
-  <a class="btn ghost" href="{{ url_for('admin_cycles') }}">← Voltar aos ciclos</a>
+  <a class="btn ghost" href="{{ url_for('admin_cycles') }}">← Voltar às metas</a>
 </section>
 
 <section class="panel">
   <div class="panel-head">
     <div>
-      <span class="eyebrow">METAS DO CICLO</span>
+      <span class="eyebrow">METAS INDIVIDUAIS</span>
       <h2>Metas já vinculadas aos membros</h2>
       <p>Para criar ou alterar metas, abra a pasta do membro correspondente.</p>
     </div>
@@ -36,7 +36,7 @@
     </article>
     {% else %}
     <div class="empty">
-      <h2>Nenhuma meta neste ciclo</h2>
+      <h2>Nenhuma meta individual aqui</h2>
       <p>Entre em Membros, abra uma pasta e crie a meta diretamente para a pessoa.</p>
     </div>
     {% endfor %}

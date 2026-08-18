@@ -504,7 +504,7 @@ def submit():
     user = get_current_user()
     cycle, goals = active_cycle_with_goals(user["id"])
     if not cycle:
-        flash("Não há ciclo ativo.", "danger")
+        flash("Não há meta ativa.", "danger")
         return redirect(url_for("dashboard"))
 
     if request.method == "POST":
@@ -737,7 +737,7 @@ def admin_cycles():
         end_date = request.form.get("end_date", "")
         active = request.form.get("active") == "1"
         if not title or not start_date or not end_date:
-            flash("Preencha todos os campos do ciclo.", "danger")
+            flash("Preencha todos os campos da meta.", "danger")
         else:
             with get_conn() as conn:
                 with conn.cursor() as cur:
@@ -749,7 +749,7 @@ def admin_cycles():
                     """, (title, start_date, end_date, active))
                     cycle_id = cur.fetchone()["id"]
                 conn.commit()
-            flash("Ciclo criado.", "success")
+            flash("Meta criada.", "success")
             return redirect(url_for("admin_cycle_detail", cycle_id=cycle_id))
 
     with get_conn() as conn:
@@ -771,7 +771,7 @@ def admin_cycle_activate(cycle_id):
             cur.execute("UPDATE cycles SET active=FALSE")
             cur.execute("UPDATE cycles SET active=TRUE WHERE id=%s", (cycle_id,))
         conn.commit()
-    flash("Ciclo ativado.", "success")
+    flash("Meta ativada.", "success")
     return redirect(url_for("admin_cycles"))
 
 @app.post("/admin/cycles/<int:cycle_id>/delete")
@@ -790,7 +790,7 @@ def admin_cycle_delete(cycle_id):
             cur.execute("DELETE FROM cycles WHERE id=%s", (cycle_id,))
         conn.commit()
 
-    flash(f"Ciclo '{cycle['title']}' excluído com todo o histórico relacionado.", "success")
+    flash(f"Meta '{cycle['title']}' excluída com todo o histórico relacionado.", "success")
     return redirect(url_for("admin_cycles"))
 
 
@@ -1081,7 +1081,7 @@ def admin_member_goals(user_id):
                 validate_csrf()
 
                 if not cycle:
-                    flash("Não existe ciclo ativo. Crie e ative um ciclo primeiro.", "danger")
+                    flash("Não existe meta ativa. Crie e ative uma meta primeiro.", "danger")
                     return redirect(url_for("admin_member_goals", user_id=user_id))
 
                 title = (request.form.get("title") or "").strip()
@@ -1364,6 +1364,27 @@ def admin_user_remove_admin(user_id):
         conn.commit()
     flash("Permissão administrativa removida. A conta voltou a ser membro.", "success")
     return redirect(url_for("admin_permissions"))
+
+@app.get("/manifest.webmanifest")
+def web_manifest():
+    return send_file(
+        os.path.join(app.static_folder, "manifest.webmanifest"),
+        mimetype="application/manifest+json",
+        max_age=3600,
+    )
+
+
+@app.get("/service-worker.js")
+def service_worker():
+    response = send_file(
+        os.path.join(app.static_folder, "service-worker.js"),
+        mimetype="application/javascript",
+        max_age=0,
+    )
+    response.headers["Service-Worker-Allowed"] = "/"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
 
 @app.errorhandler(413)
 def too_large(_):

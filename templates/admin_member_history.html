@@ -21,7 +21,7 @@
 
 <nav class="member-tabs">
   <a href="{{ url_for('admin_member_detail', user_id=member['id']) }}">Resumo</a>
-  <a href="{{ url_for('admin_member_goals', user_id=member['id']) }}">Metas do ciclo</a>
+  <a href="{{ url_for('admin_member_goals', user_id=member['id']) }}">Metas</a>
   <a class="active" href="{{ url_for('admin_member_history', user_id=member['id']) }}">Entregas e Aprovações</a>
 </nav>
 

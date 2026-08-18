@@ -37,7 +37,7 @@
 {% if cycle %}
 <section class="panel">
   <div class="panel-head">
-    <div><span class="eyebrow">SUAS METAS</span><h2>Metas do ciclo</h2><p>A porcentagem considera o que já foi aprovado e também o que está em análise.</p></div>
+    <div><span class="eyebrow">SUAS METAS</span><h2>Suas metas</h2><p>A porcentagem considera o que já foi aprovado e também o que está em análise.</p></div>
     <a class="btn primary" href="{{ url_for('submit') }}">＋ Nova entrega</a>
   </div>
   <div class="goals-grid">
@@ -58,7 +58,7 @@
   </div>
 </section>
 {% else %}
-<section class="empty panel"><h2>Nenhum ciclo ativo</h2><p>Assim que o administrador criar suas metas, elas aparecerão aqui.</p></section>
+<section class="empty panel"><h2>Nenhuma meta ativa</h2><p>Assim que o administrador criar suas metas, elas aparecerão aqui.</p></section>
 {% endif %}
 
 <section class="panel">
