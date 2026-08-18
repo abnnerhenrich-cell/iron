@@ -220,3 +220,10 @@ Novo fluxo:
 - A nova meta é criada ali mesmo e já fica vinculada ao membro.
 - A área Ciclos não cria mais metas; serve apenas para criar/ativar/excluir ciclos.
 - Cada membro pode ter itens, quantidades, categorias e objetivos totalmente diferentes.
+
+
+## Correção da exibição da foto de perfil
+
+O upload estava sendo salvo, mas a rota que devolvia a imagem usava `Response`
+sem importar esse objeto. Agora a imagem é entregue com `send_file(BytesIO(...))`,
+que já faz parte da aplicação e funciona corretamente com o BYTEA do PostgreSQL.

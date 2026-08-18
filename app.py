@@ -16,7 +16,7 @@ from psycopg.rows import dict_row
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "troque-esta-chave-no-vercel")
-app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 102424
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 ALLOWED_MIMES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
@@ -388,8 +388,8 @@ def profile_photo_upload():
         flash("Use uma imagem JPG, PNG ou WEBP.", "danger")
         return redirect(request.referrer or url_for("dashboard"))
 
-    if len(data) > 5 * 1024 * 1024:
-        flash("A foto deve ter no máximo 5 MB.", "danger")
+    if len(data) > 3 * 1024 * 1024:
+        flash("A foto deve ter no máximo 3 MB.", "danger")
         return redirect(request.referrer or url_for("dashboard"))
 
     try:
@@ -443,7 +443,12 @@ def profile_photo(user_id):
     if not row or not row["profile_image"]:
         abort(404)
 
-    return Response(bytes(row["profile_image"]), mimetype=row["profile_image_mime"] or "image/jpeg")
+    return send_file(
+        BytesIO(bytes(row["profile_image"])),
+        mimetype=row["profile_image_mime"] or "image/jpeg",
+        as_attachment=False,
+        download_name=f"perfil-{user_id}"
+    )
 
 
 @app.route("/dashboard")

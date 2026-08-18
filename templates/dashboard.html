@@ -24,7 +24,7 @@
   </div>
   <div class="profile-photo-info">
     <strong>Minha foto</strong>
-    <small>JPG, PNG ou WEBP · até 5 MB</small>
+    <small>JPG, PNG ou WEBP · até 3 MB</small>
     <form method="post" action="{{ url_for('profile_photo_upload') }}" enctype="multipart/form-data" class="profile-upload-form">
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
       <label class="btn ghost profile-file-btn">
