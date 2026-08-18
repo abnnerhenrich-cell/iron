@@ -17,6 +17,11 @@ from psycopg.rows import dict_row
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "troque-esta-chave-no-vercel")
 app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=bool(os.environ.get("VERCEL")),
+)
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 ALLOWED_MIMES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
@@ -165,7 +170,11 @@ def get_current_user():
         return None
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM users WHERE id=%s", (uid,))
+            cur.execute("""
+                SELECT id, name, email, role, active, approved, created_at,
+                       (profile_image IS NOT NULL) AS has_profile_image
+                FROM users WHERE id=%s
+            """, (uid,))
             return cur.fetchone()
 
 def login_required(fn):
@@ -443,6 +452,10 @@ def profile_photo(user_id):
     if not row or not row["profile_image"]:
         abort(404)
 
+    viewer = get_current_user()
+    if viewer["role"] != "admin" and int(viewer["id"]) != int(user_id):
+        abort(403)
+
     return send_file(
         BytesIO(bytes(row["profile_image"])),
         mimetype=row["profile_image_mime"] or "image/jpeg",
@@ -467,6 +480,7 @@ def dashboard():
                 FROM submissions s
                 JOIN goals g ON g.id=s.goal_id
                 JOIN cycles c ON c.id=g.cycle_id
+                LEFT JOIN delivery_batches b ON b.id=s.batch_id
                 WHERE s.user_id=%s
                 ORDER BY s.id DESC LIMIT 8
             """, (user["id"],))
@@ -508,6 +522,11 @@ def submit():
                 continue
 
             if goal_id in valid_ids and amount > 0:
+                goal = valid_ids[goal_id]
+                remaining = max(float(goal["target"] or 0) - float(goal["approved"] or 0) - float(goal["pending"] or 0), 0)
+                if amount > remaining + 1e-9:
+                    flash(f"A quantidade de '{goal['title']}' ultrapassa o saldo disponível ({remaining:g} {goal['unit']}).", "danger")
+                    return render_template("submit.html", cycle=cycle, goals=goals)
                 selected.append((goal_id, amount))
 
         if not selected:
@@ -602,12 +621,15 @@ def history():
             cur.execute("""
                 SELECT s.id, s.user_id, s.goal_id, s.amount, s.note, s.status,
                        s.admin_note, s.created_at, s.reviewed_at,
-                       (s.image_data IS NOT NULL) AS has_image,
+                       ((b.image_data IS NOT NULL) OR (s.image_data IS NOT NULL)) AS has_image,
+                       ((b.image2_data IS NOT NULL) OR (s.image2_data IS NOT NULL)) AS has_image2,
+                       ((b.image3_data IS NOT NULL) OR (s.image3_data IS NOT NULL)) AS has_image3,
                        g.title AS goal_title, g.unit,
                        c.title AS cycle_title, c.start_date, c.end_date
                 FROM submissions s
                 JOIN goals g ON g.id=s.goal_id
                 JOIN cycles c ON c.id=g.cycle_id
+                LEFT JOIN delivery_batches b ON b.id=s.batch_id
                 WHERE s.user_id=%s
                 ORDER BY s.id DESC
             """, (user["id"],))
@@ -860,7 +882,7 @@ def admin_review(submission_id):
             cur.execute("""
                 UPDATE submissions
                 SET status=%s, admin_note=%s, reviewed_at=NOW(), reviewed_by=%s
-                WHERE id=%s
+                WHERE id=%s AND status='pending'
             """, (decision, admin_note, admin["id"], submission_id))
         conn.commit()
     flash("Entrega atualizada.", "success")
@@ -890,7 +912,8 @@ def admin_members():
             cycle = cur.fetchone()
 
             cur.execute("""
-                SELECT id, name, email, role, active, approved, created_at
+                SELECT id, name, email, role, active, approved, created_at,
+                       (profile_image IS NOT NULL) AS has_profile_image
                 FROM users
                 WHERE approved=TRUE
                 ORDER BY name ASC
@@ -956,7 +979,8 @@ def admin_member_detail(user_id):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT id, name, email, active, approved, created_at
+                SELECT id, name, email, active, approved, created_at,
+                       (profile_image IS NOT NULL) AS has_profile_image
                 FROM users
                 WHERE id=%s
             """, (user_id,))
@@ -1210,7 +1234,8 @@ def admin_permissions():
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT id, name, email, role, active, approved, created_at
+                SELECT id, name, email, role, active, approved, created_at,
+                       (profile_image IS NOT NULL) AS has_profile_image
                 FROM users
                 WHERE approved=TRUE
                 ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END, name ASC

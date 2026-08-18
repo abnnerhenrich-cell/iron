@@ -16,7 +16,7 @@
 
 <div class="profile-photo-card">
   <div class="profile-avatar-large">
-    {% if current_user.get('profile_image') %}
+    {% if current_user.get('has_profile_image') %}
       <img src="{{ url_for('profile_photo', user_id=current_user['id']) }}" alt="Foto de perfil">
     {% else %}
       <span>{{ current_user['name'][0]|upper }}</span>
@@ -32,7 +32,7 @@
         <input type="file" name="profile_image" accept="image/jpeg,image/png,image/webp" required onchange="this.form.submit()">
       </label>
     </form>
-    {% if current_user.get('profile_image') %}
+    {% if current_user.get('has_profile_image') %}
     <form method="post" action="{{ url_for('profile_photo_remove') }}">
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
       <button class="profile-remove" type="submit">Remover foto</button>
@@ -98,7 +98,7 @@
         <tr>
           <td>{{ s['goal_title'] }}</td>
           <td>{{ money(s['amount']) if s['unit']=='R$' else (s['amount']|int|string + ' ' + s['unit']) }}</td>
-          <td><span class="status {{ s['status'] }}">{{ s['status'] }}</span></td>
+          <td><span class="status {{ s['status'] }}">{{ {'approved':'Aprovada','pending':'Em análise','rejected':'Recusada'}.get(s['status'], s['status']) }}</span></td>
           <td>{{ s['created_at'].strftime('%d/%m/%Y %H:%M') if s['created_at'] else '—' }}</td>
         </tr>
       {% else %}

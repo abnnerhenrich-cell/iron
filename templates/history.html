@@ -15,8 +15,13 @@
         <td>{{ s['cycle_title'] }}</td>
         <td>{{ s['goal_title'] }}</td>
         <td>{{ money(s['amount']) if s['unit']=='R$' else (s['amount']|int|string + ' ' + s['unit']) }}</td>
-        <td><span class="status {{ s['status'] }}">{{ s['status'] }}</span></td>
-        <td>{% if s['has_image'] %}<a href="{{ url_for('submission_image', submission_id=s['id']) }}" target="_blank">Ver imagem</a>{% else %}—{% endif %}</td>
+        <td><span class="status {{ s['status'] }}">{{ {'approved':'Aprovada','pending':'Em análise','rejected':'Recusada'}.get(s['status'], s['status']) }}</span></td>
+        <td>
+          {% if s['has_image'] %}<a href="{{ url_for('submission_image', submission_id=s['id'], index=1) }}" target="_blank">Foto 1</a>{% endif %}
+          {% if s.get('has_image2') %} · <a href="{{ url_for('submission_image', submission_id=s['id'], index=2) }}" target="_blank">Foto 2</a>{% endif %}
+          {% if s.get('has_image3') %} · <a href="{{ url_for('submission_image', submission_id=s['id'], index=3) }}" target="_blank">Foto 3</a>{% endif %}
+          {% if not s['has_image'] and not s.get('has_image2') and not s.get('has_image3') %}—{% endif %}
+        </td>
         <td>{{ s['note'] or '—' }}</td>
       </tr>
       {% else %}

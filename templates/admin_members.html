@@ -10,6 +10,16 @@
   <a class="btn ghost" href="{{ url_for('admin_registrations') }}">Ver solicitações de cadastro</a>
 </section>
 
+<section class="panel member-search-panel">
+  <div class="member-search-row">
+    <div>
+      <span class="eyebrow">LOCALIZAR MEMBRO</span>
+      <h2>{{ members|length }} conta{{ '' if members|length == 1 else 's' }} aprovada{{ '' if members|length == 1 else 's' }}</h2>
+    </div>
+    <input id="memberSearch" type="search" placeholder="Buscar por nome ou e-mail..." autocomplete="off" aria-label="Buscar membro">
+  </div>
+</section>
+
 {% if cycle %}
 <section class="panel">
   <div class="panel-head">
@@ -24,9 +34,15 @@
 
 <section class="member-folder-grid">
   {% for m in members %}
-  <article class="member-folder">
+  <article class="member-folder" data-member="{{ (m['name'] ~ ' ' ~ m['email'])|lower }}">
     <div class="member-folder-head">
-      <div class="avatar-silver">{{ m['name'][:1]|upper }}</div>
+      <div class="avatar-silver">
+        {% if m.get('has_profile_image') %}
+          <img src="{{ url_for('profile_photo', user_id=m['id']) }}" alt="Foto de {{ m['name'] }}" loading="lazy">
+        {% else %}
+          {{ m['name'][:1]|upper }}
+        {% endif %}
+      </div>
       <div>
         <h3>{{ m['name'] }}</h3>
         <p>{{ m['email'] }}</p>
@@ -65,4 +81,16 @@
   </div>
   {% endfor %}
 </section>
+
+<script>
+(() => {
+  const input = document.getElementById('memberSearch');
+  if (!input) return;
+  const cards = [...document.querySelectorAll('.member-folder[data-member]')];
+  input.addEventListener('input', () => {
+    const q = input.value.trim().toLowerCase();
+    cards.forEach(card => card.hidden = !card.dataset.member.includes(q));
+  });
+})();
+</script>
 {% endblock %}
