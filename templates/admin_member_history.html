@@ -2,42 +2,97 @@
 {% block title %}Admin · Histórico de {{ member['name'] }}{% endblock %}
 {% block content %}
 <section class="hero">
-  <div><span class="eyebrow">HISTÓRICO DO MEMBRO</span><h1>{{ member['name'] }}</h1><p>Todos os registros ficam somente nesta pasta.</p></div>
-  <a class="btn ghost" href="{{ url_for('admin_members') }}">← Membros</a>
+  <div>
+    <span class="eyebrow">PASTA DO MEMBRO</span>
+    <h1>{{ member['name'] }}</h1>
+    <p>Entregas e aprovações deste membro ficam todas aqui.</p>
+  </div>
+  <a class="btn ghost" href="{{ url_for('admin_members') }}">← Voltar para membros</a>
 </section>
 
 <nav class="member-tabs">
   <a href="{{ url_for('admin_member_detail', user_id=member['id']) }}">Resumo</a>
   <a href="{{ url_for('admin_member_goals', user_id=member['id']) }}">Metas do ciclo</a>
-  <a class="active" href="{{ url_for('admin_member_history', user_id=member['id']) }}">Histórico</a>
+  <a class="active" href="{{ url_for('admin_member_history', user_id=member['id']) }}">Entregas e Aprovações</a>
 </nav>
 
 <section class="panel">
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>Data</th><th>Ciclo</th><th>Meta</th><th>Quantidade</th><th>Status</th><th>Comprovante</th><th>Observação</th></tr>
-      </thead>
-      <tbody>
-      {% for s in history %}
-      <tr>
-        <td>{{ s['created_at']|dt }}</td>
-        <td>{{ s['cycle_title'] }}</td>
-        <td>{{ s['goal_title'] }}</td>
-        <td><strong>{{ s['amount'] }} {{ s['unit'] }}</strong></td>
-        <td><span class="status {{ s['status'] }}">{{ {'approved':'APROVADA','pending':'EM ANÁLISE','rejected':'RECUSADA'}.get(s['status'], s['status']) }}</span></td>
-        <td>
-          {% if s['has_image'] %}
-          <a href="{{ url_for('submission_image', submission_id=s['id'], index=1) }}" target="_blank">Abrir foto</a>
-          {% else %}—{% endif %}
-        </td>
-        <td>{{ s['note'] or '—' }}</td>
-      </tr>
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">ENTREGAS</span>
+      <h2>Aprovar metas de {{ member['name'] }}</h2>
+      <p>Cada envio deste membro pode ser aprovado ou recusado aqui.</p>
+    </div>
+  </div>
+
+  <div class="member-review-list">
+    {% for s in history %}
+    <article class="member-review-card">
+      <div class="member-review-head">
+        <div>
+          <span class="eyebrow">{{ s['cycle_title'] }}</span>
+          <h3>{{ s['goal_title'] }}</h3>
+          <p>{{ s['created_at']|dt }}</p>
+        </div>
+        <span class="status {{ s['status'] }}">
+          {{ {'approved':'APROVADA','pending':'EM ANÁLISE','rejected':'RECUSADA'}.get(s['status'], s['status']) }}
+        </span>
+      </div>
+
+      <div class="member-review-grid">
+        <div class="review-info-box">
+          <span>Quantidade entregue</span>
+          <strong>{{ s['amount']|round|int }} {{ s['unit'] }}</strong>
+        </div>
+        <div class="review-info-box">
+          <span>Observação do membro</span>
+          <strong>{{ s['note'] or '—' }}</strong>
+        </div>
+      </div>
+
+      {% if s['has_image'] or s['has_image2'] or s['has_image3'] %}
+      <div class="member-proof-grid">
+        {% if s['has_image'] %}
+        <a href="{{ url_for('submission_image', submission_id=s['id'], index=1) }}" target="_blank" class="member-proof">
+          <img src="{{ url_for('submission_image', submission_id=s['id'], index=1) }}" alt="Comprovante 1">
+          <span>Foto 1</span>
+        </a>
+        {% endif %}
+        {% if s['has_image2'] %}
+        <a href="{{ url_for('submission_image', submission_id=s['id'], index=2) }}" target="_blank" class="member-proof">
+          <img src="{{ url_for('submission_image', submission_id=s['id'], index=2) }}" alt="Comprovante 2">
+          <span>Foto 2</span>
+        </a>
+        {% endif %}
+        {% if s['has_image3'] %}
+        <a href="{{ url_for('submission_image', submission_id=s['id'], index=3) }}" target="_blank" class="member-proof">
+          <img src="{{ url_for('submission_image', submission_id=s['id'], index=3) }}" alt="Comprovante 3">
+          <span>Foto 3</span>
+        </a>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% if s['status']=='pending' %}
+      <form method="post" action="{{ url_for('admin_review', submission_id=s['id']) }}" class="member-review-actions">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <input name="admin_note" placeholder="Observação do administrador (opcional)">
+        <button class="btn success" type="submit" name="decision" value="approved">✓ Aprovar meta</button>
+        <button class="btn danger" type="submit" name="decision" value="rejected">✕ Recusar meta</button>
+      </form>
       {% else %}
-      <tr><td colspan="7" class="muted">Nenhum registro encontrado.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+      <div class="review-result">
+        <span>Observação do administrador</span>
+        <strong>{{ s['admin_note'] or '—' }}</strong>
+      </div>
+      {% endif %}
+    </article>
+    {% else %}
+    <div class="empty">
+      <h2>Nenhuma entrega deste membro</h2>
+      <p>Quando {{ member['name'] }} enviar uma meta, ela aparecerá aqui para você analisar.</p>
+    </div>
+    {% endfor %}
   </div>
 </section>
 {% endblock %}

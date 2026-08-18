@@ -153,3 +153,23 @@ Dentro de cada membro existem três telas independentes:
 - Admin > Ciclos agora possui `Excluir ciclo`.
 - Ao excluir um ciclo, metas, entregas e histórico ligados a ele são apagados definitivamente por CASCADE.
 - Os totais de Aprovado, Falta e Em análise na aba Membros são exibidos como números inteiros, sem `.00`.
+
+
+## Aprovação dentro da pasta do membro
+
+- O menu global `Entregas` foi removido do Painel Admin.
+- Para aprovar uma meta: Admin > Membros > Abrir pasta > Entregas e Aprovações.
+- Cada entrega mostra quantidade, observação, fotos e botões Aprovar/Recusar.
+- Após aprovar ou recusar, o administrador permanece na pasta daquele membro.
+
+
+## Acesso duplo Admin + Membro
+
+Uma conta que recebe permissão de administrador continua sendo também membro da equipe.
+
+- Pode acessar o Painel Admin.
+- Pode acessar `Painel de Membro`.
+- Continua tendo metas próprias.
+- Continua podendo registrar e enviar suas próprias entregas.
+- Continua aparecendo na lista de membros para acompanhamento.
+- No topo existe um botão para alternar entre `Painel Admin` e `Painel de Membro`.

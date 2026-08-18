@@ -310,3 +310,55 @@ body{
   .member-card-actions{grid-template-columns:1fr}
   .member-delete-btn{width:100%}
 }
+
+/* Aprovação de metas dentro da pasta individual do membro */
+.member-review-list{display:grid;gap:14px}
+.member-review-card{
+  background:linear-gradient(145deg,#17191c,#0b0c0e);
+  border:1px solid #353a42;border-radius:16px;padding:17px
+}
+.member-review-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.member-review-head h3{margin:3px 0 4px}
+.member-review-head p{margin:0;color:#8f969e;font-size:12px}
+.member-review-grid{display:grid;grid-template-columns:220px 1fr;gap:10px;margin:14px 0}
+.review-info-box{
+  background:#0a0b0d;border:1px solid #252a30;border-radius:11px;padding:12px
+}
+.review-info-box span,.review-result span{
+  display:block;color:#848b94;font-size:10px;text-transform:uppercase;letter-spacing:.06em
+}
+.review-info-box strong,.review-result strong{
+  display:block;color:#edf0f2;margin-top:5px
+}
+.member-proof-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}
+.member-proof{
+  display:block;background:#090a0b;border:1px solid #30353c;border-radius:11px;overflow:hidden
+}
+.member-proof img{display:block;width:100%;height:150px;object-fit:cover}
+.member-proof span{display:block;padding:8px 10px;color:#c7ccd1;font-size:11px}
+.member-review-actions{
+  display:grid;grid-template-columns:1fr auto auto;gap:8px;
+  padding-top:14px;margin-top:14px;border-top:1px solid #292e34
+}
+.member-review-actions input{margin:0}
+.review-result{
+  margin-top:14px;padding:12px;background:#0a0b0d;border:1px solid #292e34;border-radius:11px
+}
+@media(max-width:800px){
+  .member-review-grid{grid-template-columns:1fr}
+  .member-proof-grid{grid-template-columns:1fr 1fr}
+  .member-review-actions{grid-template-columns:1fr}
+}
+
+/* Conta com acesso duplo: Admin + Membro */
+.mode-switch{
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:8px 11px;border-radius:9px;
+  border:1px solid #454b53;background:#15171a;
+  color:#eef1f3;font-size:11px;font-weight:850;white-space:nowrap
+}
+.mode-switch:hover{background:#202328;border-color:#737b85}
+.member-badges{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:800px){
+  .mode-switch{font-size:10px;padding:7px 9px}
+}

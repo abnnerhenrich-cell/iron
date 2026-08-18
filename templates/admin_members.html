@@ -31,7 +31,10 @@
         <h3>{{ m['name'] }}</h3>
         <p>{{ m['email'] }}</p>
       </div>
-      <span class="status {{ 'approved' if m['active'] else 'rejected' }}">{{ 'ATIVO' if m['active'] else 'BLOQUEADO' }}</span>
+      <div class="member-badges">
+        {% if m.get('role') == 'admin' %}<span class="status approved">ADMIN + MEMBRO</span>{% endif %}
+        <span class="status {{ 'approved' if m['active'] else 'rejected' }}">{{ 'ATIVO' if m['active'] else 'BLOQUEADO' }}</span>
+      </div>
     </div>
 
     <div class="folder-progress">

@@ -7,24 +7,31 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+  {% set member_mode = request.endpoint in ['dashboard','submit','history','member_home'] %}
   {% if current_user %}
   <header class="topbar">
-    <a class="brand" href="{{ url_for('admin_dashboard' if current_user['role']=='admin' else 'dashboard') }}">
+    <a class="brand" href="{{ url_for('dashboard' if member_mode else ('admin_dashboard' if current_user['role']=='admin' else 'dashboard')) }}">
       <span class="brand-icon">◎</span>
-      <span><strong>IRON Metas</strong><small>{{ 'Painel administrativo' if current_user['role']=='admin' else 'Minhas metas' }}</small></span>
+      <span><strong>IRON Metas</strong><small>{{ 'Minhas metas' if member_mode or current_user['role']!='admin' else 'Painel administrativo' }}</small></span>
     </a>
     <div class="top-actions">
+      {% if current_user['role']=='admin' %}
+        {% if member_mode %}
+          <a class="mode-switch" href="{{ url_for('admin_dashboard') }}">Painel Admin</a>
+        {% else %}
+          <a class="mode-switch" href="{{ url_for('dashboard') }}">Painel de Membro</a>
+        {% endif %}
+      {% endif %}
       <span class="user-pill">{{ current_user['name'] }}</span>
       <a class="icon-btn" href="{{ url_for('logout') }}" title="Sair">↗</a>
     </div>
   </header>
-  {% if current_user and current_user['role']=='admin' %}
+  {% if current_user and current_user['role']=='admin' and not member_mode %}
   <nav class="admin-section-nav">
     <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}">Resumo</a>
     <a class="{{ 'active' if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] }}" href="{{ url_for('admin_members') }}">Membros</a>
     <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}">Cadastros</a>
     <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" href="{{ url_for('admin_cycles') }}">Ciclos e Metas</a>
-    <a class="{{ 'active' if request.endpoint in ['admin_submissions','admin_review'] }}" href="{{ url_for('admin_submissions') }}">Entregas</a>
     <a class="{{ 'active' if request.endpoint=='admin_permissions' }}" href="{{ url_for('admin_permissions') }}">Permissões</a>
   </nav>
   {% endif %}
@@ -45,11 +52,10 @@
 
   {% if current_user %}
   <nav class="bottom-nav">
-    {% if current_user['role']=='admin' %}
+    {% if current_user['role']=='admin' and not member_mode %}
       <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}">⌂<span>Resumo</span></a>
       <a class="{{ 'active' if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] }}" href="{{ url_for('admin_members') }}">♟<span>Membros</span></a>
       <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" href="{{ url_for('admin_cycles') }}">◎<span>Metas</span></a>
-      <a class="{{ 'active' if request.endpoint in ['admin_submissions','admin_review'] }}" href="{{ url_for('admin_submissions') }}">✓<span>Entregas</span></a>
     {% else %}
       <a class="{{ 'active' if request.endpoint=='dashboard' }}" href="{{ url_for('dashboard') }}">◎<span>Metas</span></a>
       <a class="{{ 'active' if request.endpoint=='submit' }}" href="{{ url_for('submit') }}">＋<span>Entregar</span></a>

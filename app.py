@@ -255,10 +255,6 @@ def login():
             flash("E-mail ou senha inválidos.", "danger")
             return render_template("login.html")
 
-        if user["role"] == "admin":
-            flash("Administradores devem entrar pelo Painel Admin.", "danger")
-            return redirect(url_for("admin_login"))
-
         if not user["active"]:
             flash("Seu acesso está bloqueado. Procure um administrador.", "danger")
             return render_template("login.html")
@@ -357,6 +353,17 @@ def register():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+@app.route("/member")
+@login_required
+def member_home():
+    return redirect(url_for("dashboard"))
+
+@app.route("/admin-home")
+@admin_required
+def admin_home():
+    return redirect(url_for("admin_dashboard"))
+
 
 @app.route("/dashboard")
 @login_required
@@ -805,9 +812,9 @@ def admin_members():
             cycle = cur.fetchone()
 
             cur.execute("""
-                SELECT id, name, email, active, approved, created_at
+                SELECT id, name, email, role, active, approved, created_at
                 FROM users
-                WHERE role='user' AND approved=TRUE
+                WHERE approved=TRUE
                 ORDER BY name ASC
             """)
             members = cur.fetchall()
@@ -849,6 +856,7 @@ def admin_members():
                     "id": member["id"],
                     "name": member["name"],
                     "email": member["email"],
+                    "role": member["role"],
                     "active": member["active"],
                     "approved": member["approved"],
                     "created_at": member["created_at"],
@@ -870,7 +878,7 @@ def admin_member_detail(user_id):
             cur.execute("""
                 SELECT id, name, email, active, approved, created_at
                 FROM users
-                WHERE id=%s AND role='user'
+                WHERE id=%s
             """, (user_id,))
             member = cur.fetchone()
             if not member:
@@ -940,7 +948,7 @@ def admin_member_goals(user_id):
             cur.execute("""
                 SELECT id, name, email, active, approved
                 FROM users
-                WHERE id=%s AND role='user'
+                WHERE id=%s
             """, (user_id,))
             member = cur.fetchone()
             if not member:
@@ -991,7 +999,7 @@ def admin_member_history(user_id):
             cur.execute("""
                 SELECT id, name, email, active, approved
                 FROM users
-                WHERE id=%s AND role='user'
+                WHERE id=%s
             """, (user_id,))
             member = cur.fetchone()
             if not member:
@@ -1015,6 +1023,7 @@ def admin_member_history(user_id):
             history = cur.fetchall()
 
     return render_template("admin_member_history.html", member=member, history=history)
+
 
 
 @app.route("/admin/permissions")
@@ -1095,7 +1104,7 @@ def admin_user_approve(user_id):
             cur.execute("""
                 UPDATE users
                 SET approved=TRUE, active=TRUE
-                WHERE id=%s AND role='user'
+                WHERE id=%s
             """, (user_id,))
         conn.commit()
     flash("Membro aprovado e liberado para acessar o painel.", "success")
@@ -1110,7 +1119,7 @@ def admin_user_reject(user_id):
             cur.execute("""
                 UPDATE users
                 SET approved=FALSE, active=FALSE
-                WHERE id=%s AND role='user'
+                WHERE id=%s
             """, (user_id,))
         conn.commit()
     flash("Cadastro recusado/bloqueado.", "success")
