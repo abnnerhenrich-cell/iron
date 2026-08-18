@@ -2,7 +2,9 @@
 {% block title %}Admin · Metas de {{ member['name'] }}{% endblock %}
 {% block content %}
 <section class="hero">
-  <div><span class="eyebrow">METAS DO MEMBRO</span><div class="member-title-with-photo">
+  <div>
+    <span class="eyebrow">PASTA DO MEMBRO</span>
+    <div class="member-title-with-photo">
       <div class="avatar-silver member-page-avatar">
         {% if member.get('has_profile_image') %}
           <img src="{{ url_for('profile_photo', user_id=member['id']) }}" alt="Foto de {{ member['name'] }}">
@@ -11,20 +13,72 @@
         {% endif %}
       </div>
       <h1>{{ member['name'] }}</h1>
-    </div><p>Progresso separado, item por item.</p></div>
-  <a class="btn ghost" href="{{ url_for('admin_members') }}">← Membros</a>
+    </div>
+    <p>Crie e acompanhe metas exclusivas deste membro.</p>
+  </div>
+  <a class="btn ghost" href="{{ url_for('admin_members') }}">← Voltar para membros</a>
 </section>
 
 <nav class="member-tabs">
   <a href="{{ url_for('admin_member_detail', user_id=member['id']) }}">Resumo</a>
-  <a class="active" href="{{ url_for('admin_member_goals', user_id=member['id']) }}">Metas do ciclo</a>
-  <a href="{{ url_for('admin_member_history', user_id=member['id']) }}">Histórico</a>
+  <a class="active" href="{{ url_for('admin_member_goals', user_id=member['id']) }}">Metas personalizadas</a>
+  <a href="{{ url_for('admin_member_history', user_id=member['id']) }}">Entregas e Aprovações</a>
 </nav>
 
 {% if cycle %}
+<section class="panel form-panel personal-goal-form">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">NOVA META INDIVIDUAL</span>
+      <h2>Criar meta para {{ member['name'] }}</h2>
+      <p>Esta meta será visível somente para este membro no ciclo <strong>{{ cycle['title'] }}</strong>.</p>
+    </div>
+  </div>
+
+  <form method="post" class="form-grid">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+    <label>Nome da meta
+      <input name="title" required placeholder="Ex.: Bateria AA+">
+    </label>
+
+    <label>Categoria
+      <input name="category" value="GERAL" placeholder="Ex.: Eletrônicos">
+    </label>
+
+    <label>Quantidade / alvo
+      <input name="target" type="number" min="0.01" step="0.01" required placeholder="Ex.: 100">
+    </label>
+
+    <label>Unidade
+      <select name="unit">
+        <option value="un">un</option>
+        <option value="kg">kg</option>
+        <option value="R$">R$</option>
+      </select>
+    </label>
+
+    <label>Ícone
+      <input name="icon" value="📦" maxlength="8">
+    </label>
+
+    <div class="goal-owner-lock">
+      <span>MEMBRO DA META</span>
+      <strong>{{ member['name'] }}</strong>
+      <small>{{ member['email'] }}</small>
+    </div>
+
+    <button class="btn primary" type="submit">＋ Criar meta para {{ member['name'] }}</button>
+  </form>
+</section>
+
 <section class="panel">
   <div class="panel-head">
-    <div><span class="eyebrow">CICLO ATUAL</span><h2>{{ cycle['title'] }}</h2><p>{{ cycle['start_date'] }} até {{ cycle['end_date'] }}</p></div>
+    <div>
+      <span class="eyebrow">METAS DE {{ member['name']|upper }}</span>
+      <h2>{{ cycle['title'] }}</h2>
+      <p>{{ cycle['start_date'] }} até {{ cycle['end_date'] }}</p>
+    </div>
   </div>
 
   <div class="goal-admin-grid">
@@ -47,13 +101,27 @@
         <div><span>Falta</span><strong>{{ g['remaining']|round|int }} {{ g['unit'] }}</strong></div>
         <div><span>Em análise</span><strong>{{ g['pending_f']|round|int }} {{ g['unit'] }}</strong></div>
       </div>
+
+      <div class="goal-card-actions">
+        <form method="post" action="{{ url_for('admin_goal_delete', goal_id=g['id']) }}" onsubmit="return confirm('Excluir esta meta de {{ member['name'] }}?')">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button class="btn danger" type="submit">Excluir meta</button>
+        </form>
+      </div>
     </article>
     {% else %}
-      <p class="muted">Este membro ainda não possui metas personalizadas neste ciclo.</p>
+    <div class="empty">
+      <h2>Nenhuma meta criada</h2>
+      <p>Use o formulário acima para criar a primeira meta personalizada de {{ member['name'] }}.</p>
+    </div>
     {% endfor %}
   </div>
 </section>
 {% else %}
-<section class="panel empty"><h2>Nenhum ciclo ativo</h2><p>Ative um ciclo para visualizar as metas deste membro.</p></section>
+<section class="panel empty">
+  <h2>Nenhum ciclo ativo</h2>
+  <p>Primeiro crie e ative um ciclo. Depois volte à pasta deste membro para criar as metas dele.</p>
+  <a class="btn primary" href="{{ url_for('admin_cycles') }}">Ir para Ciclos</a>
+</section>
 {% endif %}
 {% endblock %}

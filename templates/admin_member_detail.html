@@ -21,7 +21,7 @@
 
 <nav class="member-tabs">
   <a class="active" href="{{ url_for('admin_member_detail', user_id=member['id']) }}">Resumo</a>
-  <a href="{{ url_for('admin_member_goals', user_id=member['id']) }}">Metas do ciclo</a>
+  <a href="{{ url_for('admin_member_goals', user_id=member['id']) }}">Metas personalizadas</a>
   <a href="{{ url_for('admin_member_history', user_id=member['id']) }}">Histórico</a>
 </nav>
 
@@ -51,7 +51,7 @@
 <section class="section-choice-grid">
   <a class="section-choice" href="{{ url_for('admin_member_goals', user_id=member['id']) }}">
     <span class="section-choice-icon">◎</span>
-    <div><strong>Metas do ciclo</strong><small>Veja item por item, quanto completou e quanto falta.</small></div>
+    <div><strong>Metas personalizadas</strong><small>Crie e acompanhe as metas exclusivas deste membro.</small></div>
     <b>→</b>
   </a>
   <a class="section-choice" href="{{ url_for('admin_member_history', user_id=member['id']) }}">

@@ -2,50 +2,45 @@
 {% block title %}Admin · {{ cycle['title'] }}{% endblock %}
 {% block content %}
 <section class="hero">
-  <div><span class="eyebrow">CICLO</span><h1>{{ cycle['title'] }}</h1><p>{{ cycle['start_date'] }} — {{ cycle['end_date'] }}</p></div>
-  {% if cycle['active'] %}<span class="badge success">ATIVO</span>{% endif %}
+  <div>
+    <span class="eyebrow">CICLO</span>
+    <h1>{{ cycle['title'] }}</h1>
+    <p>{{ cycle['start_date'] }} até {{ cycle['end_date'] }}</p>
+  </div>
+  <a class="btn ghost" href="{{ url_for('admin_cycles') }}">← Voltar aos ciclos</a>
 </section>
-<section class="panel form-panel">
-  <h2>Adicionar meta</h2>
-  <form method="post" class="form-grid">
-    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-    <label>Ícone<input name="icon" value="📦" maxlength="8"></label>
-    <label>Nome<input name="title" required placeholder="Bateria AA"></label>
-    <label>Categoria<input name="category" placeholder="ELETRÔNICOS"></label>
-    <label>Meta<input name="target" type="number" min="0.01" step="0.01" required></label>
-    <label>Unidade
-      <select name="unit"><option value="un">un</option><option value="kg">kg</option><option value="R$">R$</option></select>
-    </label>
-    <label>Escolha o membro desta meta
-      <select name="member_id" required>
-        <option value="">Selecione um membro...</option>
-        {% for m in members %}
-        <option value="{{ m['id'] }}">{{ m['name'] }} — {{ m['email'] }}</option>
-        {% endfor %}
-      </select>
-      <small>Cada meta pertence a apenas um membro.</small>
-    </label>
-    <button class="btn primary" type="submit">Adicionar meta</button>
-  </form>
-</section>
+
 <section class="panel">
-  <h2>Metas deste ciclo</h2>
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">METAS DO CICLO</span>
+      <h2>Metas já vinculadas aos membros</h2>
+      <p>Para criar ou alterar metas, abra a pasta do membro correspondente.</p>
+    </div>
+    <a class="btn primary" href="{{ url_for('admin_members') }}">Abrir Membros</a>
+  </div>
+
   <div class="cards-list">
-  {% for g in goals %}
+    {% for g in goals %}
     <article class="list-card">
-      <div class="goal-top">
-        <span class="goal-icon">{{ g['icon'] }}</span>
-        <div><strong>{{ g['title'] }}</strong><small>
-  {{ g['category'] }} · alvo {{ money(g['target']) if g['unit']=='R$' else (g['target']|int|string + ' ' + g['unit']) }}
-  · {{ g['member_name'] if g['member_name'] else 'SEM MEMBRO — meta antiga' }}
-</small></div>
+      <div>
+        <strong>{{ g['icon'] }} {{ g['title'] }}</strong>
+        <small>
+          {{ g['category'] }} ·
+          {{ money(g['target']) if g['unit']=='R$' else (g['target']|int|string + ' ' + g['unit']) }}
+          · <b>{{ g['member_name'] if g['member_name'] else 'Meta antiga sem membro' }}</b>
+        </small>
       </div>
-      <form method="post" action="{{ url_for('admin_goal_delete', goal_id=g['id']) }}" onsubmit="return confirm('Excluir esta meta?')">
-        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-        <button class="btn danger" type="submit">Excluir</button>
-      </form>
+      {% if g['member_name'] %}
+      <a class="btn ghost" href="{{ url_for('admin_member_goals', user_id=g['user_id']) }}">Abrir membro</a>
+      {% endif %}
     </article>
-  {% else %}<p class="muted">Ainda não há metas.</p>{% endfor %}
+    {% else %}
+    <div class="empty">
+      <h2>Nenhuma meta neste ciclo</h2>
+      <p>Entre em Membros, abra uma pasta e crie a meta diretamente para a pessoa.</p>
+    </div>
+    {% endfor %}
   </div>
 </section>
 {% endblock %}

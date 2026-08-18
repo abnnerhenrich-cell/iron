@@ -392,14 +392,19 @@ def profile_photo_upload():
         flash("A foto deve ter no máximo 5 MB.", "danger")
         return redirect(request.referrer or url_for("dashboard"))
 
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                UPDATE users
-                SET profile_image=%s, profile_image_mime=%s
-                WHERE id=%s
-            """, (psycopg2.Binary(data), mime, user["id"]))
-        conn.commit()
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    UPDATE users
+                    SET profile_image=%s, profile_image_mime=%s
+                    WHERE id=%s
+                """, (data, mime, user["id"]))
+            conn.commit()
+    except Exception:
+        app.logger.exception("Erro ao salvar foto de perfil")
+        flash("Não foi possível salvar a foto de perfil. Tente novamente.", "danger")
+        return redirect(request.referrer or url_for("dashboard"))
 
     flash("Foto de perfil atualizada.", "success")
     return redirect(request.referrer or url_for("dashboard"))
@@ -760,7 +765,7 @@ def admin_cycle_delete(cycle_id):
     return redirect(url_for("admin_cycles"))
 
 
-@app.route("/admin/cycles/<int:cycle_id>", methods=["GET", "POST"])
+@app.route("/admin/cycles/<int:cycle_id>", methods=["GET"])
 @admin_required
 def admin_cycle_detail(cycle_id):
     with get_conn() as conn:
@@ -769,39 +774,6 @@ def admin_cycle_detail(cycle_id):
             cycle = cur.fetchone()
             if not cycle:
                 abort(404)
-
-            if request.method == "POST":
-                validate_csrf()
-                title = request.form.get("title", "").strip()
-                category = request.form.get("category", "GERAL").strip() or "GERAL"
-                target = request.form.get("target", type=float)
-                unit = request.form.get("unit", "un")
-                icon = request.form.get("icon", "📦").strip() or "📦"
-                if title and target and target > 0:
-                    cur.execute("SELECT COALESCE(MAX(sort_order),0)+1 AS n FROM goals WHERE cycle_id=%s", (cycle_id,))
-                    max_order = cur.fetchone()["n"]
-                    member_id = request.form.get("member_id", type=int)
-                    if not member_id:
-                        flash("Escolha o membro que receberá esta meta.", "danger")
-                        return redirect(url_for("admin_cycle_detail", cycle_id=cycle_id))
-
-                    cur.execute("""
-                        SELECT 1
-                        FROM users
-                        WHERE id=%s AND approved=TRUE
-                    """, (member_id,))
-                    if not cur.fetchone():
-                        flash("Membro inválido.", "danger")
-                        return redirect(url_for("admin_cycle_detail", cycle_id=cycle_id))
-
-                    cur.execute("""
-                        INSERT INTO goals(cycle_id,title,category,target,unit,icon,sort_order,user_id)
-                        VALUES(%s,%s,%s,%s,%s,%s,%s,%s)
-                    """, (cycle_id, title, category, target, unit, icon, max_order, member_id))
-                    conn.commit()
-                    flash("Meta adicionada.", "success")
-                else:
-                    flash("Informe título e alvo válido.", "danger")
 
             cur.execute("""
                 SELECT g.*, u.name AS member_name
@@ -812,15 +784,7 @@ def admin_cycle_detail(cycle_id):
             """, (cycle_id,))
             goals = cur.fetchall()
 
-            cur.execute("""
-                SELECT id, name, email
-                FROM users
-                WHERE approved=TRUE
-                ORDER BY name ASC
-            """)
-            members = cur.fetchall()
-
-    return render_template("admin_cycle_detail.html", cycle=cycle, goals=goals, members=members)
+    return render_template("admin_cycle_detail.html", cycle=cycle, goals=goals)
 
 @app.post("/admin/goals/<int:goal_id>/delete")
 @admin_required
@@ -839,7 +803,10 @@ def admin_goal_delete(goal_id):
             cur.execute("DELETE FROM goals WHERE id=%s", (goal_id,))
             conn.commit()
             cycle_id = goal["cycle_id"]
+            member_id = goal.get("user_id")
     flash("Meta excluída.", "success")
+    if member_id:
+        return redirect(url_for("admin_member_goals", user_id=member_id))
     return redirect(url_for("admin_cycle_detail", cycle_id=cycle_id))
 
 @app.route("/admin/submissions")
@@ -1049,7 +1016,7 @@ def admin_member_detail(user_id):
     )
 
 
-@app.route("/admin/members/<int:user_id>/goals")
+@app.route("/admin/members/<int:user_id>/goals", methods=["GET", "POST"])
 @admin_required
 def admin_member_goals(user_id):
     with get_conn() as conn:
@@ -1066,8 +1033,46 @@ def admin_member_goals(user_id):
 
             cur.execute("SELECT * FROM cycles WHERE active=TRUE ORDER BY id DESC LIMIT 1")
             cycle = cur.fetchone()
-            goals = []
 
+            if request.method == "POST":
+                validate_csrf()
+
+                if not cycle:
+                    flash("Não existe ciclo ativo para receber esta meta.", "danger")
+                    return redirect(url_for("admin_member_goals", user_id=user_id))
+
+                title = (request.form.get("title") or "").strip()
+                category = (request.form.get("category") or "GERAL").strip() or "GERAL"
+                target = request.form.get("target", type=float)
+                unit = (request.form.get("unit") or "un").strip() or "un"
+                icon = (request.form.get("icon") or "📦").strip() or "📦"
+
+                if not title or not target or target <= 0:
+                    flash("Informe o nome da meta e uma quantidade válida.", "danger")
+                    return redirect(url_for("admin_member_goals", user_id=user_id))
+
+                cur.execute("""
+                    SELECT COALESCE(MAX(sort_order),0)+1 AS n
+                    FROM goals
+                    WHERE cycle_id=%s AND user_id=%s
+                """, (cycle["id"], user_id))
+                sort_order = cur.fetchone()["n"]
+
+                cur.execute("""
+                    INSERT INTO goals(
+                        cycle_id,title,category,target,unit,icon,sort_order,user_id
+                    )
+                    VALUES(%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (
+                    cycle["id"], title, category, target, unit,
+                    icon, sort_order, user_id
+                ))
+                conn.commit()
+
+                flash(f"Meta personalizada criada para {member['name']}.", "success")
+                return redirect(url_for("admin_member_goals", user_id=user_id))
+
+            goals = []
             if cycle:
                 cur.execute("""
                     SELECT g.*,
@@ -1100,6 +1105,7 @@ def admin_member_goals(user_id):
                     })
 
     return render_template("admin_member_goals.html", member=member, cycle=cycle, goals=goals)
+
 
 
 @app.route("/admin/members/<int:user_id>/history")

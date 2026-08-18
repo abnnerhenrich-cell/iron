@@ -405,3 +405,15 @@ body{
   .profile-photo-card{align-items:flex-start}
   .profile-avatar-large{width:64px;height:64px;min-width:64px}
 }
+
+/* Criação de metas dentro da pasta individual */
+.personal-goal-form{border-color:#4a5058}
+.goal-owner-lock{
+  display:flex;flex-direction:column;justify-content:center;
+  min-height:72px;padding:11px 13px;
+  background:#0a0b0d;border:1px solid #31363d;border-radius:10px
+}
+.goal-owner-lock span{font-size:9px;color:#858c95;letter-spacing:.08em}
+.goal-owner-lock strong{margin-top:4px;color:#eef1f3}
+.goal-owner-lock small{margin-top:2px;color:#858c95}
+.goal-card-actions{display:flex;justify-content:flex-end;margin-top:12px}

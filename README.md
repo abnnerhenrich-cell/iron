@@ -202,3 +202,21 @@ Nesta versão não existe mais meta geral para todos.
 - O progresso de um membro considera somente as próprias metas.
 - O Admin pode criar quantidades, itens e objetivos completamente diferentes para cada pessoa.
 - Metas antigas sem membro (`user_id` nulo) ficam ignoradas para não misturar objetivos antigos.
+
+
+## Correção do upload da foto de perfil
+
+Corrigido erro interno ao salvar a foto:
+- projeto usa psycopg v3;
+- bytes agora são enviados diretamente para a coluna BYTEA;
+- removido uso incorreto de `psycopg2.Binary`;
+- adicionado tratamento de erro para evitar tela branca de Internal Server Error.
+
+
+## Criação de meta dentro da pasta de cada membro
+
+Novo fluxo:
+- Admin > Membros > Abrir pasta > Metas personalizadas.
+- A nova meta é criada ali mesmo e já fica vinculada ao membro.
+- A área Ciclos não cria mais metas; serve apenas para criar/ativar/excluir ciclos.
+- Cada membro pode ter itens, quantidades, categorias e objetivos totalmente diferentes.
