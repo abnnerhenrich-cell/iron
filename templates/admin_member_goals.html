@@ -2,7 +2,16 @@
 {% block title %}Admin · Metas de {{ member['name'] }}{% endblock %}
 {% block content %}
 <section class="hero">
-  <div><span class="eyebrow">METAS DO MEMBRO</span><h1>{{ member['name'] }}</h1><p>Progresso separado, item por item.</p></div>
+  <div><span class="eyebrow">METAS DO MEMBRO</span><div class="member-title-with-photo">
+      <div class="avatar-silver member-page-avatar">
+        {% if member.get('has_profile_image') %}
+          <img src="{{ url_for('profile_photo', user_id=member['id']) }}" alt="Foto de {{ member['name'] }}">
+        {% else %}
+          {{ member['name'][0]|upper }}
+        {% endif %}
+      </div>
+      <h1>{{ member['name'] }}</h1>
+    </div><p>Progresso separado, item por item.</p></div>
   <a class="btn ghost" href="{{ url_for('admin_members') }}">← Membros</a>
 </section>
 

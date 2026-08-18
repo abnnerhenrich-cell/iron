@@ -4,7 +4,16 @@
 <section class="hero">
   <div>
     <span class="eyebrow">PASTA INDIVIDUAL</span>
-    <h1>{{ member['name'] }}</h1>
+    <div class="member-title-with-photo">
+      <div class="avatar-silver member-page-avatar">
+        {% if member.get('has_profile_image') %}
+          <img src="{{ url_for('profile_photo', user_id=member['id']) }}" alt="Foto de {{ member['name'] }}">
+        {% else %}
+          {{ member['name'][0]|upper }}
+        {% endif %}
+      </div>
+      <h1>{{ member['name'] }}</h1>
+    </div>
     <p>{{ member['email'] }}</p>
   </div>
   <a class="btn ghost" href="{{ url_for('admin_members') }}">← Voltar para membros</a>

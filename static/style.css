@@ -362,3 +362,46 @@ body{
 @media(max-width:800px){
   .mode-switch{font-size:10px;padding:7px 9px}
 }
+
+.member-percent-only{
+  display:flex;align-items:center;justify-content:space-between;
+  margin:12px 0 16px;padding:12px 14px;
+  background:#0a0b0d;border:1px solid #292e34;border-radius:11px
+}
+.member-percent-only span{color:#8f969f;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.member-percent-only strong{color:#f2f4f5;font-size:22px}
+
+/* Fotos de perfil dos membros */
+.profile-photo-card{
+  display:flex;align-items:center;gap:16px;
+  margin:0 0 18px;padding:16px;
+  background:linear-gradient(145deg,#17191c,#0b0c0e);
+  border:1px solid #343941;border-radius:16px
+}
+.profile-avatar-large{
+  width:76px;height:76px;min-width:76px;border-radius:50%;
+  overflow:hidden;display:grid;place-items:center;
+  background:linear-gradient(145deg,#d8dce0,#727a83);
+  color:#090a0b;font-size:28px;font-weight:950;border:2px solid #c8cdd2
+}
+.profile-avatar-large img,.avatar-silver img{
+  width:100%;height:100%;object-fit:cover;display:block
+}
+.profile-photo-info{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.profile-photo-info>strong{width:100%;font-size:16px}
+.profile-photo-info>small{width:100%;color:#8f969e}
+.profile-upload-form,.profile-photo-info form{margin:0}
+.profile-file-btn{cursor:pointer}
+.profile-file-btn input{display:none}
+.profile-remove{
+  border:0;background:transparent;color:#9ca2aa;
+  text-decoration:underline;cursor:pointer;font-size:11px
+}
+.avatar-silver{overflow:hidden}
+.member-title-with-photo{display:flex;align-items:center;gap:12px}
+.member-title-with-photo h1{margin:0}
+.member-page-avatar{width:52px;height:52px;min-width:52px;border-radius:50%}
+@media(max-width:600px){
+  .profile-photo-card{align-items:flex-start}
+  .profile-avatar-large{width:64px;height:64px;min-width:64px}
+}

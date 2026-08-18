@@ -69,6 +69,9 @@ def init_db():
                     sort_order INTEGER NOT NULL DEFAULT 0
                 )
             """)
+            cur.execute("ALTER TABLE goals ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id) ON DELETE CASCADE")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image BYTEA")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_mime TEXT")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS submissions (
                     id BIGSERIAL PRIMARY KEY,
@@ -226,9 +229,10 @@ def active_cycle_with_goals(user_id=None):
                     FROM goals g
                     LEFT JOIN submissions s ON s.goal_id=g.id
                     WHERE g.cycle_id=%s
+                      AND (g.user_id IS NULL OR g.user_id=%s)
                     GROUP BY g.id
                     ORDER BY g.sort_order, g.id
-                """, (user_id or -1, user_id or -1, cycle["id"]))
+                """, (user_id or -1, user_id or -1, cycle["id"], user_id or -1))
                 goals = cur.fetchall()
     return cycle, goals
 
@@ -363,6 +367,78 @@ def member_home():
 @admin_required
 def admin_home():
     return redirect(url_for("admin_dashboard"))
+
+
+@app.post("/profile/photo")
+@login_required
+def profile_photo_upload():
+    validate_csrf()
+    user = get_current_user()
+    image = request.files.get("profile_image")
+
+    if not image or not image.filename:
+        flash("Escolha uma foto para o perfil.", "danger")
+        return redirect(request.referrer or url_for("dashboard"))
+
+    data = image.read()
+    mime = (image.mimetype or "").lower()
+    allowed = {"image/jpeg", "image/png", "image/webp"}
+
+    if mime not in allowed:
+        flash("Use uma imagem JPG, PNG ou WEBP.", "danger")
+        return redirect(request.referrer or url_for("dashboard"))
+
+    if len(data) > 5 * 1024 * 1024:
+        flash("A foto deve ter no máximo 5 MB.", "danger")
+        return redirect(request.referrer or url_for("dashboard"))
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE users
+                SET profile_image=%s, profile_image_mime=%s
+                WHERE id=%s
+            """, (psycopg2.Binary(data), mime, user["id"]))
+        conn.commit()
+
+    flash("Foto de perfil atualizada.", "success")
+    return redirect(request.referrer or url_for("dashboard"))
+
+
+@app.post("/profile/photo/remove")
+@login_required
+def profile_photo_remove():
+    validate_csrf()
+    user = get_current_user()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE users
+                SET profile_image=NULL, profile_image_mime=NULL
+                WHERE id=%s
+            """, (user["id"],))
+        conn.commit()
+
+    flash("Foto de perfil removida.", "success")
+    return redirect(request.referrer or url_for("dashboard"))
+
+
+@app.get("/profile/photo/<int:user_id>")
+@login_required
+def profile_photo(user_id):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT profile_image, profile_image_mime
+                FROM users
+                WHERE id=%s
+            """, (user_id,))
+            row = cur.fetchone()
+
+    if not row or not row["profile_image"]:
+        abort(404)
+
+    return Response(bytes(row["profile_image"]), mimetype=row["profile_image_mime"] or "image/jpeg")
 
 
 @app.route("/dashboard")
@@ -704,18 +780,40 @@ def admin_cycle_detail(cycle_id):
                 if title and target and target > 0:
                     cur.execute("SELECT COALESCE(MAX(sort_order),0)+1 AS n FROM goals WHERE cycle_id=%s", (cycle_id,))
                     max_order = cur.fetchone()["n"]
+                    member_id = request.form.get("member_id", type=int)
+                    if member_id:
+                        cur.execute("SELECT 1 FROM users WHERE id=%s AND approved=TRUE", (member_id,))
+                        if not cur.fetchone():
+                            flash("Membro inválido.", "danger")
+                            return redirect(url_for("admin_cycle_detail", cycle_id=cycle_id))
+
                     cur.execute("""
-                        INSERT INTO goals(cycle_id,title,category,target,unit,icon,sort_order)
-                        VALUES(%s,%s,%s,%s,%s,%s,%s)
-                    """, (cycle_id, title, category, target, unit, icon, max_order))
+                        INSERT INTO goals(cycle_id,title,category,target,unit,icon,sort_order,user_id)
+                        VALUES(%s,%s,%s,%s,%s,%s,%s,%s)
+                    """, (cycle_id, title, category, target, unit, icon, max_order, member_id))
                     conn.commit()
                     flash("Meta adicionada.", "success")
                 else:
                     flash("Informe título e alvo válido.", "danger")
 
-            cur.execute("SELECT * FROM goals WHERE cycle_id=%s ORDER BY sort_order,id", (cycle_id,))
+            cur.execute("""
+                SELECT g.*, u.name AS member_name
+                FROM goals g
+                LEFT JOIN users u ON u.id=g.user_id
+                WHERE g.cycle_id=%s
+                ORDER BY g.sort_order,g.id
+            """, (cycle_id,))
             goals = cur.fetchall()
-    return render_template("admin_cycle_detail.html", cycle=cycle, goals=goals)
+
+            cur.execute("""
+                SELECT id, name, email
+                FROM users
+                WHERE approved=TRUE
+                ORDER BY name ASC
+            """)
+            members = cur.fetchall()
+
+    return render_template("admin_cycle_detail.html", cycle=cycle, goals=goals, members=members)
 
 @app.post("/admin/goals/<int:goal_id>/delete")
 @admin_required
@@ -795,7 +893,8 @@ def admin_registrations():
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT id, name, email, role, active, approved, created_at
+                SELECT id, name, email, role, active, approved, created_at,
+                       (profile_image IS NOT NULL) AS has_profile_image
                 FROM users
                 WHERE role='user' AND approved=FALSE
                 ORDER BY created_at ASC
@@ -845,7 +944,8 @@ def admin_members():
                             )),0) AS pending
                         FROM goals g
                         WHERE g.cycle_id=%s
-                    """, (member["id"], member["id"], cycle["id"]))
+                          AND (g.user_id IS NULL OR g.user_id=%s)
+                    """, (member["id"], member["id"], cycle["id"], member["id"]))
                     totals = cur.fetchone()
                     total_target = float(totals["target"] or 0)
                     total_approved = float(totals["approved"] or 0)
@@ -857,6 +957,7 @@ def admin_members():
                     "name": member["name"],
                     "email": member["email"],
                     "role": member["role"],
+                    "has_profile_image": member.get("has_profile_image", False),
                     "active": member["active"],
                     "approved": member["approved"],
                     "created_at": member["created_at"],
@@ -898,9 +999,10 @@ def admin_member_detail(user_id):
                     FROM goals g
                     LEFT JOIN submissions s ON s.goal_id=g.id AND s.user_id=%s
                     WHERE g.cycle_id=%s
+                      AND (g.user_id IS NULL OR g.user_id=%s)
                     GROUP BY g.id
                     ORDER BY g.sort_order, g.id
-                """, (user_id, cycle["id"]))
+                """, (user_id, cycle["id"], user_id))
                 goal_rows = cur.fetchall()
                 goals_total = len(goal_rows)
                 for g in goal_rows:
@@ -946,7 +1048,8 @@ def admin_member_goals(user_id):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT id, name, email, active, approved
+                SELECT id, name, email, active, approved,
+                       (profile_image IS NOT NULL) AS has_profile_image
                 FROM users
                 WHERE id=%s
             """, (user_id,))
@@ -967,9 +1070,10 @@ def admin_member_goals(user_id):
                     FROM goals g
                     LEFT JOIN submissions s ON s.goal_id=g.id AND s.user_id=%s
                     WHERE g.cycle_id=%s
+                      AND (g.user_id IS NULL OR g.user_id=%s)
                     GROUP BY g.id
                     ORDER BY g.sort_order, g.id
-                """, (user_id, cycle["id"]))
+                """, (user_id, cycle["id"], user_id))
                 rows = cur.fetchall()
 
                 for g in rows:
@@ -997,7 +1101,8 @@ def admin_member_history(user_id):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT id, name, email, active, approved
+                SELECT id, name, email, active, approved,
+                       (profile_image IS NOT NULL) AS has_profile_image
                 FROM users
                 WHERE id=%s
             """, (user_id,))

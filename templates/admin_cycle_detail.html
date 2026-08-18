@@ -16,6 +16,14 @@
     <label>Unidade
       <select name="unit"><option value="un">un</option><option value="kg">kg</option><option value="R$">R$</option></select>
     </label>
+    <label>Para quem é esta meta?
+      <select name="member_id">
+        <option value="">Todos os membros</option>
+        {% for m in members %}
+        <option value="{{ m['id'] }}">{{ m['name'] }} — {{ m['email'] }}</option>
+        {% endfor %}
+      </select>
+    </label>
     <button class="btn primary" type="submit">Adicionar meta</button>
   </form>
 </section>
@@ -26,7 +34,10 @@
     <article class="list-card">
       <div class="goal-top">
         <span class="goal-icon">{{ g['icon'] }}</span>
-        <div><strong>{{ g['title'] }}</strong><small>{{ g['category'] }} · alvo {{ money(g['target']) if g['unit']=='R$' else (g['target']|int|string + ' ' + g['unit']) }}</small></div>
+        <div><strong>{{ g['title'] }}</strong><small>
+  {{ g['category'] }} · alvo {{ money(g['target']) if g['unit']=='R$' else (g['target']|int|string + ' ' + g['unit']) }}
+  · {{ g['member_name'] if g['member_name'] else 'Todos os membros' }}
+</small></div>
       </div>
       <form method="post" action="{{ url_for('admin_goal_delete', goal_id=g['id']) }}" onsubmit="return confirm('Excluir esta meta?')">
         <input type="hidden" name="_csrf" value="{{ csrf_token() }}">

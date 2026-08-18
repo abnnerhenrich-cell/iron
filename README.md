@@ -173,3 +173,21 @@ Uma conta que recebe permissão de administrador continua sendo também membro d
 - Continua podendo registrar e enviar suas próprias entregas.
 - Continua aparecendo na lista de membros para acompanhamento.
 - No topo existe um botão para alternar entre `Painel Admin` e `Painel de Membro`.
+
+
+## Metas personalizadas por membro
+
+- Cada meta pode ser criada para `Todos os membros` ou para um membro específico.
+- Metas personalizadas aparecem apenas para o membro selecionado.
+- O progresso individual considera metas gerais + metas personalizadas daquele membro.
+- Na aba Membros, os valores Aprovado/Falta/Em análise foram removidos.
+- Agora o cartão mostra somente a porcentagem de progresso.
+
+
+## Foto de perfil
+
+- Cada membro pode enviar sua própria foto no Painel de Membro.
+- Formatos aceitos: JPG, PNG e WEBP, até 5 MB.
+- A imagem fica salva no PostgreSQL, portanto não é perdida em novos deploys da Vercel.
+- A foto aparece na aba Membros e nas páginas individuais do membro.
+- O próprio membro pode trocar ou remover sua foto.

@@ -45,10 +45,9 @@
       <div class="progress"><i style="width:{{ m['percent'] }}%"></i></div>
     </div>
 
-    <div class="folder-stats">
-      <div><span>Aprovado</span><strong>{{ m['approved_total']|round|int }}</strong></div>
-      <div><span>Falta</span><strong>{{ m['remaining']|round|int }}</strong></div>
-      <div><span>Em análise</span><strong>{{ m['pending_total']|round|int }}</strong></div>
+    <div class="member-percent-only">
+      <span>Progresso do ciclo</span>
+      <strong>{{ m['percent'] }}%</strong>
     </div>
 
     <div class="member-card-actions">
