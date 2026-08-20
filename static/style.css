@@ -201,3 +201,34 @@ input,button,select,textarea{font-size:max(16px,1rem)}
   .bottom-nav:has(a[href*="calculadora"]) a{min-width:0}
   .bottom-nav:has(a[href*="calculadora"]) span{font-size:9px}
 }
+
+
+/* ===== IRON V10 — Calculadora estável ===== */
+.admin-calculator-page{min-width:0;overflow:hidden}
+.calculator-page-header{margin-bottom:14px}
+.calculator-frame-shell{
+  width:100%;
+  height:clamp(640px, calc(100dvh - 190px), 980px);
+  min-height:0;
+  overflow:hidden;
+  contain:layout paint;
+}
+.calculator-frame{
+  display:block;
+  width:100%;
+  height:100% !important;
+  min-height:0 !important;
+  max-height:100% !important;
+  border:0;
+  overflow:auto;
+  background:#050708;
+}
+@media (max-width:760px){
+  .calculator-frame-shell{
+    margin-inline:0;
+    width:100%;
+    height:calc(100dvh - 145px);
+    min-height:560px;
+    border-radius:16px;
+  }
+}

@@ -1362,16 +1362,24 @@ def admin_user_approve(user_id):
 @admin_required
 def admin_user_reject(user_id):
     validate_csrf()
+    # Uma solicitação recusada não deve continuar aparecendo como pendente.
+    # Como o usuário ainda não foi aprovado, removemos o cadastro pendente;
+    # isso também permite que ele faça uma nova solicitação no futuro.
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                UPDATE users
-                SET approved=FALSE, active=FALSE
-                WHERE id=%s
+                DELETE FROM users
+                WHERE id=%s AND role='user' AND approved=FALSE
+                RETURNING name
             """, (user_id,))
+            rejected = cur.fetchone()
         conn.commit()
-    flash("Cadastro recusado/bloqueado.", "success")
-    return redirect(request.referrer or url_for("admin_registrations"))
+
+    if rejected:
+        flash("Cadastro recusado e removido das solicitações pendentes.", "success")
+    else:
+        flash("Esse cadastro não está mais pendente ou não pode ser recusado.", "danger")
+    return redirect(url_for("admin_registrations"))
 
 @app.post("/admin/users/<int:user_id>/make-admin")
 @admin_required
