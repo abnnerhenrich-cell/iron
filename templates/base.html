@@ -10,19 +10,18 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="IRON">
   <title>{% block title %}IRON Metas{% endblock %}</title>
-  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
-  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32.png') }}?v=5">
-  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v=5">
-  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
-  <link rel="manifest" href="/manifest.webmanifest?v=5">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=5.0.0">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32.png') }}?v=8">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v=8">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=8">
+  <link rel="manifest" href="/manifest.webmanifest?v=8">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=8.0.0">
 </head>
 {% set member_mode = request.endpoint in ['dashboard','submit','history','member_home'] %}
 <body class="{{ 'is-auth' if current_user else 'is-guest' }} {{ 'is-member-mode' if member_mode else 'is-admin-mode' }}">
   {% if current_user %}
   <aside class="app-sidebar">
     <a class="sidebar-brand" href="{{ url_for('dashboard' if member_mode else ('admin_dashboard' if current_user['role']=='admin' else 'dashboard')) }}">
-      <span class="brand-mark">I</span>
+      <img class="brand-logo" src="{{ url_for('static', filename='iron-logo.png') }}?v=8" alt="IRON Brotherhood">
       <span class="brand-copy"><strong>IRON</strong><small>{{ 'ESPAÇO DO MEMBRO' if member_mode or current_user['role']!='admin' else 'PAINEL DA HIERARQUIA' }}</small></span>
     </a>
 
@@ -59,7 +58,7 @@
   </aside>
 
   <header class="mobile-topbar">
-    <a class="mobile-brand" href="{{ url_for('dashboard' if member_mode else ('admin_dashboard' if current_user['role']=='admin' else 'dashboard')) }}"><span class="brand-mark">I</span><strong>IRON</strong></a>
+    <a class="mobile-brand" href="{{ url_for('dashboard' if member_mode else ('admin_dashboard' if current_user['role']=='admin' else 'dashboard')) }}"><img class="brand-logo" src="{{ url_for('static', filename='iron-logo.png') }}?v=8" alt="IRON Brotherhood"><strong>IRON</strong></a>
     <div class="mobile-top-actions">
       <button class="mobile-install js-install-app" type="button" aria-label="Instalar IRON" title="Instalar IRON">↓</button>
       {% if current_user['role']=='admin' %}<a href="{{ url_for('admin_dashboard' if member_mode else 'dashboard') }}">⇄</a>{% endif %}
@@ -102,7 +101,7 @@
     <div class="install-sheet-backdrop" data-close-install></div>
     <section class="install-sheet-card" role="dialog" aria-modal="true" aria-labelledby="installTitle">
       <button class="install-sheet-close" type="button" data-close-install aria-label="Fechar">×</button>
-      <div class="install-sheet-brand"><span class="brand-mark">I</span></div>
+      <div class="install-sheet-brand"><img class="brand-logo" src="{{ url_for('static', filename='iron-logo.png') }}?v=8" alt="IRON Brotherhood"></div>
       <span class="eyebrow">IRON NO CELULAR</span>
       <h2 id="installTitle">Adicionar à Tela de Início</h2>
       <p id="installHelpText">Você pode instalar o IRON no celular ou computador para abrir como aplicativo.</p>

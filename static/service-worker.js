@@ -1,4 +1,4 @@
-const CACHE = 'iron-shell-v5';
+const CACHE = 'iron-v8';
 const SHELL = [
   '/static/style.css?v=5.0.0',
   '/static/icons/favicon-32.png',
