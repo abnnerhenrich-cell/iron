@@ -1,7 +1,7 @@
 import os
 import secrets
 import re
-from datetime import date
+from datetime import date, timedelta
 from functools import wraps
 from io import BytesIO
 
@@ -22,6 +22,8 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=bool(os.environ.get("VERCEL")),
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+    SESSION_REFRESH_EACH_REQUEST=True,
 )
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -287,7 +289,9 @@ def login():
             flash("Cadastro aguardando aprovação de um administrador.", "danger")
             return render_template("login.html")
 
+        remember_device = request.form.get("remember_device") == "1"
         session.clear()
+        session.permanent = remember_device
         session["uid"] = user["id"]
         session["_csrf"] = secrets.token_urlsafe(24)
         return redirect(url_for("dashboard"))
@@ -318,7 +322,9 @@ def admin_login():
             flash("Esta conta administrativa está bloqueada.", "danger")
             return render_template("admin_login.html")
 
+        remember_device = request.form.get("remember_device") == "1"
         session.clear()
+        session.permanent = remember_device
         session["uid"] = user["id"]
         session["_csrf"] = secrets.token_urlsafe(24)
         return redirect(url_for("admin_dashboard"))

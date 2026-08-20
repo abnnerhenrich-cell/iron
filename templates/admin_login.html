@@ -16,6 +16,13 @@
     <label>Senha
       <input name="password" type="password" required placeholder="••••••••">
     </label>
+    <label class="remember-device">
+      <input name="remember_device" type="checkbox" value="1" {% if request.form.get('remember_device') == '1' %}checked{% endif %}>
+      <span>
+        <strong>Manter conectado neste dispositivo</strong>
+        <small>Seu acesso permanecerá salvo por até 30 dias.</small>
+      </span>
+    </label>
     <button class="btn primary" type="submit">Entrar no Painel Admin</button>
   </form>
 
