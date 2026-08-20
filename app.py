@@ -226,6 +226,13 @@ def inject_globals():
     }
 
 def active_cycle_with_goals(user_id=None):
+    """Retorna a meta ativa e o progresso real do membro.
+
+    Somente entregas com status *pending* entram em "Em análise".
+    Entregas recusadas (*rejected*) ficam no histórico, mas nunca entram
+    novamente no cálculo de progresso ou no saldo reservado.
+    """
+    member_id = user_id or -1
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT * FROM cycles WHERE active=TRUE ORDER BY id DESC LIMIT 1")
@@ -234,15 +241,18 @@ def active_cycle_with_goals(user_id=None):
             if cycle:
                 cur.execute("""
                     SELECT g.*,
-                           COALESCE(SUM(CASE WHEN s.status='approved' AND s.user_id=%s THEN s.amount ELSE 0 END),0) AS approved,
-                           COALESCE(SUM(CASE WHEN s.status='pending' AND s.user_id=%s THEN s.amount ELSE 0 END),0) AS pending
+                           COALESCE(SUM(s.amount) FILTER (WHERE s.status='approved'), 0) AS approved,
+                           COALESCE(SUM(s.amount) FILTER (WHERE s.status='pending'), 0) AS pending
                     FROM goals g
-                    LEFT JOIN submissions s ON s.goal_id=g.id
+                    LEFT JOIN submissions s
+                      ON s.goal_id=g.id
+                     AND s.user_id=%s
+                     AND s.status IN ('approved','pending')
                     WHERE g.cycle_id=%s
                       AND g.user_id=%s
                     GROUP BY g.id
                     ORDER BY g.sort_order, g.id
-                """, (user_id or -1, user_id or -1, cycle["id"], user_id or -1))
+                """, (member_id, cycle["id"], member_id))
                 goals = cur.fetchall()
     return cycle, goals
 
@@ -879,16 +889,42 @@ def admin_review(submission_id):
     admin_note = request.form.get("admin_note", "").strip()
     if decision not in {"approved", "rejected"}:
         abort(400)
+
     admin = get_current_user()
     with get_conn() as conn:
         with conn.cursor() as cur:
+            # Bloqueia a linha durante a revisão para impedir duas decisões
+            # concorrentes sobre a mesma entrega.
+            cur.execute("""
+                SELECT id, status
+                FROM submissions
+                WHERE id=%s
+                FOR UPDATE
+            """, (submission_id,))
+            submission = cur.fetchone()
+
+            if not submission:
+                abort(404)
+
+            if submission["status"] != "pending":
+                conn.rollback()
+                flash("Essa entrega já foi analisada e não foi alterada novamente.", "danger")
+                return redirect(request.referrer or url_for("admin_submissions"))
+
             cur.execute("""
                 UPDATE submissions
-                SET status=%s, admin_note=%s, reviewed_at=NOW(), reviewed_by=%s
-                WHERE id=%s AND status='pending'
+                SET status=%s,
+                    admin_note=%s,
+                    reviewed_at=NOW(),
+                    reviewed_by=%s
+                WHERE id=%s
             """, (decision, admin_note, admin["id"], submission_id))
         conn.commit()
-    flash("Entrega atualizada.", "success")
+
+    if decision == "rejected":
+        flash("Meta recusada. O valor foi removido de Em análise e não conta mais na porcentagem do membro.", "success")
+    else:
+        flash("Meta aprovada. O valor passou de Em análise para Aprovado.", "success")
     return redirect(request.referrer or url_for("admin_submissions"))
 
 @app.route("/admin/registrations")
@@ -1365,6 +1401,21 @@ def admin_user_remove_admin(user_id):
         conn.commit()
     flash("Permissão administrativa removida. A conta voltou a ser membro.", "success")
     return redirect(url_for("admin_permissions"))
+
+@app.after_request
+def disable_dynamic_page_cache(response):
+    """Evita que dashboards dinâmicos voltem do cache do navegador.
+
+    Isso é especialmente importante depois que uma entrega é aprovada ou
+    recusada, pois o percentual precisa refletir o banco imediatamente.
+    Arquivos estáticos continuam livres para o cache otimizado do PWA.
+    """
+    if request.endpoint != "static" and request.path not in {"/service-worker.js", "/manifest.webmanifest"}:
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 
 @app.get("/manifest.webmanifest")
 def web_manifest():

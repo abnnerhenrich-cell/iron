@@ -118,6 +118,12 @@
       setTimeout(() => { if (el.isConnected) el.remove(); }, 5100 + i * 250);
     });
 
+    // Ao voltar pelo histórico do navegador, força nova leitura do servidor.
+    // Assim uma meta recém-recusada não permanece visualmente como "Em análise".
+    window.addEventListener('pageshow', event => {
+      if (event.persisted) window.location.reload();
+    });
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js').catch(() => {}));
     }
