@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#05080a">
+  <meta name="description" content="Calculadora IRONS para custos, quantidades e materiais.">
+  <title>Calculadora IRONS</title>
+  <link rel="icon" href="{{ url_for('static', filename='icons/favicon-32.png') }}?v=9" type="image/png">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=9">
+  <link rel="stylesheet" href="{{ url_for('static', filename='calculadora/style.css') }}?v=9">
+<style>html,body{overflow-x:hidden} body{min-height:auto}.app{padding-bottom:28px}</style>
+</head>
+<body>
+  <div class="page-glow" aria-hidden="true"></div>
+
+  <main class="app">
+    <header class="hero">
+      <img src="{{ url_for('static', filename='iron-logo.png') }}?v=9" alt="Logo IRONS" class="logo" width="220" height="220">
+      <div class="hero-copy">
+        <span class="eyebrow">CENTRAL DE CÁLCULO</span>
+        <h1>Calculadora <span>IRONS</span></h1>
+        <p>Custos e materiais atualizados em tempo real.</p>
+      </div>
+      <button class="icon-button" id="resetButton" type="button" title="Limpar calculadora" aria-label="Limpar calculadora">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.93 4.93a10 10 0 1 1-1.08 12.7l1.83-.8a8 8 0 1 0 .66-9.79L9 9.7H3V3.7l1.93 1.23Z"/></svg>
+      </button>
+    </header>
+
+    <section class="summary" aria-label="Resumo geral">
+      <div>
+        <span class="summary-label">Total geral</span>
+        <strong id="totalGeral">R$ 0,00</strong>
+      </div>
+      <button class="summary-action" id="copyButton" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7V3h13v13h-4v5H3V7h5Zm2 0h7v7h2V5h-9v2Zm5 2H5v10h10V9Z"/></svg>
+        Copiar resumo
+      </button>
+    </section>
+
+    <div class="product-grid">
+      <section class="produto" data-product="colete">
+        <div class="card-header">
+          <div>
+            <span class="card-kicker">PRODUÇÃO</span>
+            <h2>Colete</h2>
+          </div>
+          <span class="card-index">01</span>
+        </div>
+
+        <div class="field-group">
+          <label for="qtdColete">Quantidade</label>
+          <div class="stepper">
+            <button type="button" class="stepper-btn" data-step="-1" data-target="qtdColete" aria-label="Diminuir coletes">−</button>
+            <input class="quantidade" id="qtdColete" type="number" min="0" step="1" inputmode="numeric" value="0">
+            <button type="button" class="stepper-btn" data-step="1" data-target="qtdColete" aria-label="Aumentar coletes">+</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Tipo</span>
+          <div class="segmented" id="tiposColete" role="group" aria-label="Tipo de colete">
+            <button type="button" class="ativo" data-value="cpf">CPF</button>
+            <button type="button" data-value="pj">PJ</button>
+            <button type="button" data-value="parceria">Parceria</button>
+            <button type="button" data-value="alianca">Aliança</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Acréscimo</span>
+          <div class="segmented compact" id="acrescimoColete" role="group" aria-label="Acréscimo do colete">
+            <button type="button" class="ativo" data-value="0">0%</button>
+            <button type="button" data-value="15">+15%</button>
+            <button type="button" data-value="20">+20%</button>
+            <button type="button" data-value="30">+30%</button>
+          </div>
+        </div>
+
+        <div class="resources">
+          <div class="resource"><span>Placas</span><strong id="coletePlacas">0</strong></div>
+          <div class="resource"><span>Lonas</span><strong id="coleteLonas">0</strong></div>
+        </div>
+
+        <div class="price-line"><span>Total</span><strong id="totalColete">R$ 0,00</strong></div>
+      </section>
+
+      <section class="produto" data-product="hacker">
+        <div class="card-header">
+          <div><span class="card-kicker">TECNOLOGIA</span><h2>Celular Hacker</h2></div>
+          <span class="card-index">02</span>
+        </div>
+
+        <div class="field-group">
+          <label for="qtdHacker">Quantidade</label>
+          <div class="stepper">
+            <button type="button" class="stepper-btn" data-step="-1" data-target="qtdHacker" aria-label="Diminuir celulares">−</button>
+            <input class="quantidade" id="qtdHacker" type="number" min="0" step="1" inputmode="numeric" value="0">
+            <button type="button" class="stepper-btn" data-step="1" data-target="qtdHacker" aria-label="Aumentar celulares">+</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Tipo</span>
+          <div class="segmented" id="tiposHacker" role="group" aria-label="Tipo de celular hacker">
+            <button type="button" class="ativo" data-value="normal">Normal</button>
+            <button type="button" data-value="alianca">Aliança</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Acréscimo</span>
+          <div class="segmented compact" id="acrescimoHacker" role="group" aria-label="Acréscimo do celular hacker">
+            <button type="button" class="ativo" data-value="0">0%</button>
+            <button type="button" data-value="15">+15%</button>
+            <button type="button" data-value="20">+20%</button>
+            <button type="button" data-value="30">+30%</button>
+          </div>
+        </div>
+
+        <div class="resources resources-3">
+          <div class="resource"><span>Celular</span><strong id="hackerCelular">0</strong></div>
+          <div class="resource"><span>Fios</span><strong id="hackerFios">0</strong></div>
+          <div class="resource"><span>Tubos</span><strong id="hackerTubos">0</strong></div>
+          <div class="resource"><span>Fitas</span><strong id="hackerFitas">0</strong></div>
+          <div class="resource"><span>Porcas</span><strong id="hackerPorcas">0</strong></div>
+          <div class="resource"><span>Parafusos</span><strong id="hackerParafusos">0</strong></div>
+        </div>
+
+        <div class="unit-price"><span>Valor unitário</span><strong id="precoHacker">R$ 95.000,00</strong></div>
+        <div class="price-line"><span>Total</span><strong id="totalHacker">R$ 0,00</strong></div>
+      </section>
+
+      <section class="produto" data-product="circuito">
+        <div class="card-header">
+          <div><span class="card-kicker">ELETRÔNICA</span><h2>Circuito Eletrônico</h2></div>
+          <span class="card-index">03</span>
+        </div>
+
+        <div class="field-group">
+          <label for="qtdCircuito">Quantidade</label>
+          <div class="stepper">
+            <button type="button" class="stepper-btn" data-step="-1" data-target="qtdCircuito" aria-label="Diminuir circuitos">−</button>
+            <input class="quantidade" id="qtdCircuito" type="number" min="0" step="1" inputmode="numeric" value="0">
+            <button type="button" class="stepper-btn" data-step="1" data-target="qtdCircuito" aria-label="Aumentar circuitos">+</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Tipo</span>
+          <div class="segmented" id="tiposCircuito" role="group" aria-label="Tipo de circuito">
+            <button type="button" class="ativo" data-value="normal">Normal</button>
+            <button type="button" data-value="alianca">Aliança</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <span class="field-label">Acréscimo</span>
+          <div class="segmented compact" id="acrescimoCircuito" role="group" aria-label="Acréscimo do circuito">
+            <button type="button" class="ativo" data-value="0">0%</button>
+            <button type="button" data-value="15">+15%</button>
+            <button type="button" data-value="20">+20%</button>
+            <button type="button" data-value="30">+30%</button>
+          </div>
+        </div>
+
+        <div class="resources">
+          <div class="resource"><span>Alumínio</span><strong id="circuitoAluminio">0</strong></div>
+          <div class="resource"><span>Cobre</span><strong id="circuitoCobre">0</strong></div>
+          <div class="resource"><span>Plástico</span><strong id="circuitoPlastico">0</strong></div>
+          <div class="resource"><span>Chapa</span><strong id="circuitoChapa">0</strong></div>
+        </div>
+
+        <div class="unit-price"><span>Valor unitário</span><strong id="precoCircuito">R$ 57.000,00</strong></div>
+        <div class="price-line"><span>Total</span><strong id="totalCircuito">R$ 0,00</strong></div>
+      </section>
+
+      <section class="produto" data-product="placa">
+        <div class="card-header">
+          <div><span class="card-kicker">MATERIAIS</span><h2>Placa Blindada</h2></div>
+          <span class="card-index">04</span>
+        </div>
+
+        <div class="field-group">
+          <label for="qtdPlaca">Placas extras</label>
+          <div class="stepper">
+            <button type="button" class="stepper-btn" data-step="-1" data-target="qtdPlaca" aria-label="Diminuir placas extras">−</button>
+            <input class="quantidade" id="qtdPlaca" type="number" min="0" step="1" inputmode="numeric" value="0">
+            <button type="button" class="stepper-btn" data-step="1" data-target="qtdPlaca" aria-label="Aumentar placas extras">+</button>
+          </div>
+          <small>Inclui automaticamente 1 placa para cada colete.</small>
+        </div>
+
+        <div class="resources resources-4">
+          <div class="resource"><span>Cobre</span><strong id="placaCobre">0</strong></div>
+          <div class="resource"><span>Alumínio</span><strong id="placaAluminio">0</strong></div>
+          <div class="resource"><span>Plástico</span><strong id="placaPlastico">0</strong></div>
+          <div class="resource"><span>Vidro</span><strong id="placaVidro">0</strong></div>
+          <div class="resource"><span>Borracha</span><strong id="placaBorracha">0</strong></div>
+          <div class="resource"><span>Placa</span><strong id="placaBase">0</strong></div>
+          <div class="resource"><span>Chapas</span><strong id="placaChapas">0</strong></div>
+          <div class="resource resource-money"><span>Dinheiro sujo</span><strong id="placaSujo">R$ 0,00</strong></div>
+        </div>
+        <div class="notice">Item sem valor de venda.</div>
+      </section>
+    </div>
+
+    <footer>
+      <span>IRONS</span>
+      <p>Os valores são calculados automaticamente conforme as opções selecionadas.</p>
+    </footer>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="{{ url_for('static', filename='calculadora/script.js') }}?v=9" defer></script>
+<script>
+function notifyHeight(){try{parent.postMessage({type:'iron-calculator-height',height:document.documentElement.scrollHeight}, location.origin)}catch(e){}}
+addEventListener('load',notifyHeight); addEventListener('resize',notifyHeight);
+new ResizeObserver(notifyHeight).observe(document.body);
+</script>
+</body>
+</html>

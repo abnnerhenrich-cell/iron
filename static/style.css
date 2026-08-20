@@ -187,3 +187,17 @@ input,button,select,textarea{font-size:max(16px,1rem)}
   .mobile-brand .brand-logo{width:34px;height:34px}
   .logo-box.logo-box-art{width:min(190px,58vw)}
 }
+
+
+/* ===== IRON V9 — Calculadora integrada à Hierarquia ===== */
+.admin-calculator-page{width:min(1380px,100%);margin:0 auto}
+.calculator-page-header{margin-bottom:18px}
+.calculator-frame-shell{overflow:hidden;border:1px solid rgba(255,255,255,.08);border-radius:24px;background:#050708;box-shadow:0 24px 70px rgba(0,0,0,.28)}
+.calculator-frame{display:block;width:100%;min-height:900px;border:0;background:#050708}
+@media(max-width:760px){
+  .calculator-frame-shell{margin-inline:-8px;border-radius:18px}
+  .calculator-frame{min-height:1100px}
+  .bottom-nav:has(a[href*="calculadora"]){grid-template-columns:repeat(5,minmax(0,1fr))}
+  .bottom-nav:has(a[href*="calculadora"]) a{min-width:0}
+  .bottom-nav:has(a[href*="calculadora"]) span{font-size:9px}
+}

@@ -1408,6 +1408,19 @@ def admin_user_remove_admin(user_id):
     flash("Permissão administrativa removida. A conta voltou a ser membro.", "success")
     return redirect(url_for("admin_permissions"))
 
+
+
+@app.route("/admin/calculadora")
+@admin_required
+def admin_calculator():
+    return render_template("admin_calculator.html")
+
+
+@app.route("/admin/calculadora/app")
+@admin_required
+def admin_calculator_app():
+    return render_template("admin_calculator_app.html")
+
 @app.after_request
 def disable_dynamic_page_cache(response):
     """Evita que dashboards dinâmicos voltem do cache do navegador.

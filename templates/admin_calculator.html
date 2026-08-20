@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Calculadora | IRON{% endblock %}
+{% block content %}
+<section class="admin-calculator-page">
+  <div class="page-header calculator-page-header">
+    <div>
+      <span class="eyebrow">FERRAMENTA DA HIERARQUIA</span>
+      <h1>Calculadora</h1>
+      <p>Calcule custos, materiais e quantidades sem sair do painel.</p>
+    </div>
+  </div>
+  <div class="calculator-frame-shell">
+    <iframe id="ironCalculatorFrame" class="calculator-frame" src="{{ url_for('admin_calculator_app') }}" title="Calculadora IRONS" loading="eager"></iframe>
+  </div>
+</section>
+<script>
+(() => {
+  const frame = document.getElementById('ironCalculatorFrame');
+  const resize = h => { if (frame && Number.isFinite(h)) frame.style.height = Math.max(720, h + 4) + 'px'; };
+  window.addEventListener('message', e => {
+    if (e.origin !== location.origin || e.data?.type !== 'iron-calculator-height') return;
+    resize(Number(e.data.height));
+  });
+  frame?.addEventListener('load', () => {
+    try { resize(frame.contentDocument.documentElement.scrollHeight); } catch (_) {}
+  });
+})();
+</script>
+{% endblock %}

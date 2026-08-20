@@ -10,18 +10,18 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="IRON">
   <title>{% block title %}IRON Metas{% endblock %}</title>
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32.png') }}?v=8">
-  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v=8">
-  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=8">
-  <link rel="manifest" href="/manifest.webmanifest?v=8">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=8.0.0">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32.png') }}?v=9">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v=9">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=9">
+  <link rel="manifest" href="/manifest.webmanifest?v=9">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=9.0.0">
 </head>
 {% set member_mode = request.endpoint in ['dashboard','submit','history','member_home'] %}
 <body class="{{ 'is-auth' if current_user else 'is-guest' }} {{ 'is-member-mode' if member_mode else 'is-admin-mode' }}">
   {% if current_user %}
   <aside class="app-sidebar">
     <a class="sidebar-brand" href="{{ url_for('dashboard' if member_mode else ('admin_dashboard' if current_user['role']=='admin' else 'dashboard')) }}">
-      <img class="brand-logo" src="{{ url_for('static', filename='iron-logo.png') }}?v=8" alt="IRON Brotherhood">
+      <img class="brand-logo" src="{{ url_for('static', filename='iron-logo.png') }}?v=9" alt="IRON Brotherhood">
       <span class="brand-copy"><strong>IRON</strong><small>{{ 'ESPAÇO DO MEMBRO' if member_mode or current_user['role']!='admin' else 'PAINEL DA HIERARQUIA' }}</small></span>
     </a>
 
@@ -32,6 +32,7 @@
         <a class="{{ 'active' if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] }}" href="{{ url_for('admin_members') }}"><span class="nav-ico">◉</span><span>Membros</span></a>
         <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}"><span class="nav-ico">＋</span><span>Cadastros</span></a>
         <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" href="{{ url_for('admin_cycles') }}"><span class="nav-ico">◇</span><span>Metas</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_calculator','admin_calculator_app'] }}" href="{{ url_for('admin_calculator') }}"><span class="nav-ico">⌗</span><span>Calculadora</span></a>
         <a class="{{ 'active' if request.endpoint=='admin_permissions' }}" href="{{ url_for('admin_permissions') }}"><span class="nav-ico">⌘</span><span>Permissões</span></a>
       {% else %}
         <a class="{{ 'active' if request.endpoint=='dashboard' }}" href="{{ url_for('dashboard') }}"><span class="nav-ico">⌂</span><span>Meu progresso</span></a>
@@ -58,7 +59,7 @@
   </aside>
 
   <header class="mobile-topbar">
-    <a class="mobile-brand" href="{{ url_for('dashboard' if member_mode else ('admin_dashboard' if current_user['role']=='admin' else 'dashboard')) }}"><img class="brand-logo" src="{{ url_for('static', filename='iron-logo.png') }}?v=8" alt="IRON Brotherhood"><strong>IRON</strong></a>
+    <a class="mobile-brand" href="{{ url_for('dashboard' if member_mode else ('admin_dashboard' if current_user['role']=='admin' else 'dashboard')) }}"><img class="brand-logo" src="{{ url_for('static', filename='iron-logo.png') }}?v=9" alt="IRON Brotherhood"><strong>IRON</strong></a>
     <div class="mobile-top-actions">
       <button class="mobile-install js-install-app" type="button" aria-label="Instalar IRON" title="Instalar IRON">↓</button>
       {% if current_user['role']=='admin' %}<a href="{{ url_for('admin_dashboard' if member_mode else 'dashboard') }}">⇄</a>{% endif %}
@@ -89,6 +90,7 @@
       <a class="{{ 'active' if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] }}" href="{{ url_for('admin_members') }}"><b>◉</b><span>Membros</span></a>
       <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}"><b>＋</b><span>Cadastros</span></a>
       <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" href="{{ url_for('admin_cycles') }}"><b>◇</b><span>Metas</span></a>
+      <a class="{{ 'active' if request.endpoint=='admin_calculator' }}" href="{{ url_for('admin_calculator') }}"><b>⌗</b><span>Calcular</span></a>
     {% else %}
       <a class="{{ 'active' if request.endpoint=='dashboard' }}" href="{{ url_for('dashboard') }}"><b>⌂</b><span>Início</span></a>
       <a class="{{ 'active' if request.endpoint=='submit' }}" href="{{ url_for('submit') }}"><b>＋</b><span>Entregar</span></a>
@@ -101,7 +103,7 @@
     <div class="install-sheet-backdrop" data-close-install></div>
     <section class="install-sheet-card" role="dialog" aria-modal="true" aria-labelledby="installTitle">
       <button class="install-sheet-close" type="button" data-close-install aria-label="Fechar">×</button>
-      <div class="install-sheet-brand"><img class="brand-logo" src="{{ url_for('static', filename='iron-logo.png') }}?v=8" alt="IRON Brotherhood"></div>
+      <div class="install-sheet-brand"><img class="brand-logo" src="{{ url_for('static', filename='iron-logo.png') }}?v=9" alt="IRON Brotherhood"></div>
       <span class="eyebrow">IRON NO CELULAR</span>
       <h2 id="installTitle">Adicionar à Tela de Início</h2>
       <p id="installHelpText">Você pode instalar o IRON no celular ou computador para abrir como aplicativo.</p>
