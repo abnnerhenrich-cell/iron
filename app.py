@@ -1456,6 +1456,19 @@ def admin_user_remove_admin(user_id):
 
 
 
+
+@app.route("/calculadora")
+@login_required
+def calculator():
+    return render_template("admin_calculator.html", calculator_member=True)
+
+
+@app.route("/calculadora/app")
+@login_required
+def calculator_app():
+    return render_template("admin_calculator_app.html")
+
+
 @app.route("/admin/calculadora")
 @admin_required
 def admin_calculator():

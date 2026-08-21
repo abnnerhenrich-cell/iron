@@ -16,7 +16,7 @@
   <link rel="manifest" href="/manifest.webmanifest?v=9">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=9.0.0">
 </head>
-{% set member_mode = request.endpoint in ['dashboard','submit','history','member_home'] %}
+{% set member_mode = request.endpoint in ['dashboard','submit','history','member_home','calculator','calculator_app'] %}
 <body class="{{ 'is-auth' if current_user else 'is-guest' }} {{ 'is-member-mode' if member_mode else 'is-admin-mode' }}">
   {% if current_user %}
   <aside class="app-sidebar">
@@ -38,6 +38,7 @@
         <a class="{{ 'active' if request.endpoint=='dashboard' }}" href="{{ url_for('dashboard') }}"><span class="nav-ico">⌂</span><span>Meu progresso</span></a>
         <a class="{{ 'active' if request.endpoint=='submit' }}" href="{{ url_for('submit') }}"><span class="nav-ico">＋</span><span>Nova entrega</span></a>
         <a class="{{ 'active' if request.endpoint=='history' }}" href="{{ url_for('history') }}"><span class="nav-ico">◔</span><span>Histórico</span></a>
+        <a class="{{ 'active' if request.endpoint in ['calculator','calculator_app'] }}" href="{{ url_for('calculator') }}"><span class="nav-ico">⌗</span><span>Calculadora</span></a>
       {% endif %}
     </nav>
 
@@ -95,6 +96,7 @@
       <a class="{{ 'active' if request.endpoint=='dashboard' }}" href="{{ url_for('dashboard') }}"><b>⌂</b><span>Início</span></a>
       <a class="{{ 'active' if request.endpoint=='submit' }}" href="{{ url_for('submit') }}"><b>＋</b><span>Entregar</span></a>
       <a class="{{ 'active' if request.endpoint=='history' }}" href="{{ url_for('history') }}"><b>◔</b><span>Histórico</span></a>
+      <a class="{{ 'active' if request.endpoint in ['calculator','calculator_app'] }}" href="{{ url_for('calculator') }}"><b>⌗</b><span>Calcular</span></a>
     {% endif %}
   </nav>
   {% endif %}
