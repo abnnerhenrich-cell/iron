@@ -113,7 +113,7 @@
       </div>
 
       <div class="goal-card-actions">
-        <form method="post" action="{{ url_for('admin_goal_delete', goal_id=g['id']) }}" onsubmit="return confirm('Excluir esta meta de {{ member['name'] }}?')">
+        <form method="post" action="{{ url_for('admin_goal_delete', goal_id=g['id']) }}" onsubmit="return confirm('Excluir esta meta de {{ member['name'] }}? As entregas e fotos exclusivas desta meta também serão apagadas.')">
           <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
           <button class="btn danger" type="submit">Excluir meta</button>
         </form>

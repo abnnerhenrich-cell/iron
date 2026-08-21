@@ -837,21 +837,58 @@ def admin_cycle_detail(cycle_id):
 @admin_required
 def admin_goal_delete(goal_id):
     validate_csrf()
+
     with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT * FROM goals WHERE id=%s", (goal_id,))
-            goal = cur.fetchone()
-            if not goal:
-                abort(404)
-            cur.execute("SELECT 1 FROM submissions WHERE goal_id=%s LIMIT 1", (goal_id,))
-            if cur.fetchone():
-                flash("Essa meta já possui entregas e não pode ser excluída.", "danger")
-                return redirect(url_for("admin_cycle_detail", cycle_id=goal["cycle_id"]))
-            cur.execute("DELETE FROM goals WHERE id=%s", (goal_id,))
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT * FROM goals WHERE id=%s FOR UPDATE", (goal_id,))
+                goal = cur.fetchone()
+                if not goal:
+                    abort(404)
+
+                cycle_id = goal["cycle_id"]
+                member_id = goal.get("user_id")
+
+                # Guarda os lotes das entregas desta meta antes de removê-la.
+                # As fotos ficam em delivery_batches e podem ser compartilhadas quando
+                # o membro envia várias metas no mesmo envio.
+                cur.execute("""
+                    SELECT DISTINCT batch_id
+                    FROM submissions
+                    WHERE goal_id=%s AND batch_id IS NOT NULL
+                """, (goal_id,))
+                batch_ids = [row["batch_id"] for row in cur.fetchall()]
+
+                # Exclui todo o histórico desta meta personalizada. Isso também remove
+                # imagens antigas que eventualmente estejam salvas diretamente em submissions.
+                cur.execute("DELETE FROM submissions WHERE goal_id=%s", (goal_id,))
+
+                # Agora a própria meta pode ser excluída, mesmo que já tivesse entregas.
+                cur.execute("DELETE FROM goals WHERE id=%s", (goal_id,))
+
+                # Remove apenas lotes/fotos que ficaram órfãos. Se o mesmo envio também
+                # pertence a outra meta, o lote é preservado para não apagar o comprovante dela.
+                if batch_ids:
+                    cur.execute("""
+                        DELETE FROM delivery_batches b
+                        WHERE b.id = ANY(%s)
+                          AND NOT EXISTS (
+                              SELECT 1 FROM submissions s WHERE s.batch_id=b.id
+                          )
+                    """, (batch_ids,))
+
             conn.commit()
-            cycle_id = goal["cycle_id"]
-            member_id = goal.get("user_id")
-    flash("Meta excluída.", "success")
+        except Exception:
+            conn.rollback()
+            app.logger.exception("Erro ao excluir meta personalizada: goal_id=%s", goal_id)
+            flash("Não foi possível excluir a meta. Tente novamente.", "danger")
+            if 'member_id' in locals() and member_id:
+                return redirect(url_for("admin_member_goals", user_id=member_id))
+            if 'cycle_id' in locals():
+                return redirect(url_for("admin_cycle_detail", cycle_id=cycle_id))
+            return redirect(url_for("admin_cycles"))
+
+    flash("Meta e histórico relacionado excluídos.", "success")
     if member_id:
         return redirect(url_for("admin_member_goals", user_id=member_id))
     return redirect(url_for("admin_cycle_detail", cycle_id=cycle_id))
