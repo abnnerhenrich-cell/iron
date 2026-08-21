@@ -940,7 +940,7 @@ def admin_review(submission_id):
             # Bloqueia a linha durante a revisão para impedir duas decisões
             # concorrentes sobre a mesma entrega.
             cur.execute("""
-                SELECT id, status
+                SELECT id, status, batch_id, user_id
                 FROM submissions
                 WHERE id=%s
                 FOR UPDATE
@@ -952,23 +952,61 @@ def admin_review(submission_id):
 
             if submission["status"] != "pending":
                 conn.rollback()
-                flash("Essa entrega já foi analisada e não foi alterada novamente.", "danger")
+                flash("Essa atualização já foi analisada e não foi alterada novamente.", "danger")
                 return redirect(request.referrer or url_for("admin_submissions"))
 
-            cur.execute("""
-                UPDATE submissions
-                SET status=%s,
-                    admin_note=%s,
-                    reviewed_at=NOW(),
-                    reviewed_by=%s
-                WHERE id=%s
-            """, (decision, admin_note, admin["id"], submission_id))
+            # Cada atualização pode conter vários produtos/metas. Quando existe
+            # batch_id, a decisão deve ser aplicada ao lote inteiro, e não
+            # somente ao produto cujo botão foi clicado.
+            if submission["batch_id"] is not None:
+                cur.execute("""
+                    SELECT id
+                    FROM submissions
+                    WHERE batch_id=%s
+                      AND user_id=%s
+                      AND status='pending'
+                    FOR UPDATE
+                """, (submission["batch_id"], submission["user_id"]))
+                batch_rows = cur.fetchall()
+                batch_ids = [row["id"] for row in batch_rows]
+
+                if batch_ids:
+                    cur.execute("""
+                        UPDATE submissions
+                        SET status=%s,
+                            admin_note=%s,
+                            reviewed_at=NOW(),
+                            reviewed_by=%s
+                        WHERE id = ANY(%s)
+                          AND status='pending'
+                    """, (decision, admin_note, admin["id"], batch_ids))
+                    reviewed_count = cur.rowcount
+                else:
+                    reviewed_count = 0
+            else:
+                # Compatibilidade com entregas antigas que não possuem lote.
+                cur.execute("""
+                    UPDATE submissions
+                    SET status=%s,
+                        admin_note=%s,
+                        reviewed_at=NOW(),
+                        reviewed_by=%s
+                    WHERE id=%s
+                      AND status='pending'
+                """, (decision, admin_note, admin["id"], submission_id))
+                reviewed_count = cur.rowcount
         conn.commit()
 
     if decision == "rejected":
-        flash("Meta recusada. O valor foi removido de Em análise e não conta mais na porcentagem do membro.", "success")
+        flash(
+            f"Atualização recusada. {reviewed_count} produto(s) saíram de Em análise e não contam mais na porcentagem do membro.",
+            "success"
+        )
     else:
-        flash("Meta aprovada. O valor passou de Em análise para Aprovado.", "success")
+        flash(
+            f"Atualização aprovada. {reviewed_count} produto(s) passaram de Em análise para Aprovado.",
+            "success"
+        )
     return redirect(request.referrer or url_for("admin_submissions"))
 
 @app.route("/admin/registrations")
