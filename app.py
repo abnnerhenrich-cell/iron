@@ -752,21 +752,22 @@ def admin_cycles():
         title = request.form.get("title", "").strip()
         start_date = request.form.get("start_date", "")
         end_date = request.form.get("end_date", "")
-        active = request.form.get("active") == "1"
+        # Toda nova meta passa a ser a meta ativa automaticamente.
+        # Como o sistema trabalha com uma meta ativa por vez, desativamos a anterior.
+        active = True
         if not title or not start_date or not end_date:
             flash("Preencha todos os campos da meta.", "danger")
         else:
             with get_conn() as conn:
                 with conn.cursor() as cur:
-                    if active:
-                        cur.execute("UPDATE cycles SET active=FALSE")
+                    cur.execute("UPDATE cycles SET active=FALSE")
                     cur.execute("""
                         INSERT INTO cycles(title,start_date,end_date,active)
                         VALUES(%s,%s,%s,%s) RETURNING id
                     """, (title, start_date, end_date, active))
                     cycle_id = cur.fetchone()["id"]
                 conn.commit()
-            flash("Meta criada.", "success")
+            flash("Meta criada e ativada automaticamente.", "success")
             return redirect(url_for("admin_cycle_detail", cycle_id=cycle_id))
 
     with get_conn() as conn:
