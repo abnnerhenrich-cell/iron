@@ -97,7 +97,7 @@ function calculate() {
   const totalColete = q.colete * coleteUnit;
   const totalHacker = q.hacker * hackerUnit;
   const totalCircuito = q.circuito * circuitoUnit;
-  const totalPlacas = q.placa + q.colete;
+  const totalPlacas = q.placa;
   const totalGeral = totalColete + totalHacker + totalCircuito;
 
   setText("totalColete", money(totalColete));
@@ -246,8 +246,8 @@ function buildSummary() {
     `Colete: ${state.quantities.colete} un. • ${typeLabel(state.types.colete)} • +${state.additions.colete}% • ${money(totals.totalColete)}`,
     `Celular Hacker: ${state.quantities.hacker} un. • ${typeLabel(state.types.hacker)} • +${state.additions.hacker}% • ${money(totals.totalHacker)}`,
     `Circuito Eletrônico: ${state.quantities.circuito} un. • ${typeLabel(state.types.circuito)} • +${state.additions.circuito}% • ${money(totals.totalCircuito)}`,
-    `Placas extras: ${state.quantities.placa} un.`,
-    `Placas totais para materiais: ${totals.totalPlacas} un.`,
+    `Placa Blindada: ${state.quantities.placa} un.`,
+    `Placas para materiais: ${totals.totalPlacas} un.`,
     "",
     `TOTAL GERAL: ${money(totals.totalGeral)}`
   ].join("\n");

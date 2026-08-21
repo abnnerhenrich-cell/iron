@@ -8,7 +8,7 @@
   <title>Calculadora IRONS</title>
   <link rel="icon" href="{{ url_for('static', filename='icons/favicon-32.png') }}?v=9" type="image/png">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=9">
-  <link rel="stylesheet" href="{{ url_for('static', filename='calculadora/style.css') }}?v=9">
+  <link rel="stylesheet" href="{{ url_for('static', filename='calculadora/style.css') }}?v=15">
 <style>html,body{overflow-x:hidden} body{min-height:auto}.app{padding-bottom:28px}</style>
 </head>
 <body>
@@ -182,13 +182,12 @@
         </div>
 
         <div class="field-group">
-          <label for="qtdPlaca">Placas extras</label>
+          <label for="qtdPlaca">Quantidade</label>
           <div class="stepper">
             <button type="button" class="stepper-btn" data-step="-1" data-target="qtdPlaca" aria-label="Diminuir placas extras">−</button>
             <input class="quantidade" id="qtdPlaca" type="number" min="0" step="1" inputmode="numeric" value="0">
             <button type="button" class="stepper-btn" data-step="1" data-target="qtdPlaca" aria-label="Aumentar placas extras">+</button>
           </div>
-          <small>Inclui automaticamente 1 placa para cada colete.</small>
         </div>
 
         <div class="resources resources-4">
@@ -212,6 +211,6 @@
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="{{ url_for('static', filename='calculadora/script.js') }}?v=10" defer></script>
+  <script src="{{ url_for('static', filename='calculadora/script.js') }}?v=15" defer></script>
 </body>
 </html>
