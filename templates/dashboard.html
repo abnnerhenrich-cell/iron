@@ -42,16 +42,18 @@
   </div>
   <div class="goals-grid">
     {% for g in goals %}
-    {% set pct_approved = ([((g['approved'] / g['target']) * 100)|round|int, 100]|min) if g['target'] else 0 %}
-    {% set pct_pending = ([((g['pending'] / g['target']) * 100)|round|int, 100 - pct_approved]|min) if g['target'] else 0 %}
-    {% set pct = ([((((g['approved'] + g['pending']) / g['target']) * 100)|round|int), 100]|min) if g['target'] else 0 %}
+    {% set need = g.get('effective_target', g['target']) %}
+    {% set pct_approved = ([((g['approved'] / need) * 100)|round|int, 100]|min) if need else 100 %}
+    {% set pct_pending = ([((g['pending'] / need) * 100)|round|int, 100 - pct_approved]|min) if need else 0 %}
+    {% set pct = ([((((g['approved'] + g['pending']) / need) * 100)|round|int), 100]|min) if need else 100 %}
     <article class="goal-card">
       <div class="goal-top"><span class="goal-icon">{{ g['icon'] }}</span><div><strong>{{ g['title'] }}</strong></div><b class="{{ 'green' if pct >= 100 else 'silver' }}">{{ pct }}%</b></div>
       <div class="progress progress-segmented"><i class="approved-segment" style="width:{{ pct_approved }}%"></i><i class="pending-segment" style="width:{{ pct_pending }}%; left:{{ pct_approved }}%"></i></div>
       <div class="goal-values">
         <span>Aprovado<b class="green">{{ money(g['approved']) if g['unit']=='R$' else (g['approved']|int|string + ' ' + g['unit']) }}</b></span>
         <span>Em análise<b class="yellow">{{ money(g['pending']) if g['unit']=='R$' else (g['pending']|int|string + ' ' + g['unit']) }}</b></span>
-        <span>Meta<b>{{ money(g['target']) if g['unit']=='R$' else (g['target']|int|string + ' ' + g['unit']) }}</b></span>
+        <span>Necessário<b>{{ money(need) if g['unit']=='R$' else (need|int|string + ' ' + g['unit']) }}</b></span>
+        {% if g.get('credit_applied',0) > 0 %}<span>Crédito usado<b class="green">−{{ money(g['credit_applied']) if g['unit']=='R$' else (g['credit_applied']|int|string + ' ' + g['unit']) }}</b></span>{% endif %}
       </div>
     </article>
     {% endfor %}

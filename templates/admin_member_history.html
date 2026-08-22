@@ -25,6 +25,51 @@
   <a class="active" href="{{ url_for('admin_member_history', user_id=member['id']) }}">Entregas e Aprovações</a>
 </nav>
 
+<section class="panel audit-ledger-panel">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">EXTRATO DE METAS</span>
+      <h2>Fechamentos e créditos</h2>
+      <p>Confira o que era necessário, o que foi aprovado e o que ficou de crédito para a próxima meta.</p>
+    </div>
+  </div>
+
+  {% if credits %}
+  <div class="current-credit-summary">
+    <span>CRÉDITO DISPONÍVEL AGORA</span>
+    <div class="credit-chip-list">
+      {% for c in credits %}
+      <span class="credit-chip"><b>{{ c['goal_title'] }}</b> +{{ c['balance']|round|int }} {{ c['unit'] }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="closure-grid">
+    {% for c in closures %}
+    <article class="closure-card">
+      <div class="closure-head">
+        <div><span class="eyebrow">{{ c['cycle_title'] }}</span><h3>{{ c['goal_title'] }}</h3></div>
+        {% if c['surplus'] > 0 %}<span class="status approved">+{{ c['surplus']|round|int }} CRÉDITO</span>
+        {% elif c['shortfall'] > 0 %}<span class="status rejected">FALTOU {{ c['shortfall']|round|int }}</span>
+        {% else %}<span class="status approved">CONCLUÍDA</span>{% endif %}
+      </div>
+      <div class="closure-values">
+        <div><span>Meta original</span><strong>{{ c['target']|round|int }} {{ c['unit'] }}</strong></div>
+        <div><span>Crédito usado</span><strong>{{ c['credit_applied']|round|int }} {{ c['unit'] }}</strong></div>
+        <div><span>Necessário</span><strong>{{ c['required_target']|round|int }} {{ c['unit'] }}</strong></div>
+        <div><span>Aprovado</span><strong>{{ c['approved']|round|int }} {{ c['unit'] }}</strong></div>
+        <div><span>Excedente</span><strong class="green">+{{ c['surplus']|round|int }} {{ c['unit'] }}</strong></div>
+        <div><span>Faltou</span><strong class="{{ 'red' if c['shortfall'] > 0 else '' }}">{{ c['shortfall']|round|int }} {{ c['unit'] }}</strong></div>
+      </div>
+      <small class="closure-date">{{ c['start_date'] }} → {{ c['end_date'] }} · fechado em {{ c['closed_at']|dt }}</small>
+    </article>
+    {% else %}
+    <div class="empty compact-empty"><h3>Nenhuma meta fechada ainda</h3><p>Depois de conferir todas as entregas, use “Fechar meta” na aba Metas.</p></div>
+    {% endfor %}
+  </div>
+</section>
+
 <section class="panel">
   <div class="panel-head">
     <div>

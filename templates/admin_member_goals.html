@@ -92,6 +92,31 @@
     </div>
   </div>
 
+  {% if credits %}
+  <div class="credit-balance-strip">
+    <div><span class="eyebrow">CRÉDITOS DISPONÍVEIS</span><strong>Saldo para próximas metas</strong></div>
+    <div class="credit-chip-list">
+      {% for c in credits %}
+      <span class="credit-chip"><b>{{ c['goal_title'] }}</b> +{{ c['balance']|round|int }} {{ c['unit'] }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if goals %}
+  <div class="goal-close-bar">
+    <div>
+      <span class="eyebrow">FECHAMENTO DO PERÍODO</span>
+      <strong>Conferiu todas as entregas?</strong>
+      <small>O fechamento transforma somente o excedente aprovado em crédito. Pendências não são carregadas para a próxima meta.</small>
+    </div>
+    <form method="post" action="{{ url_for('admin_member_goals_close', user_id=member['id']) }}" onsubmit="return confirm('Fechar as metas deste período para {{ member['name'] }}? O excedente aprovado virará crédito para a próxima meta.')">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button class="btn primary" type="submit">✓ Fechar meta</button>
+    </form>
+  </div>
+  {% endif %}
+
   <div class="goal-admin-grid">
     {% for g in goals %}
     <article class="goal-admin-card {{ 'goal-complete' if g['complete'] else '' }}">
@@ -100,16 +125,26 @@
           <span class="goal-icon">{{ g['icon'] }}</span>
           <strong>{{ g['title'] }}</strong>
         </div>
+        {% if g['closed'] %}
+        <span class="status approved">FECHADA</span>
+        {% else %}
         <span class="status {{ 'approved' if g['complete'] else 'pending' }}">{{ 'COMPLETA' if g['complete'] else 'EM ANDAMENTO' }}</span>
+        {% endif %}
       </div>
 
       <div class="progress"><i style="width:{{ g['percent'] }}%"></i></div>
 
-      <div class="goal-numbers">
-        <div><span>Meta</span><strong>{{ g['target_f']|round|int }} {{ g['unit'] }}</strong></div>
+      <div class="goal-numbers goal-numbers-audit">
+        <div><span>Meta original</span><strong>{{ g['target_f']|round|int }} {{ g['unit'] }}</strong></div>
+        <div><span>Crédito anterior</span><strong class="green">{{ g['credit_applied_f']|round|int }} {{ g['unit'] }}</strong></div>
+        <div><span>Necessário</span><strong>{{ g['required_f']|round|int }} {{ g['unit'] }}</strong></div>
         <div><span>Aprovado</span><strong>{{ g['approved_f']|round|int }} {{ g['unit'] }}</strong></div>
+        <div><span>Em análise</span><strong class="yellow">{{ g['pending_f']|round|int }} {{ g['unit'] }}</strong></div>
+        {% if g['surplus'] > 0 %}
+        <div class="audit-surplus"><span>Excedente atual</span><strong class="green">+{{ g['surplus']|round|int }} {{ g['unit'] }}</strong></div>
+        {% else %}
         <div><span>Falta</span><strong>{{ g['remaining']|round|int }} {{ g['unit'] }}</strong></div>
-        <div><span>Em análise</span><strong>{{ g['pending_f']|round|int }} {{ g['unit'] }}</strong></div>
+        {% endif %}
       </div>
 
       <div class="goal-card-actions">

@@ -34,6 +34,10 @@ def get_conn():
         raise RuntimeError("DATABASE_URL não encontrada. Conecte o Neon ao projeto na Vercel.")
     return psycopg.connect(DATABASE_URL, row_factory=dict_row)
 
+def goal_credit_key(title):
+    """Chave estável para transportar crédito entre metas com o mesmo nome."""
+    return re.sub(r"\s+", " ", (title or "").strip().lower())
+
 def init_db():
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -78,6 +82,38 @@ def init_db():
                 )
             """)
             cur.execute("ALTER TABLE goals ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id) ON DELETE CASCADE")
+            cur.execute("ALTER TABLE goals ADD COLUMN IF NOT EXISTS credit_applied NUMERIC(14,2) NOT NULL DEFAULT 0")
+            cur.execute("ALTER TABLE goals ADD COLUMN IF NOT EXISTS closed BOOLEAN NOT NULL DEFAULT FALSE")
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS member_goal_credits (
+                    id BIGSERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    goal_key TEXT NOT NULL,
+                    goal_title TEXT NOT NULL,
+                    unit TEXT NOT NULL DEFAULT 'un',
+                    balance NUMERIC(14,2) NOT NULL DEFAULT 0,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    UNIQUE(user_id, goal_key, unit)
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS goal_closures (
+                    id BIGSERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    cycle_id BIGINT NOT NULL REFERENCES cycles(id) ON DELETE CASCADE,
+                    goal_id BIGINT NOT NULL UNIQUE REFERENCES goals(id) ON DELETE CASCADE,
+                    goal_title TEXT NOT NULL,
+                    unit TEXT NOT NULL DEFAULT 'un',
+                    target NUMERIC(14,2) NOT NULL DEFAULT 0,
+                    credit_applied NUMERIC(14,2) NOT NULL DEFAULT 0,
+                    required_target NUMERIC(14,2) NOT NULL DEFAULT 0,
+                    approved NUMERIC(14,2) NOT NULL DEFAULT 0,
+                    surplus NUMERIC(14,2) NOT NULL DEFAULT 0,
+                    shortfall NUMERIC(14,2) NOT NULL DEFAULT 0,
+                    closed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    closed_by BIGINT REFERENCES users(id)
+                )
+            """)
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image BYTEA")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_mime TEXT")
             cur.execute("""
@@ -227,13 +263,8 @@ def inject_globals():
         "today": date.today(),
     }
 
-def active_cycle_with_goals(user_id=None):
-    """Retorna a meta ativa e o progresso real do membro.
-
-    Somente entregas com status *pending* entram em "Em análise".
-    Entregas recusadas (*rejected*) ficam no histórico, mas nunca entram
-    novamente no cálculo de progresso ou no saldo reservado.
-    """
+def active_cycle_with_goals(user_id=None, open_only=False):
+    """Retorna a meta ativa e o progresso do membro, incluindo créditos aplicados."""
     member_id = user_id or -1
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -241,7 +272,7 @@ def active_cycle_with_goals(user_id=None):
             cycle = cur.fetchone()
             goals = []
             if cycle:
-                cur.execute("""
+                sql = """
                     SELECT g.*,
                            COALESCE(SUM(s.amount) FILTER (WHERE s.status='approved'), 0) AS approved,
                            COALESCE(SUM(s.amount) FILTER (WHERE s.status='pending'), 0) AS pending
@@ -252,10 +283,21 @@ def active_cycle_with_goals(user_id=None):
                      AND s.status IN ('approved','pending')
                     WHERE g.cycle_id=%s
                       AND g.user_id=%s
-                    GROUP BY g.id
-                    ORDER BY g.sort_order, g.id
-                """, (member_id, cycle["id"], member_id))
-                goals = cur.fetchall()
+                """
+                params = [member_id, cycle["id"], member_id]
+                if open_only:
+                    sql += " AND g.closed=FALSE"
+                sql += " GROUP BY g.id ORDER BY g.sort_order, g.id"
+                cur.execute(sql, params)
+                rows = cur.fetchall()
+                for row in rows:
+                    item = dict(row)
+                    target = float(item.get("target") or 0)
+                    credit = min(float(item.get("credit_applied") or 0), target)
+                    item["original_target"] = target
+                    item["credit_applied"] = credit
+                    item["effective_target"] = max(target - credit, 0)
+                    goals.append(item)
     return cycle, goals
 
 @app.route("/")
@@ -486,11 +528,11 @@ def profile_photo(user_id):
 def dashboard():
     user = get_current_user()
     cycle, goals = active_cycle_with_goals(user["id"])
-    total_target = sum(float(g["target"]) for g in goals)
+    total_target = sum(float(g.get("effective_target", g["target"])) for g in goals)
     total_approved = sum(float(g["approved"]) for g in goals)
     total_pending = sum(float(g["pending"]) for g in goals)
-    overall = min(100, round((total_approved / total_target) * 100)) if total_target else 0
-    overall_activity = min(100, round(((total_approved + total_pending) / total_target) * 100)) if total_target else 0
+    overall = min(100, round((total_approved / total_target) * 100)) if total_target else (100 if goals else 0)
+    overall_activity = min(100, round(((total_approved + total_pending) / total_target) * 100)) if total_target else (100 if goals else 0)
 
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -519,7 +561,7 @@ def dashboard():
 @login_required
 def submit():
     user = get_current_user()
-    cycle, goals = active_cycle_with_goals(user["id"])
+    cycle, goals = active_cycle_with_goals(user["id"], open_only=True)
     if not cycle:
         flash("Não há meta ativa.", "danger")
         return redirect(url_for("dashboard"))
@@ -542,10 +584,8 @@ def submit():
 
             if goal_id in valid_ids and amount > 0:
                 goal = valid_ids[goal_id]
-                remaining = max(float(goal["target"] or 0) - float(goal["approved"] or 0) - float(goal["pending"] or 0), 0)
-                if amount > remaining + 1e-9:
-                    flash(f"A quantidade de '{goal['title']}' ultrapassa o saldo disponível ({remaining:g} {goal['unit']}).", "danger")
-                    return render_template("submit.html", cycle=cycle, goals=goals)
+                # Excedentes são permitidos. O que ultrapassar a necessidade da meta
+                # só vira crédito após o fechamento feito pela Hierarquia.
                 selected.append((goal_id, amount))
 
         if not selected:
@@ -849,6 +889,20 @@ def admin_goal_delete(goal_id):
                 cycle_id = goal["cycle_id"]
                 member_id = goal.get("user_id")
 
+                # Se uma meta ainda aberta consumiu crédito anterior e for excluída,
+                # devolve esse crédito ao saldo do membro.
+                restored_credit = 0
+                if member_id and not goal.get("closed") and float(goal.get("credit_applied") or 0) > 0:
+                    restored_credit = float(goal.get("credit_applied") or 0)
+                    cur.execute("""
+                        INSERT INTO member_goal_credits(user_id, goal_key, goal_title, unit, balance)
+                        VALUES (%s,%s,%s,%s,%s)
+                        ON CONFLICT (user_id, goal_key, unit)
+                        DO UPDATE SET balance=member_goal_credits.balance+EXCLUDED.balance,
+                                      goal_title=EXCLUDED.goal_title,
+                                      updated_at=NOW()
+                    """, (member_id, goal_credit_key(goal["title"]), goal["title"], goal["unit"], restored_credit))
+
                 # Guarda os lotes das entregas desta meta antes de removê-la.
                 # As fotos ficam em delivery_batches e podem ser compartilhadas quando
                 # o membro envia várias metas no mesmo envio.
@@ -1050,7 +1104,7 @@ def admin_members():
                 if cycle:
                     cur.execute("""
                         SELECT
-                            COALESCE(SUM(g.target),0) AS target,
+                            COALESCE(SUM(GREATEST(g.target-COALESCE(g.credit_applied,0),0)),0) AS target,
                             COALESCE(SUM((
                                 SELECT COALESCE(SUM(s.amount),0)
                                 FROM submissions s
@@ -1117,7 +1171,7 @@ def admin_member_detail(user_id):
 
             if cycle:
                 cur.execute("""
-                    SELECT g.id, g.target,
+                    SELECT g.id, g.target, g.credit_applied,
                            COALESCE(SUM(CASE WHEN s.status='approved' THEN s.amount ELSE 0 END),0) AS approved,
                            COALESCE(SUM(CASE WHEN s.status='pending' THEN s.amount ELSE 0 END),0) AS pending
                     FROM goals g
@@ -1130,7 +1184,9 @@ def admin_member_detail(user_id):
                 goal_rows = cur.fetchall()
                 goals_total = len(goal_rows)
                 for g in goal_rows:
-                    target = float(g["target"] or 0)
+                    original_target = float(g["target"] or 0)
+                    credit_applied = min(float(g.get("credit_applied") or 0), original_target)
+                    target = max(original_target - credit_applied, 0)
                     approved = float(g["approved"] or 0)
                     pending = float(g["pending"] or 0)
                     total_target += target
@@ -1139,7 +1195,7 @@ def admin_member_detail(user_id):
                     if target > 0 and approved >= target:
                         goals_completed += 1
 
-            overall = min(100, round((total_approved / total_target) * 100)) if total_target else 0
+            overall = min(100, round((total_approved / total_target) * 100)) if total_target else (100 if goals_total else 0)
 
             cur.execute("""
                 SELECT COUNT(*) FILTER (WHERE status='pending') AS pending_count,
@@ -1231,6 +1287,24 @@ def admin_member_goals(user_id):
                     order_row = cur.fetchone()
                     sort_order = int(order_row["next_order"] or 1)
 
+                    goal_key = goal_credit_key(title)
+                    cur.execute("""
+                        SELECT id, balance
+                        FROM member_goal_credits
+                        WHERE user_id=%s AND goal_key=%s AND unit=%s
+                        FOR UPDATE
+                    """, (user_id, goal_key, unit))
+                    credit_row = cur.fetchone()
+                    available_credit = float(credit_row["balance"] or 0) if credit_row else 0
+                    credit_applied = min(available_credit, target)
+
+                    if credit_row and credit_applied > 0:
+                        cur.execute("""
+                            UPDATE member_goal_credits
+                            SET balance=GREATEST(balance-%s,0), updated_at=NOW()
+                            WHERE id=%s
+                        """, (credit_applied, credit_row["id"]))
+
                     cur.execute("""
                         INSERT INTO goals (
                             cycle_id,
@@ -1240,9 +1314,11 @@ def admin_member_goals(user_id):
                             unit,
                             icon,
                             sort_order,
-                            user_id
+                            user_id,
+                            credit_applied,
+                            closed
                         )
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,FALSE)
                     """, (
                         cycle["id"],
                         title,
@@ -1251,7 +1327,8 @@ def admin_member_goals(user_id):
                         unit,
                         icon,
                         sort_order,
-                        user_id
+                        user_id,
+                        credit_applied
                     ))
 
                     conn.commit()
@@ -1265,7 +1342,11 @@ def admin_member_goals(user_id):
                     flash("Não foi possível criar a meta. Tente novamente.", "danger")
                     return redirect(url_for("admin_member_goals", user_id=user_id))
 
-                flash(f"Meta criada para {member['name']}.", "success")
+                flash(
+                    f"Meta criada para {member['name']}."
+                    + (f" Crédito anterior aplicado: {credit_applied:g} {unit}." if credit_applied > 0 else ""),
+                    "success"
+                )
                 return redirect(url_for("admin_member_goals", user_id=user_id))
 
             goals = []
@@ -1288,29 +1369,161 @@ def admin_member_goals(user_id):
 
                 for g in rows:
                     target = float(g["target"] or 0)
+                    credit_applied = min(float(g.get("credit_applied") or 0), target)
+                    required = max(target - credit_applied, 0)
                     approved = float(g["approved"] or 0)
                     pending = float(g["pending"] or 0)
-                    remaining = max(target - approved, 0)
-                    percent = min(100, round((approved / target) * 100)) if target else 0
+                    remaining = max(required - approved, 0)
+                    surplus = max(approved - required, 0)
+                    percent = min(100, round((approved / required) * 100)) if required else 100
 
                     goals.append({
                         **dict(g),
                         "target_f": target,
+                        "credit_applied_f": credit_applied,
+                        "required_f": required,
                         "approved_f": approved,
                         "pending_f": pending,
                         "remaining": remaining,
+                        "surplus": surplus,
                         "percent": percent,
-                        "complete": target > 0 and approved >= target,
+                        "complete": required <= 0 or approved >= required,
                     })
+
+            cur.execute("""
+                SELECT goal_title, unit, balance
+                FROM member_goal_credits
+                WHERE user_id=%s AND balance>0
+                ORDER BY goal_title ASC
+            """, (user_id,))
+            credits = cur.fetchall()
 
     return render_template(
         "admin_member_goals.html",
         member=member,
         cycle=cycle,
-        goals=goals
+        goals=goals,
+        credits=credits
     )
 
 
+
+
+@app.post("/admin/members/<int:user_id>/goals/close")
+@admin_required
+def admin_member_goals_close(user_id):
+    validate_csrf()
+    admin = get_current_user()
+
+    with get_conn() as conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, name FROM users WHERE id=%s AND role='user'", (user_id,))
+                member = cur.fetchone()
+                if not member:
+                    abort(404)
+
+                cur.execute("SELECT * FROM cycles WHERE active=TRUE ORDER BY id DESC LIMIT 1")
+                cycle = cur.fetchone()
+                if not cycle:
+                    flash("Não existe meta ativa para fechar.", "danger")
+                    return redirect(url_for("admin_member_goals", user_id=user_id))
+
+                cur.execute("""
+                    SELECT COUNT(*) AS c
+                    FROM submissions s
+                    JOIN goals g ON g.id=s.goal_id
+                    WHERE s.user_id=%s
+                      AND g.cycle_id=%s
+                      AND g.user_id=%s
+                      AND g.closed=FALSE
+                      AND s.status='pending'
+                """, (user_id, cycle["id"], user_id))
+                if int(cur.fetchone()["c"] or 0) > 0:
+                    flash("Ainda existem entregas Em análise. Aprove ou recuse tudo antes de fechar a meta.", "danger")
+                    return redirect(url_for("admin_member_goals", user_id=user_id))
+
+                cur.execute("""
+                    SELECT g.*,
+                           COALESCE((
+                               SELECT SUM(s.amount)
+                               FROM submissions s
+                               WHERE s.goal_id=g.id
+                                 AND s.user_id=%s
+                                 AND s.status='approved'
+                           ),0) AS approved
+                    FROM goals g
+                    WHERE g.cycle_id=%s
+                      AND g.user_id=%s
+                      AND g.closed=FALSE
+                    ORDER BY g.sort_order,g.id
+                    FOR UPDATE
+                """, (user_id, cycle["id"], user_id))
+                rows = cur.fetchall()
+
+                if not rows:
+                    flash("Não há metas abertas deste membro para fechar.", "danger")
+                    return redirect(url_for("admin_member_goals", user_id=user_id))
+
+                credits_generated = 0
+                closed_count = 0
+
+                for g in rows:
+                    target = float(g["target"] or 0)
+                    credit_applied = min(float(g.get("credit_applied") or 0), target)
+                    required_target = max(target - credit_applied, 0)
+                    approved = float(g["approved"] or 0)
+                    surplus = max(approved - required_target, 0)
+                    shortfall = max(required_target - approved, 0)
+
+                    cur.execute("""
+                        INSERT INTO goal_closures(
+                            user_id, cycle_id, goal_id, goal_title, unit,
+                            target, credit_applied, required_target, approved,
+                            surplus, shortfall, closed_by
+                        )
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        ON CONFLICT (goal_id) DO NOTHING
+                    """, (
+                        user_id, cycle["id"], g["id"], g["title"], g["unit"],
+                        target, credit_applied, required_target, approved,
+                        surplus, shortfall, admin["id"]
+                    ))
+
+                    if cur.rowcount:
+                        closed_count += 1
+                        if surplus > 0:
+                            cur.execute("""
+                                INSERT INTO member_goal_credits(
+                                    user_id, goal_key, goal_title, unit, balance
+                                )
+                                VALUES (%s,%s,%s,%s,%s)
+                                ON CONFLICT (user_id, goal_key, unit)
+                                DO UPDATE SET
+                                    balance=member_goal_credits.balance+EXCLUDED.balance,
+                                    goal_title=EXCLUDED.goal_title,
+                                    updated_at=NOW()
+                            """, (
+                                user_id, goal_credit_key(g["title"]), g["title"],
+                                g["unit"], surplus
+                            ))
+                            credits_generated += surplus
+
+                    cur.execute("UPDATE goals SET closed=TRUE WHERE id=%s", (g["id"],))
+
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            app.logger.exception("Erro ao fechar metas do membro: user_id=%s", user_id)
+            flash("Não foi possível fechar a meta. Tente novamente.", "danger")
+            return redirect(url_for("admin_member_goals", user_id=user_id))
+
+    flash(
+        f"Fechamento concluído: {closed_count} meta(s). "
+        f"Crédito gerado: {credits_generated:g} unidade(s), conforme cada produto.",
+        "success"
+    )
+    return redirect(url_for("admin_member_history", user_id=user_id))
 
 
 @app.route("/admin/members/<int:user_id>/history")
@@ -1345,7 +1558,30 @@ def admin_member_history(user_id):
             """, (user_id,))
             history = cur.fetchall()
 
-    return render_template("admin_member_history.html", member=member, history=history)
+            cur.execute("""
+                SELECT gc.*, c.title AS cycle_title, c.start_date, c.end_date
+                FROM goal_closures gc
+                JOIN cycles c ON c.id=gc.cycle_id
+                WHERE gc.user_id=%s
+                ORDER BY gc.closed_at DESC, gc.id DESC
+            """, (user_id,))
+            closures = cur.fetchall()
+
+            cur.execute("""
+                SELECT goal_title, unit, balance, updated_at
+                FROM member_goal_credits
+                WHERE user_id=%s AND balance>0
+                ORDER BY goal_title ASC
+            """, (user_id,))
+            credits = cur.fetchall()
+
+    return render_template(
+        "admin_member_history.html",
+        member=member,
+        history=history,
+        closures=closures,
+        credits=credits
+    )
 
 
 

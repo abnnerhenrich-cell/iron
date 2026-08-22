@@ -232,3 +232,44 @@ input,button,select,textarea{font-size:max(16px,1rem)}
     border-radius:16px;
   }
 }
+
+
+/* ===== IRON V16 — fechamento, auditoria e créditos ===== */
+.credit-balance-strip,.goal-close-bar,.current-credit-summary{
+  display:flex;align-items:center;justify-content:space-between;gap:18px;
+  padding:18px 20px;margin:16px 0;border:1px solid rgba(255,255,255,.09);
+  border-radius:18px;background:linear-gradient(135deg,rgba(255,255,255,.045),rgba(255,255,255,.018));
+}
+.credit-balance-strip>div:first-child,.goal-close-bar>div{display:grid;gap:4px}
+.credit-balance-strip strong,.goal-close-bar strong{font-size:clamp(1rem,1.8vw,1.2rem)}
+.credit-balance-strip small,.goal-close-bar small{color:var(--muted);max-width:720px}
+.credit-chip-list{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.credit-chip{
+  display:inline-flex;align-items:center;gap:7px;padding:9px 12px;border-radius:999px;
+  border:1px solid rgba(113,255,176,.22);background:rgba(65,201,124,.09);
+  color:#bfffd8;font-size:.84rem;white-space:nowrap
+}
+.goal-numbers-audit{grid-template-columns:repeat(3,minmax(0,1fr))}
+.goal-numbers-audit .audit-surplus{border-color:rgba(113,255,176,.18);background:rgba(65,201,124,.06)}
+.closure-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.closure-card{padding:18px;border:1px solid rgba(255,255,255,.09);border-radius:18px;background:rgba(255,255,255,.025)}
+.closure-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.closure-head h3{margin:4px 0 0;font-size:1.05rem}
+.closure-values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.closure-values>div{padding:11px;border-radius:12px;background:rgba(255,255,255,.035)}
+.closure-values span{display:block;color:var(--muted);font-size:.72rem;margin-bottom:4px}
+.closure-values strong{font-size:.95rem}
+.closure-date{display:block;margin-top:12px;color:var(--muted)}
+.current-credit-summary{align-items:flex-start}
+.current-credit-summary>span{font-size:.72rem;letter-spacing:.11em;color:var(--muted);font-weight:700}
+.compact-empty{padding:18px}
+@media(max-width:900px){
+  .closure-grid{grid-template-columns:1fr}
+  .goal-numbers-audit,.closure-values{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:680px){
+  .credit-balance-strip,.goal-close-bar,.current-credit-summary{align-items:stretch;flex-direction:column}
+  .credit-chip-list{justify-content:flex-start}
+  .goal-close-bar .btn{width:100%}
+  .goal-numbers-audit,.closure-values{grid-template-columns:1fr 1fr}
+}

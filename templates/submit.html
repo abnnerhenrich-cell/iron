@@ -18,13 +18,14 @@
 
     <div class="delivery-grid" id="deliveryGrid">
       {% for g in goals %}
-      {% set available = (g['target'] - g['approved'] - g['pending']) %}
+      {% set needed = g.get('effective_target', g['target']) %}
+      {% set remaining = needed - g['approved'] - g['pending'] %}
       <article class="delivery-item" data-name="{{ g['title']|lower }}">
         <div class="delivery-info">
           <span class="goal-icon">{{ g['icon'] }}</span>
           <div>
             <strong>{{ g['title'] }}</strong>
-            <small>Disponível: <b>{{ money(available) if g['unit']=='R$' else ((available|int)|string + ' ' + g['unit']) }}</b></small>
+            <small>Necessário: <b>{{ money(needed) if g['unit']=='R$' else ((needed|int)|string + ' ' + g['unit']) }}</b> · Falta: <b>{{ money([remaining,0]|max) if g['unit']=='R$' else ((([remaining,0]|max)|int)|string + ' ' + g['unit']) }}</b></small>
           </div>
         </div>
 
@@ -37,10 +38,8 @@
               name="amount_{{ g['id'] }}"
               type="number"
               min="0"
-              max="{{ available if available > 0 else 0 }}"
               step="{{ '0.01' if g['unit']=='R$' else '1' }}"
               value="0"
-              {{ 'disabled' if available <= 0 else '' }}
               inputmode="decimal"
             >
             <button type="button" class="step-btn plus" data-target="amount_{{ g['id'] }}">＋</button>
@@ -102,15 +101,12 @@
       const input = document.getElementById(btn.dataset.target);
       const step = Number(input.step || 1);
       const current = Number(input.value || 0);
-      const max = Number(input.max || Infinity);
-      input.value = Math.min(max, Math.max(0, current + (btn.classList.contains('plus') ? step : -step)));
+      input.value = Math.max(0, current + (btn.classList.contains('plus') ? step : -step));
       input.dispatchEvent(new Event('input'));
     });
   });
 
   amountInputs.forEach(i => i.addEventListener('input', () => {
-    const max = Number(i.max || Infinity);
-    if (Number(i.value) > max) i.value = max;
     if (Number(i.value) < 0) i.value = 0;
     updateButton();
   }));
