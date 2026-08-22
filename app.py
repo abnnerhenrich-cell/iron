@@ -292,8 +292,18 @@ def active_cycle_with_goals(user_id=None, open_only=False):
                 rows = cur.fetchall()
                 for row in rows:
                     item = dict(row)
+
+                    # psycopg devolve campos NUMERIC como Decimal. Para o painel
+                    # e os templates, normalizamos todos os valores usados em
+                    # contas para float, evitando operações Decimal x float.
                     target = float(item.get("target") or 0)
+                    approved = float(item.get("approved") or 0)
+                    pending = float(item.get("pending") or 0)
                     credit = min(float(item.get("credit_applied") or 0), target)
+
+                    item["target"] = target
+                    item["approved"] = approved
+                    item["pending"] = pending
                     item["original_target"] = target
                     item["credit_applied"] = credit
                     item["effective_target"] = max(target - credit, 0)
