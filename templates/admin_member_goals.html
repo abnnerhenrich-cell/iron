@@ -92,44 +92,78 @@
     </div>
   </div>
 
-  {% if credits %}
-  <div class="credit-balance-strip">
-    <div><span class="eyebrow">CRÉDITOS DISPONÍVEIS</span><strong>Saldo para próximas metas</strong></div>
-    <div class="credit-chip-list">
-      {% for c in credits %}
-      <div class="credit-chip-wrap">
-        <span class="credit-chip {{ 'negative' if c['balance'] < 0 else 'positive' }}"><b>{{ c['goal_title'] }}</b> {{ '+' if c['balance'] > 0 else '' }}{{ c['balance']|round|int }} {{ c['unit'] }}</span>
-        <form method="post" action="{{ url_for('admin_member_credit_delete', user_id=member['id'], credit_id=c['id']) }}" class="credit-delete-form" onsubmit="return confirm('Excluir este saldo de {{ c['goal_title'] }}? Ele não será aplicado na próxima meta.')">
-          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-          <button type="submit" class="credit-delete-btn" title="Excluir saldo" aria-label="Excluir saldo de {{ c['goal_title'] }}">×</button>
-        </form>
+  <div class="balance-center">
+    <div class="balance-center-head">
+      <div>
+        <span class="eyebrow">SALDO DO MEMBRO</span>
+        <strong>Saldo para a próxima meta</strong>
+        <small>Positivo reduz a próxima meta. Negativo aumenta. Você pode ajustar ou zerar antes de criar a próxima meta.</small>
       </div>
+    </div>
+
+    {% if credits %}
+    <div class="balance-list">
+      {% for c in credits %}
+      <article class="balance-row {{ 'is-negative' if c['balance'] < 0 else 'is-positive' }}">
+        <div class="balance-product">
+          <span>{{ c['goal_title'] }}</span>
+          <strong>{{ '+' if c['balance'] > 0 else '' }}{{ c['balance']|round|int }} {{ c['unit'] }}</strong>
+        </div>
+        <form method="post" action="{{ url_for('admin_member_credit_adjust', user_id=member['id'], credit_id=c['id']) }}" class="balance-edit-form">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <label>
+            <span>Novo saldo</span>
+            <input name="balance" type="number" step="0.01" value="{{ c['balance'] }}" aria-label="Novo saldo de {{ c['goal_title'] }}">
+          </label>
+          <button class="btn ghost" type="submit">Salvar</button>
+        </form>
+        <form method="post" action="{{ url_for('admin_member_credit_delete', user_id=member['id'], credit_id=c['id']) }}" onsubmit="return confirm('Zerar o saldo de {{ c['goal_title'] }}?')">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button class="btn danger subtle" type="submit">Zerar</button>
+        </form>
+      </article>
       {% endfor %}
     </div>
+    {% else %}
+    <div class="balance-empty">Nenhum saldo pendente para a próxima meta.</div>
+    {% endif %}
   </div>
-  {% endif %}
 
   {% if goals %}
-  <div class="goal-close-bar">
-    <div>
-      <span class="eyebrow">FECHAMENTO DO PERÍODO</span>
-      <strong>Conferiu todas as entregas?</strong>
-      <small>O fechamento transforma somente o excedente aprovado em crédito. Pendências não são carregadas para a próxima meta.</small>
+  <form method="post" action="{{ url_for('admin_member_goals_close', user_id=member['id']) }}" class="closing-review" onsubmit="return confirm('Fechar as metas abertas deste período para {{ member['name'] }}?')">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="closing-review-head">
+      <div>
+        <span class="eyebrow">FECHAR PERÍODO</span>
+        <strong>Escolha o que acontece com a diferença de cada produto</strong>
+        <small>Antes de fechar, todas as entregas precisam estar aprovadas ou recusadas.</small>
+      </div>
+      <button class="btn primary" type="submit">✓ Fechar período</button>
     </div>
-    <form method="post" action="{{ url_for('admin_member_goals_close', user_id=member['id']) }}" class="close-goal-form" onsubmit="return confirm('Fechar as metas deste período para {{ member['name'] }} com a regra de saldo selecionada?')">
-      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-      <label class="carry-mode-field">
-        <span>Levar para a próxima meta</span>
-        <select name="carry_mode">
-          <option value="both" selected>Saldo positivo e negativo</option>
-          <option value="positive">Somente positivo</option>
-          <option value="negative">Somente negativo</option>
-          <option value="none">Não transportar saldo</option>
-        </select>
-      </label>
-      <button class="btn primary" type="submit">✓ Fechar meta</button>
-    </form>
-  </div>
+    <div class="closing-product-list">
+      {% for g in goals if not g['closed'] %}
+      <div class="closing-product-row">
+        <div class="closing-product-name">
+          <span class="goal-icon">{{ g['icon'] }}</span>
+          <div><strong>{{ g['title'] }}</strong><small>Necessário {{ g['required_f']|round|int }} · Aprovado {{ g['approved_f']|round|int }} {{ g['unit'] }}</small></div>
+        </div>
+        <div class="closing-difference {{ 'positive' if g['difference'] > 0 else ('negative' if g['difference'] < 0 else 'neutral') }}">
+          <span>Diferença</span>
+          <strong>{{ '+' if g['difference'] > 0 else '' }}{{ g['difference']|round|int }} {{ g['unit'] }}</strong>
+        </div>
+        <label class="closing-choice">
+          <span>Ao fechar</span>
+          <select name="carry_{{ g['id'] }}">
+            <option value="carry" selected>{{ 'Levar +' ~ (g['difference']|round|int) ~ ' para próxima' if g['difference'] > 0 else ('Levar ' ~ (g['difference']|round|int) ~ ' para próxima' if g['difference'] < 0 else 'Concluir sem saldo') }}</option>
+            <option value="zero">Concluir e zerar diferença</option>
+          </select>
+        </label>
+      </div>
+      {% else %}
+      <div class="balance-empty">Todas as metas deste período já estão fechadas.</div>
+      {% endfor %}
+    </div>
+  </form>
   {% endif %}
 
   <div class="goal-admin-grid">

@@ -1440,6 +1440,7 @@ def admin_member_goals(user_id):
                         "pending_f": pending,
                         "remaining": remaining,
                         "surplus": surplus,
+                        "difference": surplus if surplus > 0 else (-remaining if remaining > 0 else 0),
                         "percent": percent,
                         "complete": required <= 0 or approved >= required,
                     })
@@ -1468,9 +1469,6 @@ def admin_member_goals(user_id):
 def admin_member_goals_close(user_id):
     validate_csrf()
     admin = get_current_user()
-    carry_mode = (request.form.get("carry_mode") or "both").strip().lower()
-    if carry_mode not in {"positive", "negative", "both", "none"}:
-        carry_mode = "both"
 
     with get_conn() as conn:
         try:
@@ -1543,12 +1541,16 @@ def admin_member_goals_close(user_id):
                     surplus = max(approved - required_target, 0)
                     shortfall = max(required_target - approved, 0)
 
+                    # V25: decisão simples por produto.
+                    # "carry" leva a diferença real para a próxima meta;
+                    # "zero" encerra o produto sem gerar saldo.
+                    close_action = (request.form.get(f"carry_{g['id']}") or "carry").strip().lower()
                     signed_balance = 0
-                    if surplus > 0 and carry_mode in {"positive", "both"}:
-                        signed_balance += surplus
-
-                    if shortfall > 0 and carry_mode in {"negative", "both"}:
-                        signed_balance -= shortfall
+                    if close_action == "carry":
+                        if surplus > 0:
+                            signed_balance = surplus
+                        elif shortfall > 0:
+                            signed_balance = -shortfall
 
                     cur.execute("""
                         INSERT INTO goal_closures(
@@ -1607,6 +1609,56 @@ def admin_member_goals_close(user_id):
         "success"
     )
     return redirect(url_for("admin_member_history", user_id=user_id))
+
+
+@app.post("/admin/members/<int:user_id>/credits/<int:credit_id>/adjust")
+@admin_required
+def admin_member_credit_adjust(user_id, credit_id):
+    validate_csrf()
+
+    raw = (request.form.get("balance") or "").strip().replace(",", ".")
+    try:
+        new_balance = float(raw)
+    except (TypeError, ValueError):
+        flash("Informe um saldo válido.", "danger")
+        return redirect(request.referrer or url_for("admin_member_goals", user_id=user_id))
+
+    with get_conn() as conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT id, goal_title, unit
+                    FROM member_goal_credits
+                    WHERE id=%s AND user_id=%s
+                    FOR UPDATE
+                """, (credit_id, user_id))
+                credit = cur.fetchone()
+                if not credit:
+                    flash("Saldo não encontrado.", "danger")
+                    return redirect(request.referrer or url_for("admin_member_goals", user_id=user_id))
+
+                if abs(new_balance) <= 1e-9:
+                    cur.execute("DELETE FROM member_goal_credits WHERE id=%s", (credit_id,))
+                else:
+                    cur.execute("""
+                        UPDATE member_goal_credits
+                        SET balance=%s, updated_at=NOW()
+                        WHERE id=%s
+                    """, (new_balance, credit_id))
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            app.logger.exception("Erro ao ajustar saldo: user_id=%s credit_id=%s", user_id, credit_id)
+            flash(f"Não foi possível ajustar o saldo ({type(exc).__name__}).", "danger")
+            return redirect(request.referrer or url_for("admin_member_goals", user_id=user_id))
+
+    flash(
+        f"Saldo de {credit['goal_title']} atualizado para {new_balance:+g} {credit['unit']}."
+        if abs(new_balance) > 1e-9 else
+        f"Saldo de {credit['goal_title']} zerado.",
+        "success"
+    )
+    return redirect(request.referrer or url_for("admin_member_goals", user_id=user_id))
 
 
 @app.post("/admin/members/<int:user_id>/credits/<int:credit_id>/delete")
@@ -1835,7 +1887,6 @@ def admin_member_history(user_id):
                 FROM goal_closures gc
                 JOIN cycles c ON c.id=gc.cycle_id
                 WHERE gc.user_id=%s
-                  AND gc.consumed_at IS NULL
                 ORDER BY gc.closed_at DESC, gc.id DESC
             """, (user_id,))
             closures = cur.fetchall()

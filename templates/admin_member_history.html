@@ -29,53 +29,67 @@
   <div class="panel-head">
     <div>
       <span class="eyebrow">EXTRATO DE METAS</span>
-      <h2>Fechamentos e créditos pendentes</h2>
-      <p>Você pode excluir um fechamento manualmente enquanto ele estiver pendente. Se não excluir, ele sai automaticamente quando o saldo for aplicado na próxima meta do mesmo produto.</p>
+      <h2>Histórico de saldos</h2>
+      <p>Um extrato simples do que foi fechado, qual diferença foi gerada e se ela já entrou em uma meta seguinte.</p>
     </div>
   </div>
 
   {% if credits %}
-  <div class="current-credit-summary">
-    <span>CRÉDITO DISPONÍVEL AGORA</span>
-    <div class="credit-chip-list">
+  <div class="balance-center compact">
+    <div class="balance-center-head">
+      <div><span class="eyebrow">SALDO ATUAL</span><strong>Disponível para a próxima meta</strong></div>
+    </div>
+    <div class="balance-list">
       {% for c in credits %}
-      <div class="credit-chip-wrap">
-        <span class="credit-chip {{ 'negative' if c['balance'] < 0 else 'positive' }}"><b>{{ c['goal_title'] }}</b> {{ '+' if c['balance'] > 0 else '' }}{{ c['balance']|round|int }} {{ c['unit'] }}</span>
-        <form method="post" action="{{ url_for('admin_member_credit_delete', user_id=member['id'], credit_id=c['id']) }}" class="credit-delete-form" onsubmit="return confirm('Excluir este saldo de {{ c['goal_title'] }}? Ele não será aplicado na próxima meta.')">
+      <article class="balance-row {{ 'is-negative' if c['balance'] < 0 else 'is-positive' }}">
+        <div class="balance-product"><span>{{ c['goal_title'] }}</span><strong>{{ '+' if c['balance'] > 0 else '' }}{{ c['balance']|round|int }} {{ c['unit'] }}</strong></div>
+        <form method="post" action="{{ url_for('admin_member_credit_adjust', user_id=member['id'], credit_id=c['id']) }}" class="balance-edit-form">
           <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-          <button type="submit" class="credit-delete-btn" title="Excluir saldo" aria-label="Excluir saldo de {{ c['goal_title'] }}">×</button>
+          <label><span>Novo saldo</span><input name="balance" type="number" step="0.01" value="{{ c['balance'] }}"></label>
+          <button class="btn ghost" type="submit">Salvar</button>
         </form>
-      </div>
+        <form method="post" action="{{ url_for('admin_member_credit_delete', user_id=member['id'], credit_id=c['id']) }}" onsubmit="return confirm('Zerar o saldo de {{ c['goal_title'] }}?')">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button class="btn danger subtle" type="submit">Zerar</button>
+        </form>
+      </article>
       {% endfor %}
     </div>
   </div>
   {% endif %}
 
-  <div class="closure-grid">
+  <div class="ledger-list">
     {% for c in closures %}
-    <article class="closure-card">
-      <div class="closure-head">
-        <div><span class="eyebrow">{{ c['cycle_title'] }}</span><h3>{{ c['goal_title'] }}</h3></div>
-        {% if c['surplus'] > 0 %}<span class="status approved">+{{ c['surplus']|round|int }} CRÉDITO</span>
-        {% elif c['shortfall'] > 0 %}<span class="status rejected">FALTOU {{ c['shortfall']|round|int }}</span>
-        {% else %}<span class="status approved">CONCLUÍDA</span>{% endif %}
+    <article class="ledger-row">
+      <div class="ledger-main">
+        <div>
+          <span class="eyebrow">{{ c['cycle_title'] }}</span>
+          <h3>{{ c['goal_title'] }}</h3>
+          <small>{{ c['start_date'] }} → {{ c['end_date'] }} · {{ c['closed_at']|dt }}</small>
+        </div>
+        {% if c['consumed_at'] %}
+          <span class="ledger-state applied">APLICADO</span>
+        {% elif c['carried_balance'] != 0 %}
+          <span class="ledger-state pending">PENDENTE</span>
+        {% else %}
+          <span class="ledger-state neutral">SEM SALDO</span>
+        {% endif %}
       </div>
-      <div class="closure-values">
-        <div><span>Meta original</span><strong>{{ c['target']|round|int }} {{ c['unit'] }}</strong></div>
-        <div><span>Crédito usado</span><strong>{{ c['credit_applied']|round|int }} {{ c['unit'] }}</strong></div>
+      <div class="ledger-metrics">
         <div><span>Necessário</span><strong>{{ c['required_target']|round|int }} {{ c['unit'] }}</strong></div>
         <div><span>Aprovado</span><strong>{{ c['approved']|round|int }} {{ c['unit'] }}</strong></div>
-        <div><span>Excedente</span><strong class="green">+{{ c['surplus']|round|int }} {{ c['unit'] }}</strong></div>
-        <div><span>Faltou</span><strong class="{{ 'red' if c['shortfall'] > 0 else '' }}">{{ c['shortfall']|round|int }} {{ c['unit'] }}</strong></div>
+        <div><span>Resultado</span><strong class="{{ 'green' if c['surplus'] > 0 else ('red' if c['shortfall'] > 0 else '') }}">{{ '+' if c['surplus'] > 0 else ('-' if c['shortfall'] > 0 else '') }}{{ (c['surplus'] if c['surplus'] > 0 else c['shortfall'])|round|int }} {{ c['unit'] }}</strong></div>
+        <div><span>Levado adiante</span><strong class="{{ 'green' if c['carried_balance'] > 0 else ('red' if c['carried_balance'] < 0 else '') }}">{{ '+' if c['carried_balance'] > 0 else '' }}{{ c['carried_balance']|round|int }} {{ c['unit'] }}</strong></div>
       </div>
-      <small class="closure-date">{{ c['start_date'] }} → {{ c['end_date'] }} · fechado em {{ c['closed_at']|dt }}</small>
-      <form method="post" action="{{ url_for('admin_member_closure_delete', user_id=member['id'], closure_id=c['id']) }}" class="closure-delete-form" onsubmit="return confirm('Excluir este fechamento manualmente? O saldo positivo/negativo gerado também será desfeito e a meta original será reaberta.')">
+      {% if not c['consumed_at'] %}
+      <form method="post" action="{{ url_for('admin_member_closure_delete', user_id=member['id'], closure_id=c['id']) }}" class="ledger-actions" onsubmit="return confirm('Reabrir este fechamento? O saldo relacionado será desfeito.')">
         <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-        <button class="btn danger" type="submit">Excluir fechamento</button>
+        <button class="btn ghost" type="submit">↶ Reabrir fechamento</button>
       </form>
+      {% endif %}
     </article>
     {% else %}
-    <div class="empty compact-empty"><h3>Nenhuma meta fechada ainda</h3><p>Depois de conferir todas as entregas, use “Fechar meta” na aba Metas.</p></div>
+    <div class="empty compact-empty"><h3>Nenhum fechamento ainda</h3><p>Os períodos fechados aparecerão aqui.</p></div>
     {% endfor %}
   </div>
 </section>

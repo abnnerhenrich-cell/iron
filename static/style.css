@@ -318,3 +318,70 @@ input,button,select,textarea{font-size:max(16px,1rem)}
 @media(max-width:680px){
   .credit-chip-wrap{max-width:100%}
 }
+
+
+/* ===== IRON V25 — sistema de saldo simplificado ===== */
+.balance-center,.closing-review{
+  margin:18px 0;padding:18px;border:1px solid rgba(255,255,255,.09);
+  border-radius:18px;background:linear-gradient(145deg,rgba(255,255,255,.04),rgba(255,255,255,.015))
+}
+.balance-center-head,.closing-review-head{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px
+}
+.balance-center-head>div,.closing-review-head>div{display:grid;gap:4px}
+.balance-center-head strong,.closing-review-head strong{font-size:1.05rem}
+.balance-center-head small,.closing-review-head small{color:var(--muted)}
+.balance-list{display:grid;gap:9px}
+.balance-row{
+  display:grid;grid-template-columns:minmax(170px,1fr) auto auto;align-items:end;gap:10px;
+  padding:12px;border:1px solid rgba(255,255,255,.07);border-radius:14px;background:rgba(0,0,0,.14)
+}
+.balance-row.is-positive{border-left:3px solid rgba(86,220,145,.65)}
+.balance-row.is-negative{border-left:3px solid rgba(255,91,91,.65)}
+.balance-product{display:grid;gap:2px}.balance-product span{color:var(--muted);font-size:.76rem}
+.balance-product strong{font-size:1.15rem}
+.balance-row.is-positive .balance-product strong{color:#9cf3c2}
+.balance-row.is-negative .balance-product strong{color:#ffaaaa}
+.balance-edit-form{display:flex;align-items:end;gap:7px}
+.balance-edit-form label{display:grid;gap:4px}.balance-edit-form label span{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.balance-edit-form input{width:110px;min-height:39px}
+.balance-empty{padding:14px;border:1px dashed rgba(255,255,255,.1);border-radius:12px;color:var(--muted);text-align:center}
+.btn.subtle{min-height:39px}
+.closing-product-list{display:grid;gap:9px}
+.closing-product-row{
+  display:grid;grid-template-columns:minmax(220px,1fr) 145px minmax(220px,300px);
+  gap:12px;align-items:center;padding:13px;border-radius:14px;background:rgba(0,0,0,.15);
+  border:1px solid rgba(255,255,255,.07)
+}
+.closing-product-name{display:flex;align-items:center;gap:10px}
+.closing-product-name>div{display:grid;gap:3px}.closing-product-name small{color:var(--muted)}
+.closing-difference{display:grid;gap:2px}.closing-difference span{font-size:.68rem;color:var(--muted);text-transform:uppercase}
+.closing-difference.positive strong{color:#9cf3c2}.closing-difference.negative strong{color:#ffaaaa}
+.closing-choice{display:grid;gap:5px}.closing-choice>span{font-size:.68rem;color:var(--muted);text-transform:uppercase}
+.closing-choice select{min-height:41px}
+.ledger-list{display:grid;gap:10px}
+.ledger-row{padding:15px;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:rgba(255,255,255,.02)}
+.ledger-main{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.ledger-main h3{margin:3px 0}.ledger-main small{color:var(--muted)}
+.ledger-state{padding:6px 9px;border-radius:999px;font-size:.67rem;font-weight:800;letter-spacing:.06em}
+.ledger-state.applied{background:rgba(90,150,255,.10);color:#a9c8ff;border:1px solid rgba(90,150,255,.2)}
+.ledger-state.pending{background:rgba(255,190,80,.09);color:#ffd38a;border:1px solid rgba(255,190,80,.2)}
+.ledger-state.neutral{background:rgba(255,255,255,.05);color:var(--muted);border:1px solid rgba(255,255,255,.08)}
+.ledger-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:13px}
+.ledger-metrics>div{padding:10px;border-radius:11px;background:rgba(255,255,255,.03)}
+.ledger-metrics span{display:block;font-size:.68rem;color:var(--muted);margin-bottom:3px}
+.ledger-actions{display:flex;justify-content:flex-end;margin-top:11px}
+.balance-center.compact{margin-top:0}
+@media(max-width:900px){
+  .closing-product-row{grid-template-columns:1fr 120px}.closing-choice{grid-column:1/-1}
+  .ledger-metrics{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:680px){
+  .balance-center-head,.closing-review-head{align-items:stretch;flex-direction:column}
+  .closing-review-head .btn{width:100%}
+  .balance-row{grid-template-columns:1fr}.balance-edit-form{width:100%}
+  .balance-edit-form label{flex:1}.balance-edit-form input{width:100%}
+  .closing-product-row{grid-template-columns:1fr}.closing-choice{grid-column:auto}
+  .ledger-metrics{grid-template-columns:1fr 1fr}
+  .ledger-actions .btn{width:100%}
+}
