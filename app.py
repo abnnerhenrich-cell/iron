@@ -114,6 +114,20 @@ def init_db():
                     closed_by BIGINT REFERENCES users(id)
                 )
             """)
+            # Migrações idempotentes: garantem as colunas mesmo se a tabela
+            # tiver sido criada parcialmente por uma implantação anterior.
+            cur.execute("ALTER TABLE member_goal_credits ADD COLUMN IF NOT EXISTS goal_key TEXT")
+            cur.execute("ALTER TABLE member_goal_credits ADD COLUMN IF NOT EXISTS goal_title TEXT")
+            cur.execute("ALTER TABLE member_goal_credits ADD COLUMN IF NOT EXISTS unit TEXT NOT NULL DEFAULT 'un'")
+            cur.execute("ALTER TABLE member_goal_credits ADD COLUMN IF NOT EXISTS balance NUMERIC(14,2) NOT NULL DEFAULT 0")
+            cur.execute("ALTER TABLE member_goal_credits ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()")
+            cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS credit_applied NUMERIC(14,2) NOT NULL DEFAULT 0")
+            cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS required_target NUMERIC(14,2) NOT NULL DEFAULT 0")
+            cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS approved NUMERIC(14,2) NOT NULL DEFAULT 0")
+            cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS surplus NUMERIC(14,2) NOT NULL DEFAULT 0")
+            cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS shortfall NUMERIC(14,2) NOT NULL DEFAULT 0")
+            cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()")
+            cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS closed_by BIGINT REFERENCES users(id)")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image BYTEA")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_mime TEXT")
             cur.execute("""
@@ -1462,23 +1476,30 @@ def admin_member_goals_close(user_id):
                     flash("Ainda existem entregas Em análise. Aprove ou recuse tudo antes de fechar a meta.", "danger")
                     return redirect(url_for("admin_member_goals", user_id=user_id))
 
+                # Primeiro trava somente as linhas de metas. O PostgreSQL pode
+                # rejeitar FOR UPDATE em consultas que misturam agregação/subquery.
                 cur.execute("""
-                    SELECT g.*,
-                           COALESCE((
-                               SELECT SUM(s.amount)
-                               FROM submissions s
-                               WHERE s.goal_id=g.id
-                                 AND s.user_id=%s
-                                 AND s.status='approved'
-                           ),0) AS approved
+                    SELECT g.*
                     FROM goals g
                     WHERE g.cycle_id=%s
                       AND g.user_id=%s
                       AND g.closed=FALSE
                     ORDER BY g.sort_order,g.id
                     FOR UPDATE
-                """, (user_id, cycle["id"], user_id))
+                """, (cycle["id"], user_id))
                 rows = cur.fetchall()
+
+                # Soma os aprovados separadamente para manter o fechamento simples
+                # e compatível com o PostgreSQL/Neon.
+                for row in rows:
+                    cur.execute("""
+                        SELECT COALESCE(SUM(amount),0) AS approved
+                        FROM submissions
+                        WHERE goal_id=%s
+                          AND user_id=%s
+                          AND status='approved'
+                    """, (row["id"], user_id))
+                    row["approved"] = cur.fetchone()["approved"]
 
                 if not rows:
                     flash("Não há metas abertas deste membro para fechar.", "danger")
@@ -1490,7 +1511,7 @@ def admin_member_goals_close(user_id):
 
                 for g in rows:
                     target = float(g["target"] or 0)
-                    credit_applied = min(float(g.get("credit_applied") or 0), target)
+                    credit_applied = float(g.get("credit_applied") or 0)
                     required_target = max(target - credit_applied, 0)
                     approved = float(g["approved"] or 0)
                     surplus = max(approved - required_target, 0)
@@ -1541,10 +1562,12 @@ def admin_member_goals_close(user_id):
                     cur.execute("UPDATE goals SET closed=TRUE WHERE id=%s", (g["id"],))
 
             conn.commit()
-        except Exception:
+        except Exception as exc:
             conn.rollback()
             app.logger.exception("Erro ao fechar metas do membro: user_id=%s", user_id)
-            flash("Não foi possível fechar a meta. Tente novamente.", "danger")
+            # Mantém detalhes técnicos no log da Vercel e mostra uma referência
+            # curta no painel para facilitar diagnóstico se houver outro caso.
+            flash(f"Não foi possível fechar a meta ({type(exc).__name__}). Tente novamente.", "danger")
             return redirect(url_for("admin_member_goals", user_id=user_id))
 
     flash(
