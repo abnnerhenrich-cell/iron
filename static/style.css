@@ -273,3 +273,19 @@ input,button,select,textarea{font-size:max(16px,1rem)}
   .goal-close-bar .btn{width:100%}
   .goal-numbers-audit,.closure-values{grid-template-columns:1fr 1fr}
 }
+
+
+/* ===== IRON V18 — saldo positivo/negativo ===== */
+.close-goal-form{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.carry-mode-field{display:grid;gap:6px;min-width:230px}
+.carry-mode-field span{font-size:.72rem;letter-spacing:.07em;color:var(--muted);font-weight:700;text-transform:uppercase}
+.carry-mode-field select{
+  min-height:42px;padding:0 12px;border-radius:11px;border:1px solid rgba(255,255,255,.12);
+  background:#0b0f14;color:var(--text);outline:none
+}
+.credit-chip.negative{border-color:rgba(255,91,91,.24);background:rgba(255,75,75,.08);color:#ffb5b5}
+.credit-chip.positive{border-color:rgba(113,255,176,.22);background:rgba(65,201,124,.09);color:#bfffd8}
+@media(max-width:680px){
+  .close-goal-form,.carry-mode-field{width:100%}
+  .close-goal-form .btn{width:100%}
+}

@@ -39,7 +39,7 @@
     <span>CRÉDITO DISPONÍVEL AGORA</span>
     <div class="credit-chip-list">
       {% for c in credits %}
-      <span class="credit-chip"><b>{{ c['goal_title'] }}</b> +{{ c['balance']|round|int }} {{ c['unit'] }}</span>
+      <span class="credit-chip {{ 'negative' if c['balance'] < 0 else 'positive' }}"><b>{{ c['goal_title'] }}</b> {{ '+' if c['balance'] > 0 else '' }}{{ c['balance']|round|int }} {{ c['unit'] }}</span>
       {% endfor %}
     </div>
   </div>

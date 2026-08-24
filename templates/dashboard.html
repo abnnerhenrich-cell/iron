@@ -53,7 +53,9 @@
         <span>Aprovado<b class="green">{{ money(g['approved']) if g['unit']=='R$' else (g['approved']|int|string + ' ' + g['unit']) }}</b></span>
         <span>Em análise<b class="yellow">{{ money(g['pending']) if g['unit']=='R$' else (g['pending']|int|string + ' ' + g['unit']) }}</b></span>
         <span>Necessário<b>{{ money(need) if g['unit']=='R$' else (need|int|string + ' ' + g['unit']) }}</b></span>
-        {% if g.get('credit_applied',0) > 0 %}<span>Crédito usado<b class="green">−{{ money(g['credit_applied']) if g['unit']=='R$' else (g['credit_applied']|int|string + ' ' + g['unit']) }}</b></span>{% endif %}
+        {% if g.get('credit_applied',0) != 0 %}
+        <span>Saldo anterior<b class="{{ 'green' if g['credit_applied'] > 0 else 'red' }}">{{ '+' if g['credit_applied'] > 0 else '' }}{{ money(g['credit_applied']) if g['unit']=='R$' else (g['credit_applied']|int|string + ' ' + g['unit']) }}</b></span>
+        {% endif %}
       </div>
     </article>
     {% endfor %}

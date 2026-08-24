@@ -299,7 +299,7 @@ def active_cycle_with_goals(user_id=None, open_only=False):
                     target = float(item.get("target") or 0)
                     approved = float(item.get("approved") or 0)
                     pending = float(item.get("pending") or 0)
-                    credit = min(float(item.get("credit_applied") or 0), target)
+                    credit = float(item.get("credit_applied") or 0)
 
                     item["target"] = target
                     item["approved"] = approved
@@ -902,7 +902,7 @@ def admin_goal_delete(goal_id):
                 # Se uma meta ainda aberta consumiu crédito anterior e for excluída,
                 # devolve esse crédito ao saldo do membro.
                 restored_credit = 0
-                if member_id and not goal.get("closed") and float(goal.get("credit_applied") or 0) > 0:
+                if member_id and not goal.get("closed") and abs(float(goal.get("credit_applied") or 0)) > 1e-9:
                     restored_credit = float(goal.get("credit_applied") or 0)
                     cur.execute("""
                         INSERT INTO member_goal_credits(user_id, goal_key, goal_title, unit, balance)
@@ -1195,7 +1195,7 @@ def admin_member_detail(user_id):
                 goals_total = len(goal_rows)
                 for g in goal_rows:
                     original_target = float(g["target"] or 0)
-                    credit_applied = min(float(g.get("credit_applied") or 0), original_target)
+                    credit_applied = float(g.get("credit_applied") or 0)
                     target = max(original_target - credit_applied, 0)
                     approved = float(g["approved"] or 0)
                     pending = float(g["pending"] or 0)
@@ -1305,15 +1305,18 @@ def admin_member_goals(user_id):
                         FOR UPDATE
                     """, (user_id, goal_key, unit))
                     credit_row = cur.fetchone()
-                    available_credit = float(credit_row["balance"] or 0) if credit_row else 0
-                    credit_applied = min(available_credit, target)
+                    available_balance = float(credit_row["balance"] or 0) if credit_row else 0
 
-                    if credit_row and credit_applied > 0:
+                    # Saldo positivo reduz a próxima meta; saldo negativo aumenta.
+                    # O saldo é consumido integralmente ao criar a nova meta equivalente.
+                    credit_applied = available_balance
+
+                    if credit_row and abs(credit_applied) > 1e-9:
                         cur.execute("""
                             UPDATE member_goal_credits
-                            SET balance=GREATEST(balance-%s,0), updated_at=NOW()
+                            SET balance=0, updated_at=NOW()
                             WHERE id=%s
-                        """, (credit_applied, credit_row["id"]))
+                        """, (credit_row["id"],))
 
                     cur.execute("""
                         INSERT INTO goals (
@@ -1354,7 +1357,10 @@ def admin_member_goals(user_id):
 
                 flash(
                     f"Meta criada para {member['name']}."
-                    + (f" Crédito anterior aplicado: {credit_applied:g} {unit}." if credit_applied > 0 else ""),
+                    + (
+                        f" Saldo anterior aplicado: {credit_applied:+g} {unit}."
+                        if abs(credit_applied) > 1e-9 else ""
+                    ),
                     "success"
                 )
                 return redirect(url_for("admin_member_goals", user_id=user_id))
@@ -1379,7 +1385,7 @@ def admin_member_goals(user_id):
 
                 for g in rows:
                     target = float(g["target"] or 0)
-                    credit_applied = min(float(g.get("credit_applied") or 0), target)
+                    credit_applied = float(g.get("credit_applied") or 0)
                     required = max(target - credit_applied, 0)
                     approved = float(g["approved"] or 0)
                     pending = float(g["pending"] or 0)
@@ -1403,7 +1409,7 @@ def admin_member_goals(user_id):
             cur.execute("""
                 SELECT goal_title, unit, balance
                 FROM member_goal_credits
-                WHERE user_id=%s AND balance>0
+                WHERE user_id=%s AND ABS(balance)>0
                 ORDER BY goal_title ASC
             """, (user_id,))
             credits = cur.fetchall()
@@ -1424,6 +1430,9 @@ def admin_member_goals(user_id):
 def admin_member_goals_close(user_id):
     validate_csrf()
     admin = get_current_user()
+    carry_mode = (request.form.get("carry_mode") or "both").strip().lower()
+    if carry_mode not in {"positive", "negative", "both", "none"}:
+        carry_mode = "both"
 
     with get_conn() as conn:
         try:
@@ -1475,7 +1484,8 @@ def admin_member_goals_close(user_id):
                     flash("Não há metas abertas deste membro para fechar.", "danger")
                     return redirect(url_for("admin_member_goals", user_id=user_id))
 
-                credits_generated = 0
+                positive_generated = 0
+                negative_generated = 0
                 closed_count = 0
 
                 for g in rows:
@@ -1502,7 +1512,17 @@ def admin_member_goals_close(user_id):
 
                     if cur.rowcount:
                         closed_count += 1
-                        if surplus > 0:
+
+                        signed_balance = 0
+                        if surplus > 0 and carry_mode in {"positive", "both"}:
+                            signed_balance += surplus
+                            positive_generated += surplus
+
+                        if shortfall > 0 and carry_mode in {"negative", "both"}:
+                            signed_balance -= shortfall
+                            negative_generated += shortfall
+
+                        if abs(signed_balance) > 1e-9:
                             cur.execute("""
                                 INSERT INTO member_goal_credits(
                                     user_id, goal_key, goal_title, unit, balance
@@ -1515,9 +1535,8 @@ def admin_member_goals_close(user_id):
                                     updated_at=NOW()
                             """, (
                                 user_id, goal_credit_key(g["title"]), g["title"],
-                                g["unit"], surplus
+                                g["unit"], signed_balance
                             ))
-                            credits_generated += surplus
 
                     cur.execute("UPDATE goals SET closed=TRUE WHERE id=%s", (g["id"],))
 
@@ -1530,7 +1549,8 @@ def admin_member_goals_close(user_id):
 
     flash(
         f"Fechamento concluído: {closed_count} meta(s). "
-        f"Crédito gerado: {credits_generated:g} unidade(s), conforme cada produto.",
+        f"Saldo positivo: +{positive_generated:g}. "
+        f"Saldo negativo: -{negative_generated:g}.",
         "success"
     )
     return redirect(url_for("admin_member_history", user_id=user_id))
@@ -1580,7 +1600,7 @@ def admin_member_history(user_id):
             cur.execute("""
                 SELECT goal_title, unit, balance, updated_at
                 FROM member_goal_credits
-                WHERE user_id=%s AND balance>0
+                WHERE user_id=%s AND ABS(balance)>0
                 ORDER BY goal_title ASC
             """, (user_id,))
             credits = cur.fetchall()
