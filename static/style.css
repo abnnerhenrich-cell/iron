@@ -300,3 +300,21 @@ input,button,select,textarea{font-size:max(16px,1rem)}
 @media(max-width:680px){
   .closure-delete-form .btn{width:100%}
 }
+
+
+/* ===== IRON V24 — excluir saldo diretamente nos dois painéis ===== */
+.credit-chip-wrap{
+  display:inline-flex;align-items:center;gap:6px
+}
+.credit-delete-form{margin:0;display:inline-flex}
+.credit-delete-btn{
+  width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,93,93,.32);
+  background:rgba(255,70,70,.10);color:#ff9e9e;display:grid;place-items:center;
+  font-size:19px;line-height:1;cursor:pointer;transition:.18s ease
+}
+.credit-delete-btn:hover{
+  transform:translateY(-1px);background:rgba(255,70,70,.18);border-color:rgba(255,110,110,.55)
+}
+@media(max-width:680px){
+  .credit-chip-wrap{max-width:100%}
+}

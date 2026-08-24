@@ -97,7 +97,13 @@
     <div><span class="eyebrow">CRÉDITOS DISPONÍVEIS</span><strong>Saldo para próximas metas</strong></div>
     <div class="credit-chip-list">
       {% for c in credits %}
-      <span class="credit-chip {{ 'negative' if c['balance'] < 0 else 'positive' }}"><b>{{ c['goal_title'] }}</b> {{ '+' if c['balance'] > 0 else '' }}{{ c['balance']|round|int }} {{ c['unit'] }}</span>
+      <div class="credit-chip-wrap">
+        <span class="credit-chip {{ 'negative' if c['balance'] < 0 else 'positive' }}"><b>{{ c['goal_title'] }}</b> {{ '+' if c['balance'] > 0 else '' }}{{ c['balance']|round|int }} {{ c['unit'] }}</span>
+        <form method="post" action="{{ url_for('admin_member_credit_delete', user_id=member['id'], credit_id=c['id']) }}" class="credit-delete-form" onsubmit="return confirm('Excluir este saldo de {{ c['goal_title'] }}? Ele não será aplicado na próxima meta.')">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button type="submit" class="credit-delete-btn" title="Excluir saldo" aria-label="Excluir saldo de {{ c['goal_title'] }}">×</button>
+        </form>
+      </div>
       {% endfor %}
     </div>
   </div>

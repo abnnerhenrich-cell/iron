@@ -1445,7 +1445,7 @@ def admin_member_goals(user_id):
                     })
 
             cur.execute("""
-                SELECT goal_title, unit, balance
+                SELECT id, goal_title, unit, balance
                 FROM member_goal_credits
                 WHERE user_id=%s AND ABS(balance)>0
                 ORDER BY goal_title ASC
@@ -1607,6 +1607,51 @@ def admin_member_goals_close(user_id):
         "success"
     )
     return redirect(url_for("admin_member_history", user_id=user_id))
+
+
+@app.post("/admin/members/<int:user_id>/credits/<int:credit_id>/delete")
+@admin_required
+def admin_member_credit_delete(user_id, credit_id):
+    validate_csrf()
+
+    with get_conn() as conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT id, user_id, goal_title, unit, balance
+                    FROM member_goal_credits
+                    WHERE id=%s AND user_id=%s
+                    FOR UPDATE
+                """, (credit_id, user_id))
+                credit = cur.fetchone()
+
+                if not credit:
+                    flash("Saldo não encontrado ou já removido.", "danger")
+                    return redirect(request.referrer or url_for("admin_member_goals", user_id=user_id))
+
+                cur.execute(
+                    "DELETE FROM member_goal_credits WHERE id=%s AND user_id=%s",
+                    (credit_id, user_id)
+                )
+
+            conn.commit()
+        except HTTPException:
+            conn.rollback()
+            raise
+        except Exception as exc:
+            conn.rollback()
+            app.logger.exception(
+                "Erro ao excluir saldo manual: user_id=%s credit_id=%s",
+                user_id, credit_id
+            )
+            flash(f"Não foi possível excluir o saldo ({type(exc).__name__}).", "danger")
+            return redirect(request.referrer or url_for("admin_member_goals", user_id=user_id))
+
+    flash(
+        f"Saldo de {credit['goal_title']} removido. Ele não será aplicado na próxima meta.",
+        "success"
+    )
+    return redirect(request.referrer or url_for("admin_member_goals", user_id=user_id))
 
 
 @app.post("/admin/members/<int:user_id>/closures/<int:closure_id>/delete")
@@ -1796,7 +1841,7 @@ def admin_member_history(user_id):
             closures = cur.fetchall()
 
             cur.execute("""
-                SELECT goal_title, unit, balance, updated_at
+                SELECT id, goal_title, unit, balance, updated_at
                 FROM member_goal_credits
                 WHERE user_id=%s AND ABS(balance)>0
                 ORDER BY goal_title ASC
