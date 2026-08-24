@@ -10,6 +10,7 @@ from flask import (
     flash, send_file, abort
 )
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.exceptions import HTTPException
 
 import psycopg
 from psycopg.rows import dict_row
@@ -1451,10 +1452,12 @@ def admin_member_goals_close(user_id):
     with get_conn() as conn:
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT id, name FROM users WHERE id=%s AND role='user'", (user_id,))
+                cur.execute("SELECT id, name, role, approved, active FROM users WHERE id=%s", (user_id,))
                 member = cur.fetchone()
                 if not member:
-                    abort(404)
+                    conn.rollback()
+                    flash("Membro não encontrado. Atualize a lista de membros e tente novamente.", "danger")
+                    return redirect(url_for("admin_members"))
 
                 cur.execute("SELECT * FROM cycles WHERE active=TRUE ORDER BY id DESC LIMIT 1")
                 cycle = cur.fetchone()
@@ -1562,11 +1565,12 @@ def admin_member_goals_close(user_id):
                     cur.execute("UPDATE goals SET closed=TRUE WHERE id=%s", (g["id"],))
 
             conn.commit()
+        except HTTPException:
+            conn.rollback()
+            raise
         except Exception as exc:
             conn.rollback()
             app.logger.exception("Erro ao fechar metas do membro: user_id=%s", user_id)
-            # Mantém detalhes técnicos no log da Vercel e mostra uma referência
-            # curta no painel para facilitar diagnóstico se houver outro caso.
             flash(f"Não foi possível fechar a meta ({type(exc).__name__}). Tente novamente.", "danger")
             return redirect(url_for("admin_member_goals", user_id=user_id))
 
