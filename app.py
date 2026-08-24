@@ -111,6 +111,7 @@ def init_db():
                     approved NUMERIC(14,2) NOT NULL DEFAULT 0,
                     surplus NUMERIC(14,2) NOT NULL DEFAULT 0,
                     shortfall NUMERIC(14,2) NOT NULL DEFAULT 0,
+                    carried_balance NUMERIC(14,2) NOT NULL DEFAULT 0,
                     closed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     closed_by BIGINT REFERENCES users(id)
                 )
@@ -127,6 +128,7 @@ def init_db():
             cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS approved NUMERIC(14,2) NOT NULL DEFAULT 0")
             cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS surplus NUMERIC(14,2) NOT NULL DEFAULT 0")
             cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS shortfall NUMERIC(14,2) NOT NULL DEFAULT 0")
+            cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS carried_balance NUMERIC(14,2) NOT NULL DEFAULT 0")
             cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()")
             cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS closed_by BIGINT REFERENCES users(id)")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image BYTEA")
@@ -1520,31 +1522,34 @@ def admin_member_goals_close(user_id):
                     surplus = max(approved - required_target, 0)
                     shortfall = max(required_target - approved, 0)
 
+                    signed_balance = 0
+                    if surplus > 0 and carry_mode in {"positive", "both"}:
+                        signed_balance += surplus
+
+                    if shortfall > 0 and carry_mode in {"negative", "both"}:
+                        signed_balance -= shortfall
+
                     cur.execute("""
                         INSERT INTO goal_closures(
                             user_id, cycle_id, goal_id, goal_title, unit,
                             target, credit_applied, required_target, approved,
-                            surplus, shortfall, closed_by
+                            surplus, shortfall, carried_balance, closed_by
                         )
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                         ON CONFLICT (goal_id) DO NOTHING
                     """, (
                         user_id, cycle["id"], g["id"], g["title"], g["unit"],
                         target, credit_applied, required_target, approved,
-                        surplus, shortfall, admin["id"]
+                        surplus, shortfall, signed_balance, admin["id"]
                     ))
 
                     if cur.rowcount:
                         closed_count += 1
 
-                        signed_balance = 0
-                        if surplus > 0 and carry_mode in {"positive", "both"}:
-                            signed_balance += surplus
-                            positive_generated += surplus
-
-                        if shortfall > 0 and carry_mode in {"negative", "both"}:
-                            signed_balance -= shortfall
-                            negative_generated += shortfall
+                        if signed_balance > 0:
+                            positive_generated += signed_balance
+                        elif signed_balance < 0:
+                            negative_generated += abs(signed_balance)
 
                         if abs(signed_balance) > 1e-9:
                             cur.execute("""
@@ -1580,6 +1585,148 @@ def admin_member_goals_close(user_id):
         f"Saldo negativo: -{negative_generated:g}.",
         "success"
     )
+    return redirect(url_for("admin_member_history", user_id=user_id))
+
+
+@app.post("/admin/members/<int:user_id>/closures/<int:closure_id>/delete")
+@admin_required
+def admin_member_closure_delete(user_id, closure_id):
+    validate_csrf()
+
+    with get_conn() as conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT gc.*, g.id AS source_goal_id, g.title AS source_goal_title,
+                           g.unit AS source_goal_unit
+                    FROM goal_closures gc
+                    JOIN goals g ON g.id=gc.goal_id
+                    WHERE gc.id=%s AND gc.user_id=%s
+                    FOR UPDATE OF gc, g
+                """, (closure_id, user_id))
+                closure = cur.fetchone()
+
+                if not closure:
+                    flash("Fechamento não encontrado.", "danger")
+                    return redirect(url_for("admin_member_history", user_id=user_id))
+
+                carried = float(closure.get("carried_balance") or 0)
+
+                # Compatibilidade com fechamentos antigos (V16–V20), que ainda
+                # não gravavam exatamente o saldo transportado.
+                if abs(carried) <= 1e-9:
+                    surplus = float(closure.get("surplus") or 0)
+                    shortfall = float(closure.get("shortfall") or 0)
+                    if surplus > 0:
+                        carried = surplus
+                    elif shortfall > 0:
+                        carried = -shortfall
+
+                remaining = carried
+                goal_key = goal_credit_key(closure["goal_title"])
+                unit = closure["unit"]
+
+                # Primeiro desfaz a parte que ainda está parada no saldo.
+                cur.execute("""
+                    SELECT id, balance
+                    FROM member_goal_credits
+                    WHERE user_id=%s AND goal_key=%s AND unit=%s
+                    FOR UPDATE
+                """, (user_id, goal_key, unit))
+                credit_row = cur.fetchone()
+
+                if credit_row and abs(remaining) > 1e-9:
+                    balance = float(credit_row["balance"] or 0)
+
+                    if remaining > 0 and balance > 0:
+                        take = min(balance, remaining)
+                        balance -= take
+                        remaining -= take
+                    elif remaining < 0 and balance < 0:
+                        take = min(abs(balance), abs(remaining))
+                        balance += take
+                        remaining += take
+
+                    cur.execute("""
+                        UPDATE member_goal_credits
+                        SET balance=%s, updated_at=NOW()
+                        WHERE id=%s
+                    """, (balance, credit_row["id"]))
+
+                # Se o saldo já foi consumido por uma meta posterior, desfaz a
+                # aplicação naquela meta. Assim a quantidade necessária se ajusta.
+                if abs(remaining) > 1e-9:
+                    cur.execute("""
+                        SELECT id, credit_applied
+                        FROM goals
+                        WHERE user_id=%s
+                          AND LOWER(REGEXP_REPLACE(TRIM(title), '\\s+', ' ', 'g'))=%s
+                          AND unit=%s
+                          AND id>%s
+                          AND (
+                              (%s > 0 AND credit_applied > 0)
+                              OR
+                              (%s < 0 AND credit_applied < 0)
+                          )
+                        ORDER BY id ASC
+                        FOR UPDATE
+                    """, (
+                        user_id, goal_key, unit, closure["goal_id"],
+                        remaining, remaining
+                    ))
+                    later_goals = cur.fetchall()
+
+                    for later in later_goals:
+                        if abs(remaining) <= 1e-9:
+                            break
+
+                        applied = float(later["credit_applied"] or 0)
+
+                        if remaining > 0 and applied > 0:
+                            take = min(applied, remaining)
+                            applied -= take
+                            remaining -= take
+                        elif remaining < 0 and applied < 0:
+                            take = min(abs(applied), abs(remaining))
+                            applied += take
+                            remaining += take
+                        else:
+                            continue
+
+                        cur.execute(
+                            "UPDATE goals SET credit_applied=%s WHERE id=%s",
+                            (applied, later["id"])
+                        )
+
+                # Se ainda restar valor sem conseguir desfazer, não apagamos.
+                # Isso evita corromper o extrato em cenários antigos/atípicos.
+                if abs(remaining) > 1e-6:
+                    conn.rollback()
+                    flash(
+                        "Não foi possível excluir este fechamento porque parte do saldo já foi usada "
+                        "de uma forma que não pôde ser revertida automaticamente.",
+                        "danger"
+                    )
+                    return redirect(url_for("admin_member_history", user_id=user_id))
+
+                # Reabre a meta original para permitir correção e novo fechamento.
+                cur.execute("UPDATE goals SET closed=FALSE WHERE id=%s", (closure["goal_id"],))
+                cur.execute("DELETE FROM goal_closures WHERE id=%s", (closure_id,))
+
+            conn.commit()
+        except HTTPException:
+            conn.rollback()
+            raise
+        except Exception as exc:
+            conn.rollback()
+            app.logger.exception(
+                "Erro ao excluir fechamento: user_id=%s closure_id=%s",
+                user_id, closure_id
+            )
+            flash(f"Não foi possível excluir o fechamento ({type(exc).__name__}).", "danger")
+            return redirect(url_for("admin_member_history", user_id=user_id))
+
+    flash("Fechamento excluído e saldo relacionado desfeito.", "success")
     return redirect(url_for("admin_member_history", user_id=user_id))
 
 

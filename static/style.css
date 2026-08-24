@@ -289,3 +289,14 @@ input,button,select,textarea{font-size:max(16px,1rem)}
   .close-goal-form,.carry-mode-field{width:100%}
   .close-goal-form .btn{width:100%}
 }
+
+
+/* ===== IRON V21 — exclusão de fechamento ===== */
+.closure-delete-form{
+  margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.07);
+  display:flex;justify-content:flex-end
+}
+.closure-delete-form .btn{min-height:38px}
+@media(max-width:680px){
+  .closure-delete-form .btn{width:100%}
+}

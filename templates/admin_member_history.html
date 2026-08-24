@@ -63,6 +63,10 @@
         <div><span>Faltou</span><strong class="{{ 'red' if c['shortfall'] > 0 else '' }}">{{ c['shortfall']|round|int }} {{ c['unit'] }}</strong></div>
       </div>
       <small class="closure-date">{{ c['start_date'] }} → {{ c['end_date'] }} · fechado em {{ c['closed_at']|dt }}</small>
+      <form method="post" action="{{ url_for('admin_member_closure_delete', user_id=member['id'], closure_id=c['id']) }}" class="closure-delete-form" onsubmit="return confirm('Excluir este fechamento? O saldo gerado por ele também será desfeito e a meta original será reaberta.')">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button class="btn danger" type="submit">Excluir fechamento</button>
+      </form>
     </article>
     {% else %}
     <div class="empty compact-empty"><h3>Nenhuma meta fechada ainda</h3><p>Depois de conferir todas as entregas, use “Fechar meta” na aba Metas.</p></div>
