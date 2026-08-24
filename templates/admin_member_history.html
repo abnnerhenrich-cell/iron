@@ -30,7 +30,7 @@
     <div>
       <span class="eyebrow">EXTRATO DE METAS</span>
       <h2>Fechamentos e créditos pendentes</h2>
-      <p>Os saldos ficam aqui até serem aplicados na próxima meta do mesmo produto. Depois disso, saem automaticamente desta área.</p>
+      <p>Você pode excluir um fechamento manualmente enquanto ele estiver pendente. Se não excluir, ele sai automaticamente quando o saldo for aplicado na próxima meta do mesmo produto.</p>
     </div>
   </div>
 
@@ -63,7 +63,7 @@
         <div><span>Faltou</span><strong class="{{ 'red' if c['shortfall'] > 0 else '' }}">{{ c['shortfall']|round|int }} {{ c['unit'] }}</strong></div>
       </div>
       <small class="closure-date">{{ c['start_date'] }} → {{ c['end_date'] }} · fechado em {{ c['closed_at']|dt }}</small>
-      <form method="post" action="{{ url_for('admin_member_closure_delete', user_id=member['id'], closure_id=c['id']) }}" class="closure-delete-form" onsubmit="return confirm('Excluir este fechamento? O saldo gerado por ele também será desfeito e a meta original será reaberta.')">
+      <form method="post" action="{{ url_for('admin_member_closure_delete', user_id=member['id'], closure_id=c['id']) }}" class="closure-delete-form" onsubmit="return confirm('Excluir este fechamento manualmente? O saldo positivo/negativo gerado também será desfeito e a meta original será reaberta.')">
         <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
         <button class="btn danger" type="submit">Excluir fechamento</button>
       </form>

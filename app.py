@@ -1749,7 +1749,7 @@ def admin_member_closure_delete(user_id, closure_id):
             flash(f"Não foi possível excluir o fechamento ({type(exc).__name__}).", "danger")
             return redirect(url_for("admin_member_history", user_id=user_id))
 
-    flash("Fechamento excluído e saldo relacionado desfeito.", "success")
+    flash("Fechamento excluído manualmente e saldo relacionado desfeito.", "success")
     return redirect(url_for("admin_member_history", user_id=user_id))
 
 
