@@ -112,6 +112,8 @@ def init_db():
                     surplus NUMERIC(14,2) NOT NULL DEFAULT 0,
                     shortfall NUMERIC(14,2) NOT NULL DEFAULT 0,
                     carried_balance NUMERIC(14,2) NOT NULL DEFAULT 0,
+                    applied_to_goal_id BIGINT REFERENCES goals(id) ON DELETE SET NULL,
+                    consumed_at TIMESTAMPTZ,
                     closed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     closed_by BIGINT REFERENCES users(id)
                 )
@@ -129,6 +131,8 @@ def init_db():
             cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS surplus NUMERIC(14,2) NOT NULL DEFAULT 0")
             cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS shortfall NUMERIC(14,2) NOT NULL DEFAULT 0")
             cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS carried_balance NUMERIC(14,2) NOT NULL DEFAULT 0")
+            cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS applied_to_goal_id BIGINT REFERENCES goals(id) ON DELETE SET NULL")
+            cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS consumed_at TIMESTAMPTZ")
             cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()")
             cur.execute("ALTER TABLE goal_closures ADD COLUMN IF NOT EXISTS closed_by BIGINT REFERENCES users(id)")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image BYTEA")
@@ -1349,6 +1353,7 @@ def admin_member_goals(user_id):
                             closed
                         )
                         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,FALSE)
+                        RETURNING id
                     """, (
                         cycle["id"],
                         title,
@@ -1360,6 +1365,22 @@ def admin_member_goals(user_id):
                         user_id,
                         credit_applied
                     ))
+                    new_goal_id = cur.fetchone()["id"]
+
+                    # Quando o saldo anterior entra na nova meta, os fechamentos
+                    # que alimentavam esse saldo deixam de aparecer no extrato
+                    # ativo. Eles ficam arquivados internamente para auditoria.
+                    if abs(credit_applied) > 1e-9:
+                        cur.execute("""
+                            UPDATE goal_closures
+                            SET applied_to_goal_id=%s,
+                                consumed_at=NOW()
+                            WHERE user_id=%s
+                              AND unit=%s
+                              AND LOWER(REGEXP_REPLACE(TRIM(goal_title), '\\s+', ' ', 'g'))=%s
+                              AND consumed_at IS NULL
+                              AND carried_balance <> 0
+                        """, (new_goal_id, user_id, unit, goal_key))
 
                     conn.commit()
                 except Exception:
@@ -1601,7 +1622,9 @@ def admin_member_closure_delete(user_id, closure_id):
                            g.unit AS source_goal_unit
                     FROM goal_closures gc
                     JOIN goals g ON g.id=gc.goal_id
-                    WHERE gc.id=%s AND gc.user_id=%s
+                    WHERE gc.id=%s
+                      AND gc.user_id=%s
+                      AND gc.consumed_at IS NULL
                     FOR UPDATE OF gc, g
                 """, (closure_id, user_id))
                 closure = cur.fetchone()
@@ -1767,6 +1790,7 @@ def admin_member_history(user_id):
                 FROM goal_closures gc
                 JOIN cycles c ON c.id=gc.cycle_id
                 WHERE gc.user_id=%s
+                  AND gc.consumed_at IS NULL
                 ORDER BY gc.closed_at DESC, gc.id DESC
             """, (user_id,))
             closures = cur.fetchall()
