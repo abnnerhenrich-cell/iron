@@ -494,3 +494,19 @@ input,button,select,textarea{font-size:max(16px,1rem)}
   .manager-badge{align-self:flex-start}
   .permission-actions,.permission-actions form,.permission-actions .btn{width:100%}
 }
+
+
+/* ===== IRON V33 — upload estável de comprovantes ===== */
+.upload-status{
+  min-height:20px;margin-top:10px;font-size:.76rem;color:var(--muted);
+  transition:.18s ease
+}
+.upload-status.working{color:#ffd38a}
+.upload-status.ready{color:#aef3ca}
+.upload-status.error{color:#ffaaaa}
+.upload-drop.is-busy{
+  pointer-events:none;opacity:.68
+}
+.delivery-submit:disabled{
+  cursor:not-allowed
+}

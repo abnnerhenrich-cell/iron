@@ -17,7 +17,7 @@ from psycopg.rows import dict_row
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "troque-esta-chave-no-vercel")
-app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
@@ -272,6 +272,14 @@ def init_db():
         conn.commit()
 
 init_db()
+
+@app.errorhandler(413)
+def request_too_large(_error):
+    flash(
+        "As fotos chegaram grandes demais ao servidor. Volte em Nova entrega, escolha as fotos novamente e aguarde a otimização terminar antes de enviar.",
+        "danger"
+    )
+    return redirect(request.referrer or url_for("submit"))
 
 def csrf_token():
     if "_csrf" not in session:
@@ -760,14 +768,14 @@ def submit():
             data = image.read()
             total_bytes += len(data)
 
-            if len(data) > 1_250_000:
-                flash("Uma das imagens ficou grande demais. Tente novamente.", "danger")
+            if len(data) > 950_000:
+                flash("Uma das imagens não conseguiu ser otimizada o suficiente. Escolha a foto novamente e tente enviar.", "danger")
                 return render_template("submit.html", cycle=cycle, goals=goals)
 
             images.append((data, image.mimetype, image.filename[:180]))
 
-        if total_bytes > 3_600_000:
-            flash("As fotos juntas ficaram grandes demais. Tente novamente com menos fotos.", "danger")
+        if total_bytes > 2_800_000:
+            flash("As fotos juntas ficaram grandes demais. Tente novamente; o IRON vai compactá-las antes do próximo envio.", "danger")
             return render_template("submit.html", cycle=cycle, goals=goals)
 
         while len(images) < 3:
@@ -777,40 +785,51 @@ def submit():
 
         # As imagens são gravadas UMA única vez no lote da entrega.
         # Cada item da meta apenas referencia esse lote.
-        with get_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO delivery_batches (
-                        user_id, cycle_id, note,
-                        image_data, image_mime, image_name,
-                        image2_data, image2_mime, image2_name,
-                        image3_data, image3_mime, image3_name
-                    )
-                    VALUES (
-                        %s,%s,%s,
-                        %s,%s,%s,
-                        %s,%s,%s,
-                        %s,%s,%s
-                    )
-                    RETURNING id
-                """, (
-                    user["id"], cycle["id"], note,
-                    img1, mime1, name1,
-                    img2, mime2, name2,
-                    img3, mime3, name3
-                ))
-                batch_id = cur.fetchone()["id"]
-
-                for goal_id, amount in selected:
+        try:
+            with get_conn() as conn:
+                with conn.cursor() as cur:
                     cur.execute("""
-                        INSERT INTO submissions (
-                            user_id, goal_id, amount, note, batch_id, status
+                        INSERT INTO delivery_batches (
+                            user_id, cycle_id, note,
+                            image_data, image_mime, image_name,
+                            image2_data, image2_mime, image2_name,
+                            image3_data, image3_mime, image3_name
                         )
-                        VALUES (%s,%s,%s,%s,%s,'pending')
+                        VALUES (
+                            %s,%s,%s,
+                            %s,%s,%s,
+                            %s,%s,%s,
+                            %s,%s,%s
+                        )
+                        RETURNING id
                     """, (
-                        user["id"], goal_id, amount, note, batch_id
+                        user["id"], cycle["id"], note,
+                        img1, mime1, name1,
+                        img2, mime2, name2,
+                        img3, mime3, name3
                     ))
-            conn.commit()
+                    batch_id = cur.fetchone()["id"]
+
+                    for goal_id, amount in selected:
+                        cur.execute("""
+                            INSERT INTO submissions (
+                                user_id, goal_id, amount, note, batch_id, status
+                            )
+                            VALUES (%s,%s,%s,%s,%s,'pending')
+                        """, (
+                            user["id"], goal_id, amount, note, batch_id
+                        ))
+                conn.commit()
+        except Exception as exc:
+            app.logger.exception(
+                "Falha ao salvar entrega com imagens: user_id=%s cycle_id=%s",
+                user["id"], cycle["id"]
+            )
+            flash(
+                "Não foi possível concluir o envio. Sua conexão pode ter oscilado. Nenhuma entrega parcial foi salva; tente novamente.",
+                "danger"
+            )
+            return render_template("submit.html", cycle=cycle, goals=goals), 503
 
         flash(f"{len(selected)} item(ns) enviado(s) para análise.", "success")
         return redirect(url_for("dashboard"))

@@ -58,12 +58,13 @@
 
     <label class="upload-box">
       <span>COMPROVAÇÕES <b>*</b><small>Até 3 imagens · compressão automática</small></span>
-      <input id="imagesInput" name="images" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple required hidden>
+      <input id="imagesInput" name="images" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple required hidden>
       <div class="upload-drop" id="uploadTrigger">
         <strong>＋ Adicionar fotos da entrega</strong>
         <small>Câmera ou galeria · o sistema reduz o tamanho antes de enviar</small>
       </div>
       <div id="filePreview" class="file-preview"></div>
+      <div id="uploadStatus" class="upload-status" aria-live="polite"></div>
     </label>
   </section>
 
@@ -85,15 +86,28 @@
   const fileInput = document.getElementById('imagesInput');
   const trigger = document.getElementById('uploadTrigger');
   const preview = document.getElementById('filePreview');
+  const status = document.getElementById('uploadStatus');
   const selectedCount = document.getElementById('selectedCount');
+
+  let preparingImages = false;
+  let sending = false;
+
+  const setStatus = (text = '', type = '') => {
+    if (!status) return;
+    status.textContent = text;
+    status.className = `upload-status ${type}`.trim();
+  };
 
   const updateButton = () => {
     const selected = amountInputs.filter(i => Number(i.value) > 0);
     const hasAmount = selected.length > 0;
-    cards.forEach(card => { const i = card.querySelector('.stepper input'); card.classList.toggle('selected', !!i && Number(i.value) > 0); });
+    cards.forEach(card => {
+      const i = card.querySelector('.stepper input');
+      card.classList.toggle('selected', !!i && Number(i.value) > 0);
+    });
     if (selectedCount) selectedCount.textContent = selected.length;
     const hasImage = fileInput.files && fileInput.files.length > 0;
-    submit.disabled = !(hasAmount && hasImage);
+    submit.disabled = sending || preparingImages || !(hasAmount && hasImage);
   };
 
   document.querySelectorAll('.step-btn').forEach(btn => {
@@ -118,38 +132,63 @@
     });
   });
 
-  trigger.addEventListener('click', () => fileInput.click());
-
-  const compressImage = (file, maxWidth = 1280, quality = 0.62) => new Promise((resolve, reject) => {
-    if (!file.type.startsWith('image/')) return resolve(file);
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const scale = Math.min(1, maxWidth / img.width);
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-        canvas.toBlob(blob => {
-          if (!blob) return reject(new Error('Falha ao comprimir imagem.'));
-          resolve(new File(
-            [blob],
-            (file.name.replace(/\.[^.]+$/, '') || 'comprovante') + '.jpg',
-            { type: 'image/jpeg' }
-          ));
-        }, 'image/jpeg', quality);
-      };
-      img.onerror = reject;
-      img.src = reader.result;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+  trigger.addEventListener('click', () => {
+    if (!preparingImages && !sending) fileInput.click();
   });
+
+  const loadImage = file => new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Imagem incompatível'));
+    };
+    img.src = url;
+  });
+
+  const canvasBlob = (canvas, quality) => new Promise((resolve, reject) => {
+    canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Falha ao compactar')), 'image/jpeg', quality);
+  });
+
+  const compressImage = async file => {
+    if (!file.type.startsWith('image/')) throw new Error('Arquivo não é uma imagem');
+
+    const img = await loadImage(file);
+    const maxSide = 1280;
+    const scale = Math.min(1, maxSide / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
+    const width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
+    const height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
+
+    // Começa com boa qualidade e reduz somente se necessário.
+    let quality = 0.68;
+    let blob = await canvasBlob(canvas, quality);
+    while (blob.size > 720000 && quality > 0.40) {
+      quality -= 0.08;
+      blob = await canvasBlob(canvas, quality);
+    }
+
+    if (blob.size > 900000) {
+      throw new Error('Imagem continua grande após otimização');
+    }
+
+    return new File(
+      [blob],
+      (file.name.replace(/\.[^.]+$/, '') || 'comprovante') + '.jpg',
+      { type: 'image/jpeg', lastModified: Date.now() }
+    );
+  };
 
   fileInput.addEventListener('change', async () => {
     const chosen = [...fileInput.files];
@@ -157,49 +196,72 @@
     if (chosen.length > 3) {
       alert('Escolha no máximo 3 imagens.');
       fileInput.value = '';
+      preview.innerHTML = '';
+      setStatus('');
+      updateButton();
+      return;
+    }
+    if (!chosen.length) {
+      preview.innerHTML = '';
+      setStatus('');
       updateButton();
       return;
     }
 
-    submit.disabled = true;
-    submit.textContent = 'Otimizando imagens...';
+    preparingImages = true;
+    submit.textContent = 'Otimizando fotos...';
+    setStatus(`Preparando ${chosen.length} foto(s). Aguarde...`, 'working');
+    trigger.classList.add('is-busy');
+    updateButton();
 
     try {
-      const compressed = [];
-      for (const file of chosen) {
-        const optimized = await compressImage(file);
-        if (optimized.size > 1000000) {
-          alert('Uma imagem ainda ficou muito grande após a otimização. Tente outra foto.');
-          fileInput.value = '';
-          preview.innerHTML = '';
-          submit.textContent = 'Enviar atualização para revisão';
-          updateButton();
-          return;
-        }
-        compressed.push(optimized);
+      const optimized = [];
+      for (let i = 0; i < chosen.length; i++) {
+        setStatus(`Otimizando foto ${i + 1} de ${chosen.length}...`, 'working');
+        optimized.push(await compressImage(chosen[i]));
       }
 
       const transfer = new DataTransfer();
-      compressed.forEach(file => transfer.items.add(file));
+      optimized.forEach(file => transfer.items.add(file));
       fileInput.files = transfer.files;
 
       preview.innerHTML = '';
-      compressed.forEach(file => {
+      let totalBytes = 0;
+      optimized.forEach(file => {
+        totalBytes += file.size;
         const pill = document.createElement('span');
-        pill.textContent = `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB`;
+        pill.textContent = `${file.name} · ${(file.size / 1024).toFixed(0)} KB`;
         preview.appendChild(pill);
       });
+
+      setStatus(
+        `${optimized.length} foto(s) pronta(s) · ${(totalBytes / 1024 / 1024).toFixed(1)} MB no total`,
+        'ready'
+      );
     } catch (err) {
-      alert('Não foi possível preparar uma das imagens. Tente outra foto.');
+      console.error(err);
       fileInput.value = '';
       preview.innerHTML = '';
+      setStatus('Não foi possível otimizar uma foto. Escolha outra imagem e tente novamente.', 'error');
+      alert('Uma das fotos não pôde ser preparada. Tente outra foto ou faça uma captura de tela dela.');
+    } finally {
+      preparingImages = false;
+      trigger.classList.remove('is-busy');
+      submit.textContent = 'Enviar atualização para revisão';
+      updateButton();
     }
-
-    submit.textContent = 'Enviar atualização para revisão';
-    updateButton();
   });
 
   form.addEventListener('submit', e => {
+    if (sending) {
+      e.preventDefault();
+      return;
+    }
+    if (preparingImages) {
+      e.preventDefault();
+      alert('Aguarde a otimização das fotos terminar.');
+      return;
+    }
     if (![...amountInputs].some(i => Number(i.value) > 0)) {
       e.preventDefault();
       alert('Informe pelo menos uma quantidade.');
@@ -210,8 +272,23 @@
       alert('Adicione pelo menos uma foto da entrega.');
       return;
     }
+
+    sending = true;
     submit.disabled = true;
-    submit.textContent = 'Enviando atualização...';
+    submit.textContent = 'Enviando... não feche esta tela';
+    trigger.classList.add('is-busy');
+    setStatus('Enviando comprovantes. Em internet móvel isso pode levar alguns segundos.', 'working');
+
+    // Evita segundo clique/segundo submit enquanto a primeira requisição está em andamento.
+    form.querySelectorAll('button[type="submit"]').forEach(btn => btn.disabled = true);
+  });
+
+  // Se o navegador voltar para esta página pelo cache, libera o formulário novamente.
+  window.addEventListener('pageshow', () => {
+    sending = false;
+    trigger.classList.remove('is-busy');
+    submit.textContent = 'Enviar atualização para revisão';
+    updateButton();
   });
 
   updateButton();
