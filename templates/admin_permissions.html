@@ -5,7 +5,7 @@
   <div>
     <span class="eyebrow">PERMISSÕES</span>
     <h1>Acessos administrativos</h1>
-    <p>Esta área serve somente para definir quem pode ou não entrar no Painel Admin.</p>
+    <p>Defina quem é Membro, Gerente ou Hierarquia. O Gerente possui acesso operacional restrito.</p>
   </div>
 </section>
 
@@ -18,7 +18,11 @@
       <tr>
         <td>{{ u['name'] }}</td>
         <td>{{ u['email'] }}</td>
-        <td><span class="status {{ 'approved' if u['role']=='admin' else 'pending' }}">{{ 'ADMIN' if u['role']=='admin' else 'MEMBRO' }}</span></td>
+        <td>
+          <span class="status {{ 'approved' if u['role']=='admin' else ('manager' if u['role']=='manager' else 'pending') }}">
+            {{ 'HIERARQUIA' if u['role']=='admin' else ('GERENTE' if u['role']=='manager' else 'MEMBRO') }}
+          </span>
+        </td>
         <td>{{ 'Ativo' if u['active'] else 'Bloqueado' }}</td>
         <td>
           {% if u['id'] == current_user['id'] %}
@@ -26,13 +30,30 @@
           {% elif u['role']=='admin' %}
             <form method="post" action="{{ url_for('admin_user_remove_admin', user_id=u['id']) }}">
               <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-              <button class="btn danger" type="submit">Remover Admin</button>
+              <button class="btn danger" type="submit">Tornar Membro</button>
             </form>
+          {% elif u['role']=='manager' %}
+            <div class="permission-actions">
+              <form method="post" action="{{ url_for('admin_user_make_admin', user_id=u['id']) }}">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <button class="btn primary" type="submit">Tornar Hierarquia</button>
+              </form>
+              <form method="post" action="{{ url_for('admin_user_remove_manager', user_id=u['id']) }}">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <button class="btn danger" type="submit">Tornar Membro</button>
+              </form>
+            </div>
           {% else %}
-            <form method="post" action="{{ url_for('admin_user_make_admin', user_id=u['id']) }}">
-              <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-              <button class="btn primary" type="submit">Dar acesso Admin</button>
-            </form>
+            <div class="permission-actions">
+              <form method="post" action="{{ url_for('admin_user_make_manager', user_id=u['id']) }}">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <button class="btn ghost" type="submit">Tornar Gerente</button>
+              </form>
+              <form method="post" action="{{ url_for('admin_user_make_admin', user_id=u['id']) }}">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <button class="btn primary" type="submit">Tornar Hierarquia</button>
+              </form>
+            </div>
           {% endif %}
         </td>
       </tr>

@@ -452,3 +452,45 @@ input,button,select,textarea{font-size:max(16px,1rem)}
 #tradeUnitPrice,#tradeTotal{
   font-variant-numeric:tabular-nums;
 }
+
+
+/* ===== IRON V31 — cargo Gerente ===== */
+.manager-hero{display:flex;align-items:center;justify-content:space-between;gap:18px}
+.manager-badge{
+  padding:9px 13px;border:1px solid rgba(123,178,255,.28);border-radius:999px;
+  background:rgba(76,137,224,.10);color:#b9d5ff;font-size:.72rem;font-weight:900;letter-spacing:.12em
+}
+.manager-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:18px}
+.manager-stats article{
+  padding:17px;border-radius:16px;border:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.025);display:grid;gap:5px
+}
+.manager-stats span,.manager-stats small{color:var(--muted)}
+.manager-stats span{font-size:.76rem}.manager-stats strong{font-size:1.65rem}
+.manager-access-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-bottom:18px}
+.manager-access-grid>a{
+  display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:13px;
+  padding:20px;border:1px solid rgba(255,255,255,.09);border-radius:18px;
+  background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.018));
+  transition:.18s ease
+}
+.manager-access-grid>a:hover{transform:translateY(-2px);border-color:rgba(140,185,255,.25)}
+.manager-access-grid div{display:grid;gap:4px}
+.manager-access-grid strong{font-size:1rem;color:var(--text)}
+.manager-access-grid small{color:var(--muted);line-height:1.4}
+.manager-access-grid>b{font-size:1.2rem;color:var(--muted)}
+.manager-access-icon{
+  width:42px;height:42px;border-radius:12px;display:grid;place-items:center;
+  background:rgba(109,162,238,.10);border:1px solid rgba(109,162,238,.18);font-size:1.15rem
+}
+.manager-security-note p{max-width:760px}
+.permission-actions{display:flex;gap:7px;flex-wrap:wrap}
+.status.manager{background:rgba(76,137,224,.10);color:#b9d5ff;border-color:rgba(123,178,255,.22)}
+@media(max-width:850px){
+  .manager-stats,.manager-access-grid{grid-template-columns:1fr}
+}
+@media(max-width:680px){
+  .manager-hero{align-items:flex-start;flex-direction:column}
+  .manager-badge{align-self:flex-start}
+  .permission-actions,.permission-actions form,.permission-actions .btn{width:100%}
+}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Gerente · IRON{% endblock %}
+{% block content %}
+<section class="hero manager-hero">
+  <div>
+    <span class="eyebrow">PAINEL GERENTE</span>
+    <h1>Central operacional</h1>
+    <p>Seu acesso é restrito às ferramentas operacionais autorizadas pela Hierarquia.</p>
+  </div>
+  <span class="manager-badge">GERENTE</span>
+</section>
+
+<section class="manager-stats">
+  <article>
+    <span>Cadastros pendentes</span>
+    <strong>{{ pending_users }}</strong>
+    <small>aguardando análise</small>
+  </article>
+  <article>
+    <span>Entregas agendadas</span>
+    <strong>{{ scheduled_deliveries }}</strong>
+    <small>em Compras & Vendas</small>
+  </article>
+  <article>
+    <span>Registros hoje</span>
+    <strong>{{ today_records }}</strong>
+    <small>compras e vendas</small>
+  </article>
+</section>
+
+<section class="manager-access-grid">
+  <a href="{{ url_for('admin_registrations') }}">
+    <span class="manager-access-icon">＋</span>
+    <div><strong>Cadastros</strong><small>Aprovar ou recusar novos membros.</small></div>
+    <b>→</b>
+  </a>
+  <a href="{{ url_for('admin_calculator') }}">
+    <span class="manager-access-icon">⌗</span>
+    <div><strong>Calculadora</strong><small>Acessar a calculadora operacional.</small></div>
+    <b>→</b>
+  </a>
+  <a href="{{ url_for('admin_trades') }}">
+    <span class="manager-access-icon">↕</span>
+    <div><strong>Compras & Vendas</strong><small>Registrar e administrar movimentações.</small></div>
+    <b>→</b>
+  </a>
+</section>
+
+<section class="panel manager-security-note">
+  <span class="eyebrow">ACESSO RESTRITO</span>
+  <h2>Permissões do cargo</h2>
+  <p>Este perfil não possui acesso a Membros, Metas, Fechamentos, Saldos, Permissões ou configurações da Hierarquia.</p>
+</section>
+{% endblock %}

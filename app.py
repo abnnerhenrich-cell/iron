@@ -65,7 +65,7 @@ def init_db():
                     name TEXT NOT NULL,
                     email TEXT NOT NULL UNIQUE,
                     password_hash TEXT NOT NULL,
-                    role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user','admin')),
+                    role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user','manager','admin')),
                     active BOOLEAN NOT NULL DEFAULT TRUE,
                     approved BOOLEAN NOT NULL DEFAULT FALSE,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -75,7 +75,14 @@ def init_db():
                 ALTER TABLE users
                 ADD COLUMN IF NOT EXISTS approved BOOLEAN NOT NULL DEFAULT FALSE
             """)
-            cur.execute("UPDATE users SET approved=TRUE WHERE role='admin'")
+            # Bancos antigos possuem CHECK apenas para user/admin.
+            cur.execute("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check")
+            cur.execute("""
+                ALTER TABLE users
+                ADD CONSTRAINT users_role_check
+                CHECK(role IN ('user','manager','admin'))
+            """)
+            cur.execute("UPDATE users SET approved=TRUE WHERE role IN ('admin','manager')")
 
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS cycles (
@@ -307,6 +314,49 @@ def admin_required(fn):
         return fn(*args, **kwargs)
     return wrapper
 
+def staff_required(fn):
+    """Acesso operacional: Gerente ou Hierarquia."""
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        user = get_current_user()
+        if not user:
+            return redirect(url_for("admin_login"))
+        if user["role"] not in {"admin", "manager"}:
+            abort(403)
+        return fn(*args, **kwargs)
+    return wrapper
+
+@app.before_request
+def restrict_manager_access():
+    """Gerente enxerga somente o núcleo operacional autorizado."""
+    if request.endpoint in {None, "static"}:
+        return None
+
+    user = get_current_user()
+    if not user or user["role"] != "manager":
+        return None
+
+    allowed = {
+        "index",
+        "logout",
+        "admin_dashboard",
+        "admin_registrations",
+        "admin_user_approve",
+        "admin_user_reject",
+        "admin_calculator",
+        "admin_calculator_app",
+        "admin_trades",
+        "admin_trade_save",
+        "admin_trade_delete",
+        "admin_trade_mark_delivered",
+    }
+
+    if request.endpoint not in allowed:
+        abort(403)
+
+    return None
+
+
 def money(value):
     try:
         v = float(value or 0)
@@ -386,7 +436,7 @@ def active_cycle_with_goals(user_id=None, open_only=False):
 def index():
     user = get_current_user()
     if user:
-        return redirect(url_for("admin_dashboard" if user["role"] == "admin" else "dashboard"))
+        return redirect(url_for("admin_dashboard" if user["role"] in {"admin","manager"} else "dashboard"))
     return redirect(url_for("login"))
 
 @app.route("/login", methods=["GET", "POST"])
@@ -418,7 +468,7 @@ def login():
         session.permanent = remember_device
         session["uid"] = user["id"]
         session["_csrf"] = secrets.token_urlsafe(24)
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("admin_dashboard" if user["role"] in {"admin","manager"} else "dashboard"))
 
     return render_template("login.html")
 
@@ -438,12 +488,12 @@ def admin_login():
             flash("E-mail ou senha inválidos.", "danger")
             return render_template("admin_login.html")
 
-        if user["role"] != "admin":
-            flash("Esta conta não possui permissão administrativa.", "danger")
+        if user["role"] not in {"admin", "manager"}:
+            flash("Esta conta não possui permissão para o painel.", "danger")
             return render_template("admin_login.html")
 
         if not user["active"]:
-            flash("Esta conta administrativa está bloqueada.", "danger")
+            flash("Esta conta de acesso ao painel está bloqueada.", "danger")
             return render_template("admin_login.html")
 
         remember_device = request.form.get("remember_device") == "1"
@@ -514,7 +564,7 @@ def member_home():
     return redirect(url_for("dashboard"))
 
 @app.route("/admin-home")
-@admin_required
+@staff_required
 def admin_home():
     return redirect(url_for("admin_dashboard"))
 
@@ -837,8 +887,31 @@ def submission_image(submission_id):
 
 
 @app.route("/admin")
-@admin_required
+@staff_required
 def admin_dashboard():
+    current = get_current_user()
+
+    if current["role"] == "manager":
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) AS c FROM users WHERE role='user' AND approved=FALSE")
+                pending_users = int(cur.fetchone()["c"] or 0)
+                cur.execute("""
+                    SELECT COUNT(*) AS c
+                    FROM trade_records
+                    WHERE record_type='sale'
+                      AND delivery_status='scheduled'
+                """)
+                scheduled_deliveries = int(cur.fetchone()["c"] or 0)
+                cur.execute("SELECT COUNT(*) AS c FROM trade_records WHERE record_date=CURRENT_DATE")
+                today_records = int(cur.fetchone()["c"] or 0)
+        return render_template(
+            "manager_dashboard.html",
+            pending_users=pending_users,
+            scheduled_deliveries=scheduled_deliveries,
+            today_records=today_records
+        )
+
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT COUNT(*) AS c FROM users WHERE role='user' AND approved=TRUE")
@@ -1146,7 +1219,7 @@ def admin_review(submission_id):
     return redirect(request.referrer or url_for("admin_submissions"))
 
 @app.route("/admin/registrations")
-@admin_required
+@staff_required
 def admin_registrations():
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -1970,7 +2043,7 @@ def admin_permissions():
                        (profile_image IS NOT NULL) AS has_profile_image
                 FROM users
                 WHERE approved=TRUE
-                ORDER BY CASE WHEN role='admin' THEN 0 ELSE 1 END, name ASC
+                ORDER BY CASE WHEN role='admin' THEN 0 WHEN role='manager' THEN 1 ELSE 2 END, name ASC
             """)
             users = cur.fetchall()
     return render_template("admin_permissions.html", users=users)
@@ -2031,7 +2104,7 @@ def admin_user_toggle(user_id):
     return redirect(url_for("admin_users"))
 
 @app.post("/admin/users/<int:user_id>/approve")
-@admin_required
+@staff_required
 def admin_user_approve(user_id):
     validate_csrf()
     with get_conn() as conn:
@@ -2046,7 +2119,7 @@ def admin_user_approve(user_id):
     return redirect(request.referrer or url_for("admin_registrations"))
 
 @app.post("/admin/users/<int:user_id>/reject")
-@admin_required
+@staff_required
 def admin_user_reject(user_id):
     validate_csrf()
     # Uma solicitação recusada não deve continuar aparecendo como pendente.
@@ -2084,6 +2157,48 @@ def admin_user_make_admin(user_id):
         conn.commit()
     flash("Permissão de administrador concedida.", "success")
     return redirect(url_for("admin_permissions"))
+
+@app.post("/admin/users/<int:user_id>/make-manager")
+@admin_required
+def admin_user_make_manager(user_id):
+    validate_csrf()
+    if int(user_id) == int(get_current_user()["id"]):
+        flash("Você não pode alterar seu próprio cargo por esta tela.", "danger")
+        return redirect(url_for("admin_permissions"))
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE users
+                SET role='manager', approved=TRUE, active=TRUE
+                WHERE id=%s AND role<>'admin'
+            """, (user_id,))
+        conn.commit()
+
+    flash("Cargo Gerente concedido. A conta terá acesso apenas a Cadastros, Calculadora e Compras & Vendas.", "success")
+    return redirect(url_for("admin_permissions"))
+
+
+@app.post("/admin/users/<int:user_id>/remove-manager")
+@admin_required
+def admin_user_remove_manager(user_id):
+    validate_csrf()
+    if int(user_id) == int(get_current_user()["id"]):
+        flash("Você não pode alterar seu próprio cargo por esta tela.", "danger")
+        return redirect(url_for("admin_permissions"))
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE users
+                SET role='user', approved=TRUE, active=TRUE
+                WHERE id=%s AND role='manager'
+            """, (user_id,))
+        conn.commit()
+
+    flash("Cargo Gerente removido. A conta voltou a ser Membro.", "success")
+    return redirect(url_for("admin_permissions"))
+
 
 @app.post("/admin/users/<int:user_id>/remove-admin")
 @admin_required
@@ -2134,7 +2249,7 @@ def parse_trade_number(raw):
 
 
 @app.route("/admin/compras-vendas")
-@admin_required
+@staff_required
 def admin_trades():
     view = (request.args.get("view") or "overview").lower()
     if view not in {"overview", "sale", "purchase", "history"}:
@@ -2238,7 +2353,7 @@ def admin_trades():
 
 
 @app.post("/admin/compras-vendas/save")
-@admin_required
+@staff_required
 def admin_trade_save():
     validate_csrf()
     admin = get_current_user()
@@ -2359,7 +2474,7 @@ def admin_trade_save():
 
 
 @app.post("/admin/compras-vendas/<int:record_id>/delete")
-@admin_required
+@staff_required
 def admin_trade_delete(record_id):
     validate_csrf()
     with get_conn() as conn:
@@ -2372,7 +2487,7 @@ def admin_trade_delete(record_id):
 
 
 @app.post("/admin/compras-vendas/<int:record_id>/delivered")
-@admin_required
+@staff_required
 def admin_trade_mark_delivered(record_id):
     validate_csrf()
     with get_conn() as conn:
@@ -2388,13 +2503,13 @@ def admin_trade_mark_delivered(record_id):
 
 
 @app.route("/admin/calculadora")
-@admin_required
+@staff_required
 def admin_calculator():
     return render_template("admin_calculator.html")
 
 
 @app.route("/admin/calculadora/app")
-@admin_required
+@staff_required
 def admin_calculator_app():
     return render_template("admin_calculator_app.html")
 
