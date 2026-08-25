@@ -79,6 +79,9 @@
       <label>Fornecedor
         <input name="supplier" required value="{{ edit_record['supplier'] if edit_record else '' }}" placeholder="Nome do fornecedor">
       </label>
+      <label>Documento / tipo
+        <input name="document_type" value="{{ edit_record['document_type'] if edit_record else '' }}" placeholder="Preenchimento livre">
+      </label>
       {% endif %}
 
       <label>G. Responsável
@@ -102,16 +105,24 @@
       {% endif %}
 
       <label>Produto
+        {% if is_sale %}
         <select name="product" id="tradeProduct" required>
           <option value="">Selecione o produto</option>
           {% for product_name in trade_products.keys() %}
           <option value="{{ product_name }}" {{ 'selected' if edit_record and edit_record['product']==product_name else '' }}>{{ product_name }}</option>
           {% endfor %}
         </select>
+        {% else %}
+        <input name="product" required value="{{ edit_record['product'] if edit_record else '' }}" placeholder="Digite qualquer produto">
+        {% endif %}
       </label>
 
       <label>Valor unitário
+        {% if is_sale %}
         <input id="tradeUnitPrice" type="text" readonly value="" placeholder="R$ 0,00">
+        {% else %}
+        <input name="unit_price" id="tradeUnitPrice" inputmode="decimal" value="{{ ('%.2f'|format(edit_record['unit_price'])) if edit_record and edit_record['unit_price'] is not none else '' }}" placeholder="R$ 0,00">
+        {% endif %}
       </label>
 
       <label>Quantidade
@@ -119,17 +130,25 @@
       </label>
 
       <label>Acréscimo
+        {% set current_markup = edit_record['markup_percent'] if edit_record and edit_record['markup_percent'] is not none else 0 %}
+        {% if is_sale %}
         <select name="markup_percent" id="tradeMarkup" required>
-          {% set current_markup = edit_record['markup_percent'] if edit_record and edit_record['markup_percent'] is not none else 0 %}
           <option value="0" {{ 'selected' if current_markup|float == 0 else '' }}>0%</option>
           <option value="15" {{ 'selected' if current_markup|float == 15 else '' }}>+15%</option>
           <option value="20" {{ 'selected' if current_markup|float == 20 else '' }}>+20%</option>
           <option value="30" {{ 'selected' if current_markup|float == 30 else '' }}>+30%</option>
         </select>
+        {% else %}
+        <input name="markup_percent" id="tradeMarkup" type="number" step="0.01" inputmode="decimal" value="{{ current_markup }}" placeholder="0">
+        {% endif %}
       </label>
 
       <label>Valor total
+        {% if is_sale %}
         <input name="total" id="tradeTotal" type="text" readonly value="{{ ('%.2f'|format(edit_record['total'])) if edit_record else '' }}" placeholder="R$ 0,00">
+        {% else %}
+        <input name="total" id="tradeTotal" inputmode="decimal" required value="{{ ('%.2f'|format(edit_record['total'])) if edit_record else '' }}" placeholder="R$ 0,00">
+        {% endif %}
       </label>
 
       <label>Data
@@ -242,6 +261,7 @@
   const markup = document.getElementById('tradeMarkup');
   const total = document.getElementById('tradeTotal');
 
+  const isSale = {{ 'true' if is_sale else 'false' }};
   const initialType = {{ ((edit_record['document_type'] or edit_record['price_type']) if edit_record else '')|tojson }};
 
   const moneyBR = value => new Intl.NumberFormat('pt-BR', {
@@ -250,7 +270,7 @@
   }).format(Number(value || 0));
 
   const updateTypes = (keepType = true) => {
-    if (!product || !priceType) return;
+    if (!isSale || !product || !priceType) return;
     const prices = productPrices[product.value] || {};
     const wanted = keepType ? (priceType.value || initialType) : '';
     priceType.innerHTML = '<option value="">Selecione o documento</option>';
@@ -270,7 +290,7 @@
   };
 
   const updateTotals = () => {
-    if (!product || !priceType || !unitPrice || !quantity || !total) return;
+    if (!isSale || !product || !priceType || !unitPrice || !quantity || !total) return;
     const price = Number((productPrices[product.value] || {})[priceType.value] || 0);
     const qty = Math.max(0, Number(quantity.value || 0));
     const extra = Math.max(0, Number(markup?.value || 0));
@@ -283,7 +303,7 @@
   quantity?.addEventListener('input', updateTotals);
   markup?.addEventListener('change', updateTotals);
 
-  if (product?.value) updateTypes(true);
+  if (isSale && product?.value) updateTypes(true);
 
   const status = document.getElementById('deliveryStatus');
   const dateWrap = document.getElementById('deliveryDateWrap');

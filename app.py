@@ -2251,26 +2251,35 @@ def admin_trade_save():
     responsible = (request.form.get("responsible") or "").strip()
     buyer = (request.form.get("buyer") or "").strip()
     product = (request.form.get("product") or "").strip()
-    # V29: Documento também define a tabela de preço.
-    document_type = (request.form.get("document_type") or "").strip()
-    price_type = document_type
     record_date = (request.form.get("record_date") or "").strip()
     quantity = parse_trade_number(request.form.get("quantity"))
     notes = (request.form.get("notes") or "").strip() or None
 
-    product_prices = TRADE_PRODUCTS.get(product)
-    if not product_prices or price_type not in product_prices:
-        flash("Selecione um produto e um tipo de preço válidos.", "danger")
-        return redirect(url_for("admin_trades", view=record_type, edit=record_id) if record_id else url_for("admin_trades", view=record_type))
+    if record_type == "sale":
+        # Venda continua padronizada e protegida pela tabela oficial.
+        document_type = (request.form.get("document_type") or "").strip()
+        price_type = document_type
+        product_prices = TRADE_PRODUCTS.get(product)
+        if not product_prices or price_type not in product_prices:
+            flash("Selecione um produto e um documento válidos.", "danger")
+            return redirect(url_for("admin_trades", view=record_type, edit=record_id) if record_id else url_for("admin_trades", view=record_type))
 
-    unit_price = float(product_prices[price_type])
-
-    markup_percent = parse_trade_number(request.form.get("markup_percent"))
-    if markup_percent not in {0, 15, 20, 30}:
-        flash("Selecione um acréscimo válido: 0%, 15%, 20% ou 30%.", "danger")
-        return redirect(url_for("admin_trades", view=record_type, edit=record_id) if record_id else url_for("admin_trades", view=record_type))
-
-    total = unit_price * quantity * (1 + markup_percent / 100.0)
+        unit_price = float(product_prices[price_type])
+        markup_percent = parse_trade_number(request.form.get("markup_percent"))
+        if markup_percent not in {0, 15, 20, 30}:
+            flash("Selecione um acréscimo válido: 0%, 15%, 20% ou 30%.", "danger")
+            return redirect(url_for("admin_trades", view=record_type, edit=record_id) if record_id else url_for("admin_trades", view=record_type))
+        total = unit_price * quantity * (1 + markup_percent / 100.0)
+    else:
+        # Compra é totalmente livre: produto, documento/tipo, valor unitário,
+        # acréscimo e total podem ser informados manualmente.
+        document_type = (request.form.get("document_type") or "").strip() or None
+        price_type = document_type
+        unit_price = parse_trade_number(request.form.get("unit_price"))
+        markup_percent = parse_trade_number(request.form.get("markup_percent"))
+        total = parse_trade_number(request.form.get("total"))
+        if total <= 0 and unit_price > 0 and quantity > 0:
+            total = unit_price * quantity * (1 + markup_percent / 100.0)
 
     seller = (request.form.get("seller") or "").strip() or None
     supplier = (request.form.get("supplier") or "").strip() or None
