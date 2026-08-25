@@ -1,6 +1,6 @@
-const CACHE = 'iron-v31';
+const CACHE = 'iron-v32';
 const SHELL = [
-  '/static/style.css?v=31.0.0',
+  '/static/style.css?v=32.0.0',
   '/static/icons/favicon-32.png',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',

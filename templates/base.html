@@ -14,7 +14,7 @@
   <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v=9">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=9">
   <link rel="manifest" href="/manifest.webmanifest?v=9">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=31.0.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=32.0.0">
 </head>
 {% set member_mode = request.endpoint in ['dashboard','submit','history','member_home','calculator','calculator_app'] %}
 <body class="{{ 'is-auth' if current_user else 'is-guest' }} {{ 'is-member-mode' if member_mode else 'is-admin-mode' }}">
@@ -22,7 +22,7 @@
   <aside class="app-sidebar">
     <a class="sidebar-brand" href="{{ url_for('admin_dashboard' if current_user['role'] in ['admin','manager'] and not member_mode else 'dashboard') }}">
       <img class="brand-logo" src="{{ url_for('static', filename='iron-logo.png') }}?v=9" alt="IRON Brotherhood">
-      <span class="brand-copy"><strong>IRON</strong><small>{{ 'PAINEL GERENTE' if current_user['role']=='manager' else ('ESPAÇO DO MEMBRO' if member_mode or current_user['role']!='admin' else 'PAINEL DA HIERARQUIA') }}</small></span>
+      <span class="brand-copy"><strong>IRON</strong><small>{{ 'ESPAÇO DO MEMBRO' if member_mode else ('PAINEL GERENTE' if current_user['role']=='manager' else ('PAINEL DA HIERARQUIA' if current_user['role']=='admin' else 'ESPAÇO DO MEMBRO')) }}</small></span>
     </a>
 
     <div class="sidebar-section-label">NAVEGAÇÃO</div>
@@ -35,7 +35,7 @@
         <a class="{{ 'active' if request.endpoint in ['admin_calculator','admin_calculator_app'] }}" href="{{ url_for('admin_calculator') }}"><span class="nav-ico">⌗</span><span>Calculadora</span></a>
         <a class="{{ 'active' if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] }}" href="{{ url_for('admin_trades') }}"><span class="nav-ico">↕</span><span>Compras & Vendas</span></a>
         <a class="{{ 'active' if request.endpoint=='admin_permissions' }}" href="{{ url_for('admin_permissions') }}"><span class="nav-ico">⌘</span><span>Permissões</span></a>
-      {% elif current_user['role']=='manager' %}
+      {% elif current_user['role']=='manager' and not member_mode %}
         <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}"><span class="nav-ico">⌂</span><span>Início</span></a>
         <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}"><span class="nav-ico">＋</span><span>Cadastros</span></a>
         <a class="{{ 'active' if request.endpoint in ['admin_calculator','admin_calculator_app'] }}" href="{{ url_for('admin_calculator') }}"><span class="nav-ico">⌗</span><span>Calculadora</span></a>
@@ -53,9 +53,13 @@
       <span class="install-app-icon">↓</span>
       <span><strong>Instalar IRON</strong><small>Adicionar ao dispositivo</small></span>
     </button>
-    {% if current_user['role']=='admin' %}
+    {% if current_user['role'] in ['admin','manager'] %}
       <a class="context-switch" href="{{ url_for('admin_dashboard' if member_mode else 'dashboard') }}">
-        <span>⇄</span><div><strong>{{ 'Abrir administração' if member_mode else 'Ver como membro' }}</strong><small>Trocar de ambiente</small></div>
+        <span>⇄</span>
+        <div>
+          <strong>{{ ('Abrir painel Gerente' if current_user['role']=='manager' else 'Abrir administração') if member_mode else 'Ver como membro' }}</strong>
+          <small>Trocar de ambiente</small>
+        </div>
       </a>
     {% endif %}
     <div class="sidebar-user">
@@ -69,7 +73,7 @@
     <a class="mobile-brand" href="{{ url_for('admin_dashboard' if current_user['role'] in ['admin','manager'] and not member_mode else 'dashboard') }}"><img class="brand-logo" src="{{ url_for('static', filename='iron-logo.png') }}?v=9" alt="IRON Brotherhood"><strong>IRON</strong></a>
     <div class="mobile-top-actions">
       <button class="mobile-install js-install-app" type="button" aria-label="Instalar IRON" title="Instalar IRON">↓</button>
-      {% if current_user['role']=='admin' %}<a href="{{ url_for('admin_dashboard' if member_mode else 'dashboard') }}">⇄</a>{% endif %}
+      {% if current_user['role'] in ['admin','manager'] %}<a href="{{ url_for('admin_dashboard' if member_mode else 'dashboard') }}">⇄</a>{% endif %}
       <a href="{{ url_for('logout') }}">↗</a>
     </div>
   </header>
@@ -98,7 +102,7 @@
       <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}"><b>＋</b><span>Cadastros</span></a>
       <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" href="{{ url_for('admin_cycles') }}"><b>◇</b><span>Metas</span></a>
       <a class="{{ 'active' if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] }}" href="{{ url_for('admin_trades') }}"><b>↕</b><span>Negócios</span></a>
-    {% elif current_user['role']=='manager' %}
+    {% elif current_user['role']=='manager' and not member_mode %}
       <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}"><b>⌂</b><span>Início</span></a>
       <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}"><b>＋</b><span>Cadastros</span></a>
       <a class="{{ 'active' if request.endpoint in ['admin_calculator','admin_calculator_app'] }}" href="{{ url_for('admin_calculator') }}"><b>⌗</b><span>Calcular</span></a>

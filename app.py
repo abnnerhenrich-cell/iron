@@ -337,8 +337,23 @@ def restrict_manager_access():
         return None
 
     allowed = {
+        # Navegação geral
         "index",
         "logout",
+
+        # Painel normal de membro
+        "member_home",
+        "dashboard",
+        "submit",
+        "history",
+        "profile_photo",
+        "profile_photo_upload",
+        "profile_photo_remove",
+        "submission_image",
+        "calculator",
+        "calculator_app",
+
+        # Painel operacional do Gerente
         "admin_dashboard",
         "admin_registrations",
         "admin_user_approve",
