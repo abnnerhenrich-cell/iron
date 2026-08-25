@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+{% block title %}Compras & Vendas · IRON{% endblock %}
+{% block content %}
+<section class="hero trade-hero">
+  <div>
+    <span class="eyebrow">CONTROLE FINANCEIRO</span>
+    <h1>Compras & Vendas</h1>
+    <p>Registre movimentações, acompanhe entregas e consulte o histórico em um só lugar.</p>
+  </div>
+</section>
+
+<nav class="trade-tabs">
+  <a class="{{ 'active' if view=='overview' }}" href="{{ url_for('admin_trades', view='overview') }}">Visão geral</a>
+  <a class="{{ 'active' if view=='sale' }}" href="{{ url_for('admin_trades', view='sale') }}">＋ Nova venda</a>
+  <a class="{{ 'active' if view=='purchase' }}" href="{{ url_for('admin_trades', view='purchase') }}">＋ Nova compra</a>
+  <a class="{{ 'active' if view=='history' }}" href="{{ url_for('admin_trades', view='history') }}">Histórico</a>
+</nav>
+
+<section class="trade-stats">
+  <article><span>Vendas no mês</span><strong class="green">{{ money(stats['month_sales']) }}</strong><small>entradas registradas</small></article>
+  <article><span>Compras no mês</span><strong class="red">{{ money(stats['month_purchases']) }}</strong><small>saídas registradas</small></article>
+  <article><span>Saldo do mês</span><strong class="{{ 'green' if stats['month_balance'] >= 0 else 'red' }}">{{ money(stats['month_balance']) }}</strong><small>vendas − compras</small></article>
+  <article><span>Entregas agendadas</span><strong class="yellow">{{ stats['scheduled_deliveries'] }}</strong><small>{{ stats['today_records'] }} registro(s) hoje</small></article>
+</section>
+
+{% if view == 'overview' %}
+<section class="panel">
+  <div class="panel-head">
+    <div><span class="eyebrow">ENTREGAS</span><h2>Próximas entregas</h2><p>Vendas que ainda precisam ser entregues.</p></div>
+    <a class="btn ghost" href="{{ url_for('admin_trades', view='history', type='sale') }}">Ver vendas</a>
+  </div>
+  <div class="trade-delivery-list">
+    {% for r in scheduled %}
+    <article class="trade-delivery-row">
+      <div><strong>{{ r['product'] }}</strong><span>{{ r['buyer'] }} · {{ r['quantity']|round|int }} un</span></div>
+      <div><span>Entrega prevista</span><strong>{{ r['delivery_date'].strftime('%d/%m/%Y') if r['delivery_date'] else 'Sem data' }}</strong></div>
+      <div><span>Valor</span><strong>{{ money(r['total']) }}</strong></div>
+      <form method="post" action="{{ url_for('admin_trade_mark_delivered', record_id=r['id']) }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button class="btn success" type="submit">✓ Marcar entregue</button>
+      </form>
+    </article>
+    {% else %}
+    <div class="empty compact-empty"><h3>Nenhuma entrega pendente</h3><p>As vendas agendadas aparecerão aqui.</p></div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="trade-quick-grid">
+  <a href="{{ url_for('admin_trades', view='sale') }}"><span>＋</span><strong>Registrar venda</strong><small>Adicionar uma nova venda</small></a>
+  <a href="{{ url_for('admin_trades', view='purchase') }}"><span>＋</span><strong>Registrar compra</strong><small>Adicionar uma nova compra</small></a>
+  <a href="{{ url_for('admin_trades', view='history') }}"><span>⌕</span><strong>Consultar histórico</strong><small>Pesquisar, editar ou excluir</small></a>
+</section>
+{% endif %}
+
+{% if view in ['sale','purchase'] %}
+{% set is_sale = view == 'sale' %}
+<section class="panel trade-form-panel">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">{{ 'VENDA' if is_sale else 'COMPRA' }}</span>
+      <h2>{{ ('Editar venda' if edit_record else 'Registrar nova venda') if is_sale else ('Editar compra' if edit_record else 'Registrar nova compra') }}</h2>
+      <p>Os dados ficam salvos no banco do IRON e podem ser acessados em qualquer dispositivo.</p>
+    </div>
+    {% if edit_record %}<a class="btn ghost" href="{{ url_for('admin_trades', view=view) }}">Cancelar edição</a>{% endif %}
+  </div>
+
+  <form method="post" action="{{ url_for('admin_trade_save') }}" class="trade-form" id="tradeForm">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="record_type" value="{{ view }}">
+    {% if edit_record %}<input type="hidden" name="record_id" value="{{ edit_record['id'] }}">{% endif %}
+
+    <div class="trade-form-grid">
+      {% if is_sale %}
+      <label>Vendedor
+        <input name="seller" required value="{{ edit_record['seller'] if edit_record else '' }}" placeholder="Nome do vendedor">
+      </label>
+      {% else %}
+      <label>Fornecedor
+        <input name="supplier" required value="{{ edit_record['supplier'] if edit_record else '' }}" placeholder="Nome do fornecedor">
+      </label>
+      {% endif %}
+
+      <label>G. Responsável
+        <input name="responsible" required value="{{ edit_record['responsible'] if edit_record else '' }}" placeholder="Responsável">
+      </label>
+
+      <label>Comprador
+        <input name="buyer" required value="{{ edit_record['buyer'] if edit_record else '' }}" placeholder="Comprador">
+      </label>
+
+      {% if is_sale %}
+      <label>Contato
+        <input name="contact" id="tradeContact" value="{{ edit_record['contact'] if edit_record else '' }}" placeholder="(00) 00000-0000">
+      </label>
+
+      <label>Documento
+        <div class="trade-doc-row">
+          <select name="document_type">
+            <option value="CPF" {{ 'selected' if edit_record and edit_record['document_type']=='CPF' else '' }}>CPF</option>
+            <option value="CNPJ" {{ 'selected' if edit_record and edit_record['document_type']=='CNPJ' else '' }}>CNPJ</option>
+            <option value="ID" {{ 'selected' if edit_record and edit_record['document_type']=='ID' else '' }}>Outro</option>
+          </select>
+          <input name="document" value="{{ edit_record['document'] if edit_record else '' }}" placeholder="CPF, CNPJ ou identificação">
+        </div>
+      </label>
+      {% endif %}
+
+      <label>Produto
+        <select name="product" id="tradeProduct" required>
+          <option value="">Selecione o produto</option>
+          {% for product_name in trade_products.keys() %}
+          <option value="{{ product_name }}" {{ 'selected' if edit_record and edit_record['product']==product_name else '' }}>{{ product_name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Tipo / tabela
+        <select name="price_type" id="tradePriceType" required>
+          <option value="">Selecione o tipo</option>
+        </select>
+      </label>
+
+      <label>Valor unitário
+        <input id="tradeUnitPrice" type="text" readonly value="" placeholder="R$ 0,00">
+      </label>
+
+      <label>Quantidade
+        <input name="quantity" id="tradeQuantity" type="number" min="0.01" step="0.01" inputmode="decimal" required value="{{ edit_record['quantity'] if edit_record else '' }}" placeholder="0">
+      </label>
+
+      <label>Acréscimo
+        <select name="markup_percent" id="tradeMarkup" required>
+          {% set current_markup = edit_record['markup_percent'] if edit_record and edit_record['markup_percent'] is not none else 0 %}
+          <option value="0" {{ 'selected' if current_markup|float == 0 else '' }}>0%</option>
+          <option value="15" {{ 'selected' if current_markup|float == 15 else '' }}>+15%</option>
+          <option value="20" {{ 'selected' if current_markup|float == 20 else '' }}>+20%</option>
+          <option value="30" {{ 'selected' if current_markup|float == 30 else '' }}>+30%</option>
+        </select>
+      </label>
+
+      <label>Valor total
+        <input name="total" id="tradeTotal" type="text" readonly value="{{ ('%.2f'|format(edit_record['total'])) if edit_record else '' }}" placeholder="R$ 0,00">
+      </label>
+
+      <label>Data
+        <input name="record_date" type="date" required value="{{ edit_record['record_date'].isoformat() if edit_record else today.isoformat() }}">
+      </label>
+
+      {% if is_sale %}
+      <label>Situação da entrega
+        <select name="delivery_status" id="deliveryStatus">
+          <option value="delivered" {{ 'selected' if not edit_record or edit_record['delivery_status']!='scheduled' else '' }}>Entregue</option>
+          <option value="scheduled" {{ 'selected' if edit_record and edit_record['delivery_status']=='scheduled' else '' }}>Agendada</option>
+        </select>
+      </label>
+      <label id="deliveryDateWrap">Data prevista
+        <input name="delivery_date" id="deliveryDate" type="date" value="{{ edit_record['delivery_date'].isoformat() if edit_record and edit_record['delivery_date'] else '' }}">
+      </label>
+      {% endif %}
+
+      <label class="trade-notes">Observação
+        <textarea name="notes" rows="3" placeholder="Informação opcional...">{{ edit_record['notes'] if edit_record and edit_record['notes'] else '' }}</textarea>
+      </label>
+    </div>
+
+    <div class="trade-form-actions">
+      <button class="btn primary" type="submit">{{ 'Salvar alterações' if edit_record else ('Salvar venda' if is_sale else 'Salvar compra') }}</button>
+    </div>
+  </form>
+</section>
+{% endif %}
+
+{% if view == 'history' %}
+<section class="panel">
+  <div class="panel-head">
+    <div><span class="eyebrow">HISTÓRICO</span><h2>Registros</h2><p>Até 250 registros mais recentes conforme os filtros.</p></div>
+  </div>
+
+  <form method="get" class="trade-filters">
+    <input type="hidden" name="view" value="history">
+    <input type="search" name="q" value="{{ q }}" placeholder="Pesquisar nome, produto, documento, contato...">
+    <select name="type">
+      <option value="all" {{ 'selected' if kind=='all' else '' }}>Todos</option>
+      <option value="sale" {{ 'selected' if kind=='sale' else '' }}>Vendas</option>
+      <option value="purchase" {{ 'selected' if kind=='purchase' else '' }}>Compras</option>
+    </select>
+    <input type="date" name="from" value="{{ date_from }}" aria-label="Data inicial">
+    <input type="date" name="to" value="{{ date_to }}" aria-label="Data final">
+    <button class="btn primary" type="submit">Filtrar</button>
+    <a class="btn ghost" href="{{ url_for('admin_trades', view='history') }}">Limpar</a>
+  </form>
+
+  <div class="trade-history-list">
+    {% for r in records %}
+    <article class="trade-record-card">
+      <div class="trade-record-head">
+        <div>
+          <span class="trade-type {{ r['record_type'] }}">{{ 'VENDA' if r['record_type']=='sale' else 'COMPRA' }}</span>
+          <h3>{{ r['product'] }}</h3>
+          <small>{{ r['record_date'].strftime('%d/%m/%Y') }}</small>
+        </div>
+        <strong class="trade-record-total {{ 'green' if r['record_type']=='sale' else 'red' }}">{{ money(r['total']) }}</strong>
+      </div>
+
+      <div class="trade-record-grid">
+        {% if r['record_type']=='sale' %}
+          <div><span>Vendedor</span><strong>{{ r['seller'] or '—' }}</strong></div>
+        {% else %}
+          <div><span>Fornecedor</span><strong>{{ r['supplier'] or '—' }}</strong></div>
+        {% endif %}
+        <div><span>Responsável</span><strong>{{ r['responsible'] }}</strong></div>
+        <div><span>Comprador</span><strong>{{ r['buyer'] }}</strong></div>
+        <div><span>Tipo / tabela</span><strong>{{ r['price_type'] or '—' }}</strong></div>
+        <div><span>Valor unitário</span><strong>{{ money(r['unit_price']) if r['unit_price'] is not none else '—' }}</strong></div>
+        <div><span>Acréscimo</span><strong>+{{ r['markup_percent']|round|int }}%</strong></div>
+        <div><span>Quantidade</span><strong>{{ r['quantity']|round|int }}</strong></div>
+        {% if r['record_type']=='sale' %}
+          <div><span>Contato</span><strong>{{ r['contact'] or '—' }}</strong></div>
+          <div><span>{{ r['document_type'] or 'Documento' }}</span><strong>{{ r['document'] or '—' }}</strong></div>
+          <div><span>Entrega</span><strong class="{{ 'yellow' if r['delivery_status']=='scheduled' else 'green' }}">{{ ('Agendada para ' ~ r['delivery_date'].strftime('%d/%m/%Y')) if r['delivery_status']=='scheduled' and r['delivery_date'] else 'Entregue' }}</strong></div>
+        {% endif %}
+        {% if r['notes'] %}<div class="trade-record-note"><span>Observação</span><strong>{{ r['notes'] }}</strong></div>{% endif %}
+      </div>
+
+      <div class="trade-record-actions">
+        {% if r['record_type']=='sale' and r['delivery_status']=='scheduled' %}
+        <form method="post" action="{{ url_for('admin_trade_mark_delivered', record_id=r['id']) }}">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button class="btn success" type="submit">✓ Entregue</button>
+        </form>
+        {% endif %}
+        <a class="btn ghost" href="{{ url_for('admin_trades', view=r['record_type'], edit=r['id']) }}">Editar</a>
+        <form method="post" action="{{ url_for('admin_trade_delete', record_id=r['id']) }}" onsubmit="return confirm('Excluir este registro definitivamente?')">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button class="btn danger" type="submit">Excluir</button>
+        </form>
+      </div>
+    </article>
+    {% else %}
+    <div class="empty"><h3>Nenhum registro encontrado</h3><p>Altere os filtros ou cadastre uma compra/venda.</p></div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<script>
+(() => {
+  const productPrices = {{ trade_products|tojson }};
+  const product = document.getElementById('tradeProduct');
+  const priceType = document.getElementById('tradePriceType');
+  const unitPrice = document.getElementById('tradeUnitPrice');
+  const quantity = document.getElementById('tradeQuantity');
+  const markup = document.getElementById('tradeMarkup');
+  const total = document.getElementById('tradeTotal');
+
+  const initialType = {{ (edit_record['price_type'] if edit_record and edit_record['price_type'] else '')|tojson }};
+
+  const moneyBR = value => new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(Number(value || 0));
+
+  const updateTypes = (keepType = true) => {
+    if (!product || !priceType) return;
+    const prices = productPrices[product.value] || {};
+    const wanted = keepType ? (priceType.value || initialType) : '';
+    priceType.innerHTML = '<option value="">Selecione o tipo</option>';
+
+    Object.keys(prices).forEach(type => {
+      const option = document.createElement('option');
+      option.value = type;
+      option.textContent = `${type} — ${moneyBR(prices[type])}`;
+      if (type === wanted) option.selected = true;
+      priceType.appendChild(option);
+    });
+
+    if (!priceType.value && Object.keys(prices).length === 1) {
+      priceType.value = Object.keys(prices)[0];
+    }
+    updateTotals();
+  };
+
+  const updateTotals = () => {
+    if (!product || !priceType || !unitPrice || !quantity || !total) return;
+    const price = Number((productPrices[product.value] || {})[priceType.value] || 0);
+    const qty = Math.max(0, Number(quantity.value || 0));
+    const extra = Math.max(0, Number(markup?.value || 0));
+    unitPrice.value = price ? moneyBR(price) : '';
+    total.value = price && qty ? moneyBR(price * qty * (1 + extra / 100)) : '';
+  };
+
+  product?.addEventListener('change', () => updateTypes(false));
+  priceType?.addEventListener('change', updateTotals);
+  quantity?.addEventListener('input', updateTotals);
+  markup?.addEventListener('change', updateTotals);
+
+  if (product?.value) updateTypes(true);
+
+  const status = document.getElementById('deliveryStatus');
+  const dateWrap = document.getElementById('deliveryDateWrap');
+  const dateInput = document.getElementById('deliveryDate');
+  const syncDelivery = () => {
+    if (!status || !dateWrap || !dateInput) return;
+    const scheduled = status.value === 'scheduled';
+    dateWrap.style.display = scheduled ? '' : 'none';
+    dateInput.required = scheduled;
+    if (!scheduled) dateInput.value = '';
+  };
+  status?.addEventListener('change', syncDelivery);
+  syncDelivery();
+
+  const phone = document.getElementById('tradeContact');
+  phone?.addEventListener('input', () => {
+    let d = phone.value.replace(/\D/g,'').slice(0,11);
+    phone.value = d.length > 10
+      ? d.replace(/^(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2')
+      : d.replace(/^(\d{2})(\d)/,'($1) $2').replace(/(\d{4})(\d)/,'$1-$2');
+  });
+})();
+</script>
+{% endblock %}

@@ -30,6 +30,23 @@ app.config.update(
 DATABASE_URL = os.environ.get("DATABASE_URL")
 ALLOWED_MIMES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
 
+TRADE_PRODUCTS = {
+    "Colete": {
+        "CPF": 45000,
+        "CNPJ": 30000,
+        "Parceria": 25000,
+        "Aliança": 20000,
+    },
+    "Celular Hacker": {
+        "CNPJ": 95000,
+        "Aliança": 80000,
+    },
+    "Circuito Eletrônico": {
+        "CNPJ": 57000,
+        "Aliança": 38000,
+    },
+}
+
 def get_conn():
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL não encontrada. Conecte o Neon ao projeto na Vercel.")
@@ -179,6 +196,40 @@ def init_db():
                 )
             """)
             cur.execute("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS batch_id BIGINT REFERENCES delivery_batches(id) ON DELETE SET NULL")
+
+            # Compras & Vendas — módulo administrativo nativo.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS trade_records (
+                    id BIGSERIAL PRIMARY KEY,
+                    record_type TEXT NOT NULL CHECK(record_type IN ('sale','purchase')),
+                    seller TEXT,
+                    supplier TEXT,
+                    responsible TEXT NOT NULL,
+                    buyer TEXT NOT NULL,
+                    contact TEXT,
+                    document_type TEXT,
+                    document TEXT,
+                    product TEXT NOT NULL,
+                    price_type TEXT,
+                    unit_price NUMERIC(14,2),
+                    markup_percent NUMERIC(5,2) NOT NULL DEFAULT 0,
+                    quantity NUMERIC(14,2) NOT NULL CHECK(quantity > 0),
+                    total NUMERIC(14,2) NOT NULL CHECK(total >= 0),
+                    record_date DATE NOT NULL,
+                    delivery_status TEXT CHECK(delivery_status IN ('delivered','scheduled')),
+                    delivery_date DATE,
+                    notes TEXT,
+                    created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("ALTER TABLE trade_records ADD COLUMN IF NOT EXISTS price_type TEXT")
+            cur.execute("ALTER TABLE trade_records ADD COLUMN IF NOT EXISTS unit_price NUMERIC(14,2)")
+            cur.execute("ALTER TABLE trade_records ADD COLUMN IF NOT EXISTS markup_percent NUMERIC(5,2) NOT NULL DEFAULT 0")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_trade_records_date ON trade_records(record_date DESC)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_trade_records_type ON trade_records(record_type)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_trade_records_delivery ON trade_records(delivery_status, delivery_date)")
             admin_email = os.environ.get("ADMIN_EMAIL")
             admin_password = os.environ.get("ADMIN_PASSWORD")
 
@@ -2065,6 +2116,264 @@ def calculator():
 @login_required
 def calculator_app():
     return render_template("admin_calculator_app.html")
+
+
+
+def parse_trade_number(raw):
+    value = (raw or "").strip()
+    if not value:
+        return 0.0
+    # Aceita "1.234,56", "1234,56", "1234.56" e valores com R$.
+    value = re.sub(r"[^\d,.\-]", "", value)
+    if "," in value:
+        value = value.replace(".", "").replace(",", ".")
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+@app.route("/admin/compras-vendas")
+@admin_required
+def admin_trades():
+    view = (request.args.get("view") or "overview").lower()
+    if view not in {"overview", "sale", "purchase", "history"}:
+        view = "overview"
+
+    q = (request.args.get("q") or "").strip()
+    kind = (request.args.get("type") or "all").lower()
+    if kind not in {"all", "sale", "purchase"}:
+        kind = "all"
+    date_from = (request.args.get("from") or "").strip()
+    date_to = (request.args.get("to") or "").strip()
+    edit_id = request.args.get("edit", type=int)
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT
+                    COALESCE(SUM(total) FILTER (
+                        WHERE record_type='sale'
+                          AND DATE_TRUNC('month', record_date)=DATE_TRUNC('month', CURRENT_DATE)
+                    ),0) AS month_sales,
+                    COALESCE(SUM(total) FILTER (
+                        WHERE record_type='purchase'
+                          AND DATE_TRUNC('month', record_date)=DATE_TRUNC('month', CURRENT_DATE)
+                    ),0) AS month_purchases,
+                    COUNT(*) FILTER (
+                        WHERE record_type='sale'
+                          AND delivery_status='scheduled'
+                    ) AS scheduled_deliveries,
+                    COUNT(*) FILTER (
+                        WHERE record_date=CURRENT_DATE
+                    ) AS today_records
+                FROM trade_records
+            """)
+            stats = dict(cur.fetchone())
+            stats["month_sales"] = float(stats["month_sales"] or 0)
+            stats["month_purchases"] = float(stats["month_purchases"] or 0)
+            stats["month_balance"] = stats["month_sales"] - stats["month_purchases"]
+
+            cur.execute("""
+                SELECT *
+                FROM trade_records
+                WHERE record_type='sale'
+                  AND delivery_status='scheduled'
+                ORDER BY delivery_date NULLS LAST, id DESC
+                LIMIT 6
+            """)
+            scheduled = cur.fetchall()
+
+            params = []
+            where = []
+            if kind != "all":
+                where.append("record_type=%s")
+                params.append(kind)
+            if q:
+                where.append("""
+                    (
+                        COALESCE(seller,'') ILIKE %s OR
+                        COALESCE(supplier,'') ILIKE %s OR
+                        COALESCE(responsible,'') ILIKE %s OR
+                        COALESCE(buyer,'') ILIKE %s OR
+                        COALESCE(contact,'') ILIKE %s OR
+                        COALESCE(document,'') ILIKE %s OR
+                        COALESCE(product,'') ILIKE %s
+                    )
+                """)
+                like = f"%{q}%"
+                params.extend([like] * 7)
+            if date_from:
+                where.append("record_date >= %s")
+                params.append(date_from)
+            if date_to:
+                where.append("record_date <= %s")
+                params.append(date_to)
+
+            sql = "SELECT * FROM trade_records"
+            if where:
+                sql += " WHERE " + " AND ".join(where)
+            sql += " ORDER BY record_date DESC, updated_at DESC, id DESC LIMIT 250"
+            cur.execute(sql, params)
+            records = cur.fetchall()
+
+            edit_record = None
+            if edit_id:
+                cur.execute("SELECT * FROM trade_records WHERE id=%s", (edit_id,))
+                edit_record = cur.fetchone()
+
+    return render_template(
+        "admin_trades.html",
+        view=view,
+        stats=stats,
+        scheduled=scheduled,
+        records=records,
+        edit_record=edit_record,
+        q=q,
+        kind=kind,
+        date_from=date_from,
+        date_to=date_to,
+        trade_products=TRADE_PRODUCTS,
+    )
+
+
+@app.post("/admin/compras-vendas/save")
+@admin_required
+def admin_trade_save():
+    validate_csrf()
+    admin = get_current_user()
+
+    record_id = request.form.get("record_id", type=int)
+    record_type = (request.form.get("record_type") or "").strip().lower()
+    if record_type not in {"sale", "purchase"}:
+        abort(400)
+
+    responsible = (request.form.get("responsible") or "").strip()
+    buyer = (request.form.get("buyer") or "").strip()
+    product = (request.form.get("product") or "").strip()
+    price_type = (request.form.get("price_type") or "").strip()
+    record_date = (request.form.get("record_date") or "").strip()
+    quantity = parse_trade_number(request.form.get("quantity"))
+    notes = (request.form.get("notes") or "").strip() or None
+
+    product_prices = TRADE_PRODUCTS.get(product)
+    if not product_prices or price_type not in product_prices:
+        flash("Selecione um produto e um tipo de preço válidos.", "danger")
+        return redirect(url_for("admin_trades", view=record_type, edit=record_id) if record_id else url_for("admin_trades", view=record_type))
+
+    unit_price = float(product_prices[price_type])
+
+    markup_percent = parse_trade_number(request.form.get("markup_percent"))
+    if markup_percent not in {0, 15, 20, 30}:
+        flash("Selecione um acréscimo válido: 0%, 15%, 20% ou 30%.", "danger")
+        return redirect(url_for("admin_trades", view=record_type, edit=record_id) if record_id else url_for("admin_trades", view=record_type))
+
+    total = unit_price * quantity * (1 + markup_percent / 100.0)
+
+    seller = (request.form.get("seller") or "").strip() or None
+    supplier = (request.form.get("supplier") or "").strip() or None
+    contact = (request.form.get("contact") or "").strip() or None
+    document_type = (request.form.get("document_type") or "").strip().upper() or None
+    document = (request.form.get("document") or "").strip() or None
+
+    delivery_status = None
+    delivery_date = None
+    if record_type == "sale":
+        delivery_status = (request.form.get("delivery_status") or "delivered").strip().lower()
+        if delivery_status not in {"delivered", "scheduled"}:
+            delivery_status = "delivered"
+        delivery_date = (request.form.get("delivery_date") or "").strip() or None
+        if delivery_status == "scheduled" and not delivery_date:
+            flash("Informe a data prevista de entrega.", "danger")
+            return redirect(url_for("admin_trades", view="sale", edit=record_id) if record_id else url_for("admin_trades", view="sale"))
+
+    if not responsible or not buyer or not product or not record_date or quantity <= 0 or total < 0:
+        flash("Preencha os campos obrigatórios corretamente.", "danger")
+        return redirect(url_for("admin_trades", view=record_type, edit=record_id) if record_id else url_for("admin_trades", view=record_type))
+
+    if record_type == "sale" and not seller:
+        flash("Informe o vendedor.", "danger")
+        return redirect(url_for("admin_trades", view="sale", edit=record_id) if record_id else url_for("admin_trades", view="sale"))
+    if record_type == "purchase" and not supplier:
+        flash("Informe o fornecedor.", "danger")
+        return redirect(url_for("admin_trades", view="purchase", edit=record_id) if record_id else url_for("admin_trades", view="purchase"))
+
+    with get_conn() as conn:
+        try:
+            with conn.cursor() as cur:
+                if record_id:
+                    cur.execute("""
+                        UPDATE trade_records
+                        SET record_type=%s, seller=%s, supplier=%s, responsible=%s,
+                            buyer=%s, contact=%s, document_type=%s, document=%s,
+                            product=%s, price_type=%s, unit_price=%s, markup_percent=%s,
+                            quantity=%s, total=%s, record_date=%s,
+                            delivery_status=%s, delivery_date=%s, notes=%s,
+                            updated_at=NOW()
+                        WHERE id=%s
+                    """, (
+                        record_type, seller, supplier, responsible, buyer,
+                        contact, document_type, document, product, price_type, unit_price, markup_percent,
+                        quantity, total, record_date, delivery_status, delivery_date,
+                        notes, record_id
+                    ))
+                    if cur.rowcount == 0:
+                        conn.rollback()
+                        flash("Registro não encontrado.", "danger")
+                        return redirect(url_for("admin_trades", view="history"))
+                else:
+                    cur.execute("""
+                        INSERT INTO trade_records(
+                            record_type, seller, supplier, responsible, buyer,
+                            contact, document_type, document, product, price_type,
+                            unit_price, markup_percent, quantity, total, record_date, delivery_status,
+                            delivery_date, notes, created_by
+                        )
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    """, (
+                        record_type, seller, supplier, responsible, buyer,
+                        contact, document_type, document, product, price_type,
+                        unit_price, markup_percent, quantity, total, record_date, delivery_status,
+                        delivery_date, notes, admin["id"]
+                    ))
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            app.logger.exception("Erro ao salvar compra/venda")
+            flash(f"Não foi possível salvar o registro ({type(exc).__name__}).", "danger")
+            return redirect(url_for("admin_trades", view=record_type))
+
+    flash("Venda salva com sucesso." if record_type == "sale" else "Compra salva com sucesso.", "success")
+    return redirect(url_for("admin_trades", view="history"))
+
+
+@app.post("/admin/compras-vendas/<int:record_id>/delete")
+@admin_required
+def admin_trade_delete(record_id):
+    validate_csrf()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM trade_records WHERE id=%s RETURNING record_type", (record_id,))
+            deleted = cur.fetchone()
+        conn.commit()
+    flash("Registro excluído." if deleted else "Registro já não existia.", "success")
+    return redirect(request.referrer or url_for("admin_trades", view="history"))
+
+
+@app.post("/admin/compras-vendas/<int:record_id>/delivered")
+@admin_required
+def admin_trade_mark_delivered(record_id):
+    validate_csrf()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE trade_records
+                SET delivery_status='delivered', delivery_date=NULL, updated_at=NOW()
+                WHERE id=%s AND record_type='sale'
+            """, (record_id,))
+        conn.commit()
+    flash("Venda marcada como entregue.", "success")
+    return redirect(request.referrer or url_for("admin_trades", view="overview"))
 
 
 @app.route("/admin/calculadora")

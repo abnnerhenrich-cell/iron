@@ -14,7 +14,7 @@
   <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v=9">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=9">
   <link rel="manifest" href="/manifest.webmanifest?v=9">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=25.0.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=28.0.0">
 </head>
 {% set member_mode = request.endpoint in ['dashboard','submit','history','member_home','calculator','calculator_app'] %}
 <body class="{{ 'is-auth' if current_user else 'is-guest' }} {{ 'is-member-mode' if member_mode else 'is-admin-mode' }}">
@@ -33,6 +33,7 @@
         <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}"><span class="nav-ico">＋</span><span>Cadastros</span></a>
         <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" href="{{ url_for('admin_cycles') }}"><span class="nav-ico">◇</span><span>Metas</span></a>
         <a class="{{ 'active' if request.endpoint in ['admin_calculator','admin_calculator_app'] }}" href="{{ url_for('admin_calculator') }}"><span class="nav-ico">⌗</span><span>Calculadora</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] }}" href="{{ url_for('admin_trades') }}"><span class="nav-ico">↕</span><span>Compras & Vendas</span></a>
         <a class="{{ 'active' if request.endpoint=='admin_permissions' }}" href="{{ url_for('admin_permissions') }}"><span class="nav-ico">⌘</span><span>Permissões</span></a>
       {% else %}
         <a class="{{ 'active' if request.endpoint=='dashboard' }}" href="{{ url_for('dashboard') }}"><span class="nav-ico">⌂</span><span>Meu progresso</span></a>
@@ -91,7 +92,7 @@
       <a class="{{ 'active' if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] }}" href="{{ url_for('admin_members') }}"><b>◉</b><span>Membros</span></a>
       <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}"><b>＋</b><span>Cadastros</span></a>
       <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" href="{{ url_for('admin_cycles') }}"><b>◇</b><span>Metas</span></a>
-      <a class="{{ 'active' if request.endpoint=='admin_calculator' }}" href="{{ url_for('admin_calculator') }}"><b>⌗</b><span>Calcular</span></a>
+      <a class="{{ 'active' if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] }}" href="{{ url_for('admin_trades') }}"><b>↕</b><span>Negócios</span></a>
     {% else %}
       <a class="{{ 'active' if request.endpoint=='dashboard' }}" href="{{ url_for('dashboard') }}"><b>⌂</b><span>Início</span></a>
       <a class="{{ 'active' if request.endpoint=='submit' }}" href="{{ url_for('submit') }}"><b>＋</b><span>Entregar</span></a>

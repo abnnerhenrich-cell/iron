@@ -385,3 +385,70 @@ input,button,select,textarea{font-size:max(16px,1rem)}
   .ledger-metrics{grid-template-columns:1fr 1fr}
   .ledger-actions .btn{width:100%}
 }
+
+
+/* ===== IRON V26 — Compras & Vendas ===== */
+.trade-hero{margin-bottom:14px}
+.trade-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.trade-tabs a{padding:10px 14px;border-radius:11px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.025);color:var(--muted);font-weight:700;font-size:.86rem}
+.trade-tabs a.active{color:var(--text);border-color:rgba(255,255,255,.22);background:rgba(255,255,255,.07)}
+.trade-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 18px}
+.trade-stats article{padding:16px;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:rgba(255,255,255,.025);display:grid;gap:5px}
+.trade-stats span{color:var(--muted);font-size:.76rem}.trade-stats strong{font-size:clamp(1.2rem,2vw,1.7rem)}.trade-stats small{color:var(--muted)}
+.trade-quick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.trade-quick-grid a{padding:18px;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:rgba(255,255,255,.025);display:grid;gap:5px;transition:.18s ease}
+.trade-quick-grid a:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.18)}
+.trade-quick-grid a>span{font-size:1.3rem}.trade-quick-grid strong{color:var(--text)}.trade-quick-grid small{color:var(--muted)}
+.trade-delivery-list{display:grid;gap:9px}
+.trade-delivery-row{display:grid;grid-template-columns:minmax(220px,1fr) 170px 140px auto;gap:12px;align-items:center;padding:13px;border-radius:14px;border:1px solid rgba(255,255,255,.07);background:rgba(0,0,0,.13)}
+.trade-delivery-row>div{display:grid;gap:3px}.trade-delivery-row span{font-size:.72rem;color:var(--muted)}
+.trade-form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+.trade-form-grid label{display:grid;gap:7px;font-size:.78rem;color:var(--muted);font-weight:700}
+.trade-form-grid input,.trade-form-grid select,.trade-form-grid textarea,.trade-filters input,.trade-filters select{width:100%;min-height:44px}
+.trade-doc-row{display:grid;grid-template-columns:105px 1fr;gap:8px}
+.trade-notes{grid-column:1/-1}.trade-notes textarea{resize:vertical;padding-top:12px}
+.trade-form-actions{display:flex;justify-content:flex-end;margin-top:16px}
+.trade-filters{display:grid;grid-template-columns:minmax(220px,1fr) 150px 160px 160px auto auto;gap:9px;margin-bottom:16px}
+.trade-history-list{display:grid;gap:11px}
+.trade-record-card{padding:16px;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:rgba(255,255,255,.02)}
+.trade-record-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:13px}
+.trade-record-head h3{margin:5px 0 2px}.trade-record-head small{color:var(--muted)}
+.trade-type{display:inline-flex;padding:5px 8px;border-radius:999px;font-size:.66rem;font-weight:900;letter-spacing:.08em}
+.trade-type.sale{background:rgba(65,201,124,.1);color:#aef3ca;border:1px solid rgba(65,201,124,.2)}
+.trade-type.purchase{background:rgba(255,91,91,.08);color:#ffb1b1;border:1px solid rgba(255,91,91,.18)}
+.trade-record-total{font-size:1.25rem}
+.trade-record-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.trade-record-grid>div{padding:10px;border-radius:11px;background:rgba(255,255,255,.025)}
+.trade-record-grid span{display:block;color:var(--muted);font-size:.68rem;margin-bottom:4px}.trade-record-grid strong{font-size:.9rem;overflow-wrap:anywhere}
+.trade-record-note{grid-column:1/-1}
+.trade-record-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:12px}
+@media(max-width:1100px){
+  .trade-stats{grid-template-columns:repeat(2,1fr)}
+  .trade-form-grid{grid-template-columns:repeat(2,1fr)}
+  .trade-record-grid{grid-template-columns:repeat(2,1fr)}
+  .trade-delivery-row{grid-template-columns:1fr 150px}
+  .trade-delivery-row form{justify-self:end}
+  .trade-filters{grid-template-columns:1fr 140px 1fr 1fr}
+}
+@media(max-width:680px){
+  .trade-tabs{display:grid;grid-template-columns:1fr 1fr}
+  .trade-tabs a{text-align:center}
+  .trade-stats,.trade-quick-grid,.trade-form-grid,.trade-record-grid{grid-template-columns:1fr}
+  .trade-delivery-row{grid-template-columns:1fr}
+  .trade-delivery-row form,.trade-delivery-row .btn{width:100%}
+  .trade-filters{grid-template-columns:1fr}
+  .trade-doc-row{grid-template-columns:100px 1fr}
+  .trade-record-actions>*{flex:1}.trade-record-actions .btn{width:100%}
+}
+
+
+/* ===== IRON V27 — produtos e preços padronizados ===== */
+.trade-form input[readonly]{
+  background:rgba(255,255,255,.035);
+  color:#dfe6ef;
+  cursor:default;
+  font-weight:800;
+}
+#tradeUnitPrice,#tradeTotal{
+  font-variant-numeric:tabular-nums;
+}
