@@ -2251,7 +2251,9 @@ def admin_trade_save():
     responsible = (request.form.get("responsible") or "").strip()
     buyer = (request.form.get("buyer") or "").strip()
     product = (request.form.get("product") or "").strip()
-    price_type = (request.form.get("price_type") or "").strip()
+    # V29: Documento também define a tabela de preço.
+    document_type = (request.form.get("document_type") or "").strip()
+    price_type = document_type
     record_date = (request.form.get("record_date") or "").strip()
     quantity = parse_trade_number(request.form.get("quantity"))
     notes = (request.form.get("notes") or "").strip() or None
@@ -2273,7 +2275,7 @@ def admin_trade_save():
     seller = (request.form.get("seller") or "").strip() or None
     supplier = (request.form.get("supplier") or "").strip() or None
     contact = (request.form.get("contact") or "").strip() or None
-    document_type = (request.form.get("document_type") or "").strip().upper() or None
+    document_type = document_type or None
     document = (request.form.get("document") or "").strip() or None
 
     delivery_status = None

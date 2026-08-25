@@ -95,14 +95,9 @@
       </label>
 
       <label>Documento
-        <div class="trade-doc-row">
-          <select name="document_type">
-            <option value="CPF" {{ 'selected' if edit_record and edit_record['document_type']=='CPF' else '' }}>CPF</option>
-            <option value="CNPJ" {{ 'selected' if edit_record and edit_record['document_type']=='CNPJ' else '' }}>CNPJ</option>
-            <option value="ID" {{ 'selected' if edit_record and edit_record['document_type']=='ID' else '' }}>Outro</option>
-          </select>
-          <input name="document" value="{{ edit_record['document'] if edit_record else '' }}" placeholder="CPF, CNPJ ou identificação">
-        </div>
+        <select name="document_type" id="tradeDocumentType" required>
+          <option value="">Selecione o documento</option>
+        </select>
       </label>
       {% endif %}
 
@@ -112,12 +107,6 @@
           {% for product_name in trade_products.keys() %}
           <option value="{{ product_name }}" {{ 'selected' if edit_record and edit_record['product']==product_name else '' }}>{{ product_name }}</option>
           {% endfor %}
-        </select>
-      </label>
-
-      <label>Tipo / tabela
-        <select name="price_type" id="tradePriceType" required>
-          <option value="">Selecione o tipo</option>
         </select>
       </label>
 
@@ -211,13 +200,12 @@
         {% endif %}
         <div><span>Responsável</span><strong>{{ r['responsible'] }}</strong></div>
         <div><span>Comprador</span><strong>{{ r['buyer'] }}</strong></div>
-        <div><span>Tipo / tabela</span><strong>{{ r['price_type'] or '—' }}</strong></div>
         <div><span>Valor unitário</span><strong>{{ money(r['unit_price']) if r['unit_price'] is not none else '—' }}</strong></div>
         <div><span>Acréscimo</span><strong>+{{ r['markup_percent']|round|int }}%</strong></div>
         <div><span>Quantidade</span><strong>{{ r['quantity']|round|int }}</strong></div>
         {% if r['record_type']=='sale' %}
           <div><span>Contato</span><strong>{{ r['contact'] or '—' }}</strong></div>
-          <div><span>{{ r['document_type'] or 'Documento' }}</span><strong>{{ r['document'] or '—' }}</strong></div>
+          <div><span>Documento</span><strong>{{ r['document_type'] or r['price_type'] or '—' }}</strong></div>
           <div><span>Entrega</span><strong class="{{ 'yellow' if r['delivery_status']=='scheduled' else 'green' }}">{{ ('Agendada para ' ~ r['delivery_date'].strftime('%d/%m/%Y')) if r['delivery_status']=='scheduled' and r['delivery_date'] else 'Entregue' }}</strong></div>
         {% endif %}
         {% if r['notes'] %}<div class="trade-record-note"><span>Observação</span><strong>{{ r['notes'] }}</strong></div>{% endif %}
@@ -248,13 +236,13 @@
 (() => {
   const productPrices = {{ trade_products|tojson }};
   const product = document.getElementById('tradeProduct');
-  const priceType = document.getElementById('tradePriceType');
+  const priceType = document.getElementById('tradeDocumentType');
   const unitPrice = document.getElementById('tradeUnitPrice');
   const quantity = document.getElementById('tradeQuantity');
   const markup = document.getElementById('tradeMarkup');
   const total = document.getElementById('tradeTotal');
 
-  const initialType = {{ (edit_record['price_type'] if edit_record and edit_record['price_type'] else '')|tojson }};
+  const initialType = {{ ((edit_record['document_type'] or edit_record['price_type']) if edit_record else '')|tojson }};
 
   const moneyBR = value => new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -265,7 +253,7 @@
     if (!product || !priceType) return;
     const prices = productPrices[product.value] || {};
     const wanted = keepType ? (priceType.value || initialType) : '';
-    priceType.innerHTML = '<option value="">Selecione o tipo</option>';
+    priceType.innerHTML = '<option value="">Selecione o documento</option>';
 
     Object.keys(prices).forEach(type => {
       const option = document.createElement('option');
