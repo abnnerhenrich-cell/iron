@@ -142,3 +142,153 @@ input:focus,select:focus,textarea:focus{
   box-shadow:0 0 0 3px rgba(207,210,214,.12) !important;
 }
 ::selection{background:#c9ccd1;color:#080809;}
+
+
+/* =========================================================
+   IRON V39 — PRETO + PRATA 100% (SEM FUNDO AZUL)
+   ========================================================= */
+html, body {
+  background: #050505 !important;
+  color: #f3f4f6 !important;
+}
+
+:root{
+  --bg:#050505 !important;
+  --bg-soft:#0a0a0a !important;
+  --panel:#0d0d0f !important;
+  --panel-2:#111214 !important;
+  --panel-3:#17181b !important;
+  --card:#0e0f11 !important;
+  --card-alt:#141518 !important;
+  --surface:#101113 !important;
+  --surface-2:#17181b !important;
+  --surface-3:#1b1d20 !important;
+  --border:#2b2e33 !important;
+  --border-strong:#454a50 !important;
+  --text:#f4f4f5 !important;
+  --muted:#a6a9ad !important;
+  --accent:#d7d9dd !important;
+  --accent-2:#aeb3ba !important;
+  --primary:#d7d9dd !important;
+  --primary-2:#aeb3ba !important;
+  --info:#c8ccd1 !important;
+  --blue:#c8ccd1 !important;
+  --cyan:#d7d9dd !important;
+}
+
+/* Main shells / content areas */
+main, .main, .content, .page, .page-content, .dashboard,
+.admin-content, .member-content, .workspace, .shell, .app-shell,
+.layout, .content-wrap, .content-area {
+  background: #050505 !important;
+}
+
+/* Cards/panels that were showing navy blue */
+.card, .panel, .box, .widget, .stat-card, .metric-card, .goal-card,
+.meta-card, .meta-item, .weekly-card, .weekly-goal, .goal-panel,
+.dashboard-card, .kpi-card, .summary-card, .form-card, .table-card,
+.section-card, .glass, .glass-card, .content-card, .admin-card,
+.trade-card, .registration-card, .cycle-card, .profile-card,
+[class*="card"], [class*="panel"], [class*="widget"] {
+  background: linear-gradient(180deg, #121315 0%, #0b0b0c 100%) !important;
+  border-color: #2f3236 !important;
+  color: #f4f4f5 !important;
+  box-shadow: 0 12px 30px rgba(0,0,0,.34) !important;
+}
+
+/* Nested areas/rows that can retain blue backgrounds */
+.card > *, .panel > *, .goal-card > *, .meta-card > *,
+.goal-panel > *, .weekly-card > *, .dashboard-card > * {
+  --local-surface:#111214 !important;
+}
+.card-header, .card-body, .card-footer, .panel-header, .panel-body,
+.goal-header, .goal-body, .goal-footer, .meta-header, .meta-body,
+.section-header, .section-body {
+  background-color: transparent !important;
+}
+
+/* Inputs, selects, filters */
+input, select, textarea, .input, .select, .field, .filter,
+.search-box, .form-control {
+  background: #0d0e10 !important;
+  color: #f3f4f6 !important;
+  border-color: #33363b !important;
+}
+input:focus, select:focus, textarea:focus,
+.input:focus, .select:focus, .form-control:focus {
+  background: #101113 !important;
+  border-color: #b9bdc3 !important;
+  box-shadow: 0 0 0 3px rgba(190,194,200,.12) !important;
+}
+
+/* Navigation */
+.sidebar, .topbar, .navbar, .mobile-nav, .bottom-nav,
+nav, header {
+  background: #09090a !important;
+}
+.nav-item, .sidebar a, .bottom-nav a {
+  background-color: transparent !important;
+}
+.nav-item:hover, .sidebar a:hover, .bottom-nav a:hover {
+  background: #17181a !important;
+}
+.nav-item.active, .sidebar a.active, .bottom-nav a.active {
+  background: linear-gradient(135deg,#e4e5e7,#9ca1a7) !important;
+  color: #070708 !important;
+}
+
+/* Badges/statuses previously blue */
+.badge-info, .status-info, .chip-info, .pill-info,
+.tag-info, .label-info, [class*="info"] {
+  background: #24262a !important;
+  color: #e5e7eb !important;
+  border-color: #484c52 !important;
+}
+
+/* Progress / charts / meters */
+.progress, .progress-track, .meter, .bar-track {
+  background: #1a1c1f !important;
+}
+.progress-fill, .progress-bar > span, .meter-fill, .bar-fill,
+[class*="progress"][style*="background"] {
+  background: linear-gradient(90deg,#848a91,#eceef0) !important;
+}
+
+/* Buttons */
+.btn-primary, .primary-btn, button[type="submit"]:not(.danger),
+.action-primary, .cta {
+  background: linear-gradient(135deg,#f1f2f3 0%,#b7bbc1 52%,#7f858d 100%) !important;
+  color: #080809 !important;
+  border-color: #d7d9dd !important;
+}
+.btn-secondary, .secondary-btn {
+  background: #17181a !important;
+  color: #e5e7eb !important;
+  border-color: #3c4046 !important;
+}
+
+/* Neutralize any inline/background utility blue classes */
+.bg-blue, .bg-primary, .bg-info,
+[class*="bg-blue"], [class*="blue-bg"], [class*="primary-bg"] {
+  background: #111214 !important;
+}
+.text-blue, .text-primary, .text-info,
+[class*="text-blue"] {
+  color: #d7d9dd !important;
+}
+
+/* Tables */
+table, thead, tbody, tr, td, th {
+  background-color: transparent !important;
+}
+thead tr {
+  background: #121315 !important;
+}
+tbody tr:nth-child(even) {
+  background: #0f1012 !important;
+}
+tbody tr:hover {
+  background: #181a1d !important;
+}
+
+
