@@ -15,20 +15,6 @@ from werkzeug.exceptions import HTTPException
 import psycopg
 from psycopg.rows import dict_row
 
-
-def parse_br_date(value):
-    """Aceita DD/MM/AAAA (Brasil) e ISO AAAA-MM-DD, retornando date."""
-    if not value:
-        return None
-    value = str(value).strip()
-    for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
-        try:
-            return datetime.strptime(value, fmt).date()
-        except ValueError:
-            pass
-    raise ValueError("Data inválida. Use DD/MM/AAAA.")
-
-
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "troque-esta-chave-no-vercel")
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
@@ -287,25 +273,6 @@ def init_db():
 
 init_db()
 
-@app.after_request
-def add_security_headers(response):
-    """Cabeçalhos seguros sem bloquear os recursos locais do PWA."""
-    response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
-    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-    if request.is_secure:
-        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-    return response
-
-@app.errorhandler(403)
-def forbidden(_error):
-    flash("Você não tem permissão para acessar essa área.", "danger")
-    user = get_current_user()
-    if user and user["role"] in {"admin", "manager"}:
-        return redirect(url_for("admin_dashboard"))
-    return redirect(url_for("dashboard" if user else "login"))
-
 @app.errorhandler(413)
 def request_too_large(_error):
     flash(
@@ -339,13 +306,8 @@ def get_current_user():
 def login_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        user = get_current_user()
-        if not user:
+        if not get_current_user():
             return redirect(url_for("login", next=request.path))
-        if not user["active"] or not user["approved"]:
-            session.clear()
-            flash("Seu acesso não está liberado no momento.", "danger")
-            return redirect(url_for("login"))
         return fn(*args, **kwargs)
     return wrapper
 
@@ -354,9 +316,6 @@ def admin_required(fn):
     def wrapper(*args, **kwargs):
         user = get_current_user()
         if not user:
-            return redirect(url_for("admin_login"))
-        if not user["active"] or not user["approved"]:
-            session.clear()
             return redirect(url_for("admin_login"))
         if user["role"] != "admin":
             abort(403)
@@ -369,9 +328,6 @@ def staff_required(fn):
     def wrapper(*args, **kwargs):
         user = get_current_user()
         if not user:
-            return redirect(url_for("admin_login"))
-        if not user["active"] or not user["approved"]:
-            session.clear()
             return redirect(url_for("admin_login"))
         if user["role"] not in {"admin", "manager"}:
             abort(403)
@@ -432,20 +388,6 @@ def money(value):
     formatted = f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     return f"R$ {formatted}"
 
-
-@app.template_filter("brdate")
-def brdate_filter(value):
-    """Formata datas no padrão brasileiro: DD/MM/AAAA."""
-    if not value:
-        return "—"
-    try:
-        return value.strftime("%d/%m/%Y")
-    except AttributeError:
-        try:
-            from datetime import datetime
-            return datetime.fromisoformat(str(value)).strftime("%d/%m/%Y")
-        except (TypeError, ValueError):
-            return str(value)
 
 @app.template_filter("dt")
 def format_datetime(value):

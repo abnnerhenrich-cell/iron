@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090d">
-  <meta name="description" content="IRON — gestão de metas, entregas e operação da equipe.">
   <meta name="color-scheme" content="dark">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,12 +14,10 @@
   <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v=9">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=9">
   <link rel="manifest" href="/manifest.webmanifest?v=9">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=35.0.0">
-  <link rel="stylesheet" href="{{ url_for('static', filename='v35.css') }}?v=35.0.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=33.0.0">
 </head>
 {% set member_mode = request.endpoint in ['dashboard','submit','history','member_home','calculator','calculator_app'] %}
 <body class="{{ 'is-auth' if current_user else 'is-guest' }} {{ 'is-member-mode' if member_mode else 'is-admin-mode' }}">
-  <a class="skip-link" href="#mainContent">Pular para o conteúdo</a>
   {% if current_user %}
   <aside class="app-sidebar">
     <a class="sidebar-brand" href="{{ url_for('admin_dashboard' if current_user['role'] in ['admin','manager'] and not member_mode else 'dashboard') }}">
@@ -82,7 +79,7 @@
   </header>
   {% endif %}
 
-  <main id="mainContent" class="{% block mainclass %}page{% endblock %}">
+  <main class="{% block mainclass %}page{% endblock %}">
     {% with msgs = get_flashed_messages(with_categories=true) %}
       {% if msgs %}
         <div class="flash-wrap" role="status" aria-live="polite">
@@ -145,37 +142,6 @@
       if (event.persisted) window.location.reload();
     });
 
-    // Evita cliques duplicados em ações que gravam no banco e fornece feedback imediato.
-    document.querySelectorAll('form[method="post"]').forEach(form => {
-      form.addEventListener('submit', event => {
-        if (form.dataset.submitting === '1') {
-          event.preventDefault();
-          return;
-        }
-        if (!form.checkValidity()) return;
-        form.dataset.submitting = '1';
-        const button = form.querySelector('button[type="submit"]');
-        if (button && !button.dataset.keepEnabled) {
-          button.classList.add('form-submit-state');
-          window.setTimeout(() => { button.disabled = true; }, 0);
-        }
-      });
-    });
-
-    // Confirma ações destrutivas de forma consistente, mesmo quando algum template esquecer o onclick.
-    document.querySelectorAll('form').forEach(form => {
-      const action = (form.getAttribute('action') || '').toLowerCase();
-      const button = form.querySelector('.btn.danger, button.danger');
-      if (!button || (!action.includes('delete') && !action.includes('reject') && !action.includes('remove'))) return;
-      if (form.getAttribute('onsubmit')) return;
-      form.addEventListener('submit', event => {
-        if (!window.confirm('Confirmar esta ação? Ela pode não ser desfeita.')) {
-          event.preventDefault();
-          form.dataset.submitting = '0';
-        }
-      }, {capture:true});
-    });
-
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js').catch(() => {}));
     }
@@ -230,16 +196,5 @@
     });
   })();
   </script>
-
-<script id="IRON_BR_DATE_MASK">
-document.addEventListener('input', function(e){
-  if(!e.target.matches('[data-br-date="1"]')) return;
-  let v=e.target.value.replace(/\D/g,'').slice(0,8);
-  if(v.length>4) v=v.slice(0,2)+'/'+v.slice(2,4)+'/'+v.slice(4);
-  else if(v.length>2) v=v.slice(0,2)+'/'+v.slice(2);
-  e.target.value=v;
-});
-</script>
-
 </body>
 </html>

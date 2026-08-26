@@ -33,7 +33,7 @@
     {% for r in scheduled %}
     <article class="trade-delivery-row">
       <div><strong>{{ r['product'] }}</strong><span>{{ r['buyer'] }} · {{ r['quantity']|round|int }} un</span></div>
-      <div><span>Entrega prevista</span><strong>{{ r['delivery_date']|brdate if r['delivery_date'] else 'Sem data' }}</strong></div>
+      <div><span>Entrega prevista</span><strong>{{ r['delivery_date'].strftime('%d/%m/%Y') if r['delivery_date'] else 'Sem data' }}</strong></div>
       <div><span>Valor</span><strong>{{ money(r['total']) }}</strong></div>
       <form method="post" action="{{ url_for('admin_trade_mark_delivered', record_id=r['id']) }}">
         <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
@@ -152,7 +152,7 @@
       </label>
 
       <label>Data
-        <input name="record_date" type="text" inputmode="numeric" placeholder="DD/MM/AAAA" data-br-date="1" required value="{{ edit_record['record_date'].isoformat() if edit_record else today.isoformat() }}"><span class="date-br-hint">Formato: DD/MM/AAAA</span>
+        <input name="record_date" type="date" required value="{{ edit_record['record_date'].isoformat() if edit_record else today.isoformat() }}">
       </label>
 
       {% if is_sale %}
@@ -163,7 +163,7 @@
         </select>
       </label>
       <label id="deliveryDateWrap">Data prevista
-        <input name="delivery_date" id="deliveryDate" type="text" inputmode="numeric" placeholder="DD/MM/AAAA" data-br-date="1" value="{{ edit_record['delivery_date'].isoformat() if edit_record and edit_record['delivery_date'] else '' }}"><span class="date-br-hint">Formato: DD/MM/AAAA</span>
+        <input name="delivery_date" id="deliveryDate" type="date" value="{{ edit_record['delivery_date'].isoformat() if edit_record and edit_record['delivery_date'] else '' }}">
       </label>
       {% endif %}
 
@@ -193,8 +193,8 @@
       <option value="sale" {{ 'selected' if kind=='sale' else '' }}>Vendas</option>
       <option value="purchase" {{ 'selected' if kind=='purchase' else '' }}>Compras</option>
     </select>
-    <input type="text" inputmode="numeric" placeholder="DD/MM/AAAA" data-br-date="1" name="from" value="{{ date_from }}" aria-label="Data inicial"><span class="date-br-hint">Formato: DD/MM/AAAA</span>
-    <input type="text" inputmode="numeric" placeholder="DD/MM/AAAA" data-br-date="1" name="to" value="{{ date_to }}" aria-label="Data final"><span class="date-br-hint">Formato: DD/MM/AAAA</span>
+    <input type="date" name="from" value="{{ date_from }}" aria-label="Data inicial">
+    <input type="date" name="to" value="{{ date_to }}" aria-label="Data final">
     <button class="btn primary" type="submit">Filtrar</button>
     <a class="btn ghost" href="{{ url_for('admin_trades', view='history') }}">Limpar</a>
   </form>
@@ -206,7 +206,7 @@
         <div>
           <span class="trade-type {{ r['record_type'] }}">{{ 'VENDA' if r['record_type']=='sale' else 'COMPRA' }}</span>
           <h3>{{ r['product'] }}</h3>
-          <small>{{ r['record_date']|brdate }}</small>
+          <small>{{ r['record_date'].strftime('%d/%m/%Y') }}</small>
         </div>
         <strong class="trade-record-total {{ 'green' if r['record_type']=='sale' else 'red' }}">{{ money(r['total']) }}</strong>
       </div>
@@ -225,7 +225,7 @@
         {% if r['record_type']=='sale' %}
           <div><span>Contato</span><strong>{{ r['contact'] or '—' }}</strong></div>
           <div><span>Documento</span><strong>{{ r['document_type'] or r['price_type'] or '—' }}</strong></div>
-          <div><span>Entrega</span><strong class="{{ 'yellow' if r['delivery_status']=='scheduled' else 'green' }}">{{ ('Agendada para ' ~ (r['delivery_date']|brdate)) if r['delivery_status']=='scheduled' and r['delivery_date'] else 'Entregue' }}</strong></div>
+          <div><span>Entrega</span><strong class="{{ 'yellow' if r['delivery_status']=='scheduled' else 'green' }}">{{ ('Agendada para ' ~ r['delivery_date'].strftime('%d/%m/%Y')) if r['delivery_status']=='scheduled' and r['delivery_date'] else 'Entregue' }}</strong></div>
         {% endif %}
         {% if r['notes'] %}<div class="trade-record-note"><span>Observação</span><strong>{{ r['notes'] }}</strong></div>{% endif %}
       </div>

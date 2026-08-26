@@ -9,8 +9,8 @@
   <form method="post" class="form-grid">
     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
     <label>Título<input name="title" required placeholder="Meta Semanal"></label>
-    <label>Início<input type="text" inputmode="numeric" placeholder="DD/MM/AAAA" data-br-date="1" name="start_date" required><span class="date-br-hint">Formato: DD/MM/AAAA</span></label>
-    <label>Fim<input type="text" inputmode="numeric" placeholder="DD/MM/AAAA" data-br-date="1" name="end_date" required><span class="date-br-hint">Formato: DD/MM/AAAA</span></label>
+    <label>Início<input type="date" name="start_date" required></label>
+    <label>Fim<input type="date" name="end_date" required></label>
     <button class="btn primary" type="submit">Criar meta</button>
   </form>
 </section>
