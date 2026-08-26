@@ -273,6 +273,25 @@ def init_db():
 
 init_db()
 
+@app.after_request
+def add_security_headers(response):
+    """Cabeçalhos seguros sem bloquear os recursos locais do PWA."""
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    if request.is_secure:
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return response
+
+@app.errorhandler(403)
+def forbidden(_error):
+    flash("Você não tem permissão para acessar essa área.", "danger")
+    user = get_current_user()
+    if user and user["role"] in {"admin", "manager"}:
+        return redirect(url_for("admin_dashboard"))
+    return redirect(url_for("dashboard" if user else "login"))
+
 @app.errorhandler(413)
 def request_too_large(_error):
     flash(
@@ -306,8 +325,13 @@ def get_current_user():
 def login_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        if not get_current_user():
+        user = get_current_user()
+        if not user:
             return redirect(url_for("login", next=request.path))
+        if not user["active"] or not user["approved"]:
+            session.clear()
+            flash("Seu acesso não está liberado no momento.", "danger")
+            return redirect(url_for("login"))
         return fn(*args, **kwargs)
     return wrapper
 
@@ -316,6 +340,9 @@ def admin_required(fn):
     def wrapper(*args, **kwargs):
         user = get_current_user()
         if not user:
+            return redirect(url_for("admin_login"))
+        if not user["active"] or not user["approved"]:
+            session.clear()
             return redirect(url_for("admin_login"))
         if user["role"] != "admin":
             abort(403)
@@ -328,6 +355,9 @@ def staff_required(fn):
     def wrapper(*args, **kwargs):
         user = get_current_user()
         if not user:
+            return redirect(url_for("admin_login"))
+        if not user["active"] or not user["approved"]:
+            session.clear()
             return redirect(url_for("admin_login"))
         if user["role"] not in {"admin", "manager"}:
             abort(403)
