@@ -78,3 +78,35 @@ label{color:#9aa8ba;font-size:.68rem;font-weight:750}input,select,textarea{width
 @media(max-width:560px){
  .is-auth .page{padding-inline:11px!important}.hero{align-items:flex-start}.hero-side{display:none}.quick-stats,.stats,.trade-stats,.manager-stats{grid-template-columns:1fr 1fr}.quick-stat,.stats>div,.trade-stats>article{padding:15px}.quick-stat strong,.stats strong,.trade-stats strong{font-size:1.35rem}.profile-photo-card{grid-template-columns:50px 1fr!important}.profile-avatar-large{width:46px!important;height:46px!important}.profile-card-action{grid-column:1/-1;justify-content:flex-end}.panel,.form-panel,.trade-form-panel{padding:18px 14px;border-radius:19px}.panel-head{align-items:flex-start;flex-direction:column}.panel-head .btn{width:100%}.goal-values{grid-template-columns:1fr 1fr}.trade-filters{grid-template-columns:1fr}.trade-filters>*{grid-column:auto!important}.trade-record-grid{grid-template-columns:1fr}.trade-delivery-row{grid-template-columns:1fr}.trade-delivery-row>*{grid-column:auto!important}
 }
+
+/* V36 — BLACK SILVER EDITION */
+:root{
+  --v35-bg:#050505;--v35-bg2:#090909;--v35-surface:#101010;--v35-surface2:#181818;
+  --v35-line:rgba(255,255,255,.09);--v35-line2:rgba(214,220,228,.25);
+  --v35-text:#f4f4f4;--v35-muted:#929292;--v35-blue:#c8cdd4;--v35-blue2:#8d949d;
+  --v35-cyan:#eef1f4;--v35-green:#75d7a2;--v35-yellow:#e4c36d;--v35-red:#ed7b87;
+}
+body{background:radial-gradient(900px 560px at 76% -10%,rgba(220,225,232,.09),transparent 60%),radial-gradient(720px 480px at 0% 90%,rgba(255,255,255,.035),transparent 66%),linear-gradient(180deg,#050505,#090909 55%,#050505)!important}
+::selection{background:rgba(205,210,218,.3)}
+.app-sidebar{background:rgba(10,10,10,.94);border-color:rgba(255,255,255,.1)}
+.sidebar-brand .brand-logo{filter:grayscale(1) drop-shadow(0 7px 18px rgba(255,255,255,.13))}
+.sidebar-section-label{color:#656565}.sidebar-nav a{color:#aaa}.sidebar-nav a.active{background:linear-gradient(90deg,rgba(225,228,233,.16),rgba(255,255,255,.035));border-color:rgba(225,228,233,.18);box-shadow:inset 3px 0 0 #d5d9de}.sidebar-nav a.active .nav-ico{background:rgba(220,224,230,.13);color:#f5f5f5}
+.context-switch{border-color:rgba(220,224,230,.16);background:rgba(255,255,255,.035)}.context-switch>span{background:rgba(255,255,255,.08)}
+.hero{border-color:rgba(220,224,230,.22);background:linear-gradient(120deg,rgba(215,220,226,.11),rgba(17,17,17,.9) 45%,rgba(8,8,8,.96))}.hero:after{border-color:rgba(220,224,230,.16);box-shadow:0 0 0 32px rgba(255,255,255,.018),0 0 0 66px rgba(255,255,255,.01)}.eyebrow{color:#c8cdd3}.eyebrow:before{background:#d8dce1;box-shadow:0 0 13px rgba(255,255,255,.55)}
+.progress-orb{background:conic-gradient(#d7dbe0 calc(var(--progress)*1%),rgba(255,255,255,.08) 0);box-shadow:0 0 45px rgba(255,255,255,.08)}.progress-orb:before{background:#0b0b0b}
+.panel,.form-panel,.member-search-panel,.trade-form-panel,.audit-ledger-panel{background:linear-gradient(145deg,rgba(20,20,20,.97),rgba(9,9,9,.98))}.panel-head>a:not(.btn){color:#c7ccd2}
+.quick-stat,.stats>div,.trade-stats>article,.manager-stats>div{background:rgba(17,17,17,.86)}.quick-stat:before,.stats>div:before,.trade-stats>article:before{background:linear-gradient(#f0f1f3,#8c939b)}
+.profile-photo-card{background:rgba(17,17,17,.82)!important}.profile-avatar-large{border-color:rgba(215,220,226,.28)!important}
+.btn{background:#171717;color:#eee}.btn:hover{border-color:rgba(225,228,233,.28);background:#202020}.btn.primary{border-color:rgba(235,237,240,.34);background:linear-gradient(135deg,#d9dde2,#858c95);color:#090909;box-shadow:0 8px 24px rgba(255,255,255,.08)}
+input,select,textarea{background:#090909;color:#f2f2f2}input:focus,select:focus,textarea:focus{border-color:rgba(220,224,230,.52);box-shadow:0 0 0 3px rgba(255,255,255,.07);background:#0d0d0d}
+.goal-card,.goal-admin-card,.member-folder{background:linear-gradient(145deg,rgba(21,21,21,.94),rgba(10,10,10,.98))}.goal-card:hover,.member-folder:hover{border-color:rgba(220,224,230,.24)}.goal-icon{background:rgba(220,224,230,.1)}
+th{background:#111;color:#858585}tbody tr:hover{background:rgba(255,255,255,.025)}
+.admin-area-card:hover,.trade-quick-grid>a:hover,.section-choice:hover{border-color:rgba(220,224,230,.25);background:rgba(255,255,255,.035)}.admin-area-icon,.trade-quick-grid>a>span,.section-choice-icon,.manager-access-icon{background:linear-gradient(145deg,rgba(230,232,235,.13),rgba(255,255,255,.035));color:#e1e3e6}
+.cycle-highlight{border-color:rgba(220,224,230,.17);background:rgba(255,255,255,.035)}.cycle-status-label{color:#c9cdd2!important}
+.trade-tabs,.member-tabs{background:#090909}.trade-tabs a.active,.member-tabs a.active{background:#202020;box-shadow:inset 0 0 0 1px rgba(220,224,230,.16)}
+.login-page{background:radial-gradient(700px 500px at 50% 15%,rgba(225,228,233,.1),transparent 65%)!important}.login-card,.admin-login-card{border-color:rgba(220,224,230,.17)!important;background:linear-gradient(115deg,rgba(20,20,20,.98),rgba(6,6,6,.99))!important}.logo-box.logo-box-art img{filter:grayscale(1) drop-shadow(0 26px 44px rgba(255,255,255,.13))!important}
+.notice,.note-box,.status-strip,.manager-security-note{background:rgba(255,255,255,.03)}.upload-drop,.upload-box{border-color:rgba(220,224,230,.27);background:rgba(255,255,255,.025)}
+@media(max-width:900px){.mobile-topbar{background:rgba(7,7,7,.91)}.mobile-brand .brand-logo{filter:grayscale(1)}.bottom-nav{background:rgba(9,9,9,.95)}.bottom-nav a.active{background:rgba(225,228,233,.11);color:#f1f1f1}}
+
+/* V37 — Datas no padrão brasileiro */
+.date-br-hint{display:block;margin-top:6px;font-size:11px;color:var(--muted,#9ca3af);letter-spacing:.02em}

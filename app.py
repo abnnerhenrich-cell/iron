@@ -419,6 +419,20 @@ def money(value):
     return f"R$ {formatted}"
 
 
+@app.template_filter("brdate")
+def brdate_filter(value):
+    """Formata datas no padrão brasileiro: DD/MM/AAAA."""
+    if not value:
+        return "—"
+    try:
+        return value.strftime("%d/%m/%Y")
+    except AttributeError:
+        try:
+            from datetime import datetime
+            return datetime.fromisoformat(str(value)).strftime("%d/%m/%Y")
+        except (TypeError, ValueError):
+            return str(value)
+
 @app.template_filter("dt")
 def format_datetime(value):
     if not value:
