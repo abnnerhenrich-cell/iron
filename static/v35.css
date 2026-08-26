@@ -110,3 +110,35 @@ th{background:#111;color:#858585}tbody tr:hover{background:rgba(255,255,255,.025
 
 /* V37 — Datas no padrão brasileiro */
 .date-br-hint{display:block;margin-top:6px;font-size:11px;color:var(--muted,#9ca3af);letter-spacing:.02em}
+
+
+/* =========================================================
+   IRON V38 — PALETA 100% PRETO + PRATA
+   ========================================================= */
+:root{
+  --accent:#d7d9dd !important;
+  --accent-2:#aeb3ba !important;
+  --primary:#d7d9dd !important;
+  --primary-2:#aeb3ba !important;
+  --blue:#d7d9dd !important;
+  --cyan:#c7cbd1 !important;
+  --info:#c7cbd1 !important;
+}
+body{background:#050506 !important;}
+a{color:#e5e7eb;}
+.btn-primary,.primary-btn,button[type="submit"]:not(.danger),
+.nav-item.active,.sidebar a.active,.bottom-nav a.active,
+.badge-info,.status-info,.chip-info{
+  background:linear-gradient(135deg,#f2f3f4 0%,#b7bbc1 48%,#7f858d 100%) !important;
+  color:#09090a !important;
+  border-color:#d8dadd !important;
+  box-shadow:0 8px 24px rgba(210,213,218,.12) !important;
+}
+.progress-fill,.progress-bar > span,.meter-fill{
+  background:linear-gradient(90deg,#8f949b,#f1f2f3) !important;
+}
+input:focus,select:focus,textarea:focus{
+  border-color:#cfd2d6 !important;
+  box-shadow:0 0 0 3px rgba(207,210,214,.12) !important;
+}
+::selection{background:#c9ccd1;color:#080809;}

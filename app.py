@@ -15,6 +15,20 @@ from werkzeug.exceptions import HTTPException
 import psycopg
 from psycopg.rows import dict_row
 
+
+def parse_br_date(value):
+    """Aceita DD/MM/AAAA (Brasil) e ISO AAAA-MM-DD, retornando date."""
+    if not value:
+        return None
+    value = str(value).strip()
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(value, fmt).date()
+        except ValueError:
+            pass
+    raise ValueError("Data inválida. Use DD/MM/AAAA.")
+
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "troque-esta-chave-no-vercel")
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
