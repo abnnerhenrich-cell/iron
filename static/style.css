@@ -510,3 +510,12 @@ input,button,select,textarea{font-size:max(16px,1rem)}
 .delivery-submit:disabled{
   cursor:not-allowed
 }
+
+.progress.progress-review{position:relative;overflow:hidden;height:10px}
+.progress.progress-review>i{position:absolute;top:0;bottom:0;height:100%;border-radius:0}
+.progress.progress-review .progress-approved{left:0;background:linear-gradient(90deg,rgba(65,201,124,.95),rgba(113,255,176,.9))}
+.progress.progress-review .progress-pending{background:linear-gradient(90deg,rgba(241,187,61,.95),rgba(255,214,96,.92))}
+.progress-legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:7px;color:var(--muted);font-size:.72rem}
+.progress-legend span{display:inline-flex;align-items:center;gap:6px}
+.legend-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.approved-dot{background:#62dda0}.pending-dot{background:#f1bb3d}
