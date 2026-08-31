@@ -50,7 +50,7 @@
         <p>{{ m['email'] }}</p>
       </div>
       <div class="member-badges">
-        {% if m['needs_review'] %}<span class="status review-needed-status">! PRECISA DE REVISÃO</span>{% endif %}
+        {% if m['needs_review'] %}<span class="status review-needed-status">! EM ANÁLISE</span>{% endif %}
         {% if m.get('role') == 'admin' %}<span class="status approved">ADMIN + MEMBRO</span>{% endif %}
         <span class="status {{ 'approved' if m['active'] else 'rejected' }}">{{ 'ATIVO' if m['active'] else 'BLOQUEADO' }}</span>
       </div>

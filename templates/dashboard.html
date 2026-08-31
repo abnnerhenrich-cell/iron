@@ -7,18 +7,16 @@
     <h1>Olá, {{ current_user['name'].split(' ')[0] }}.</h1>
     {% if cycle %}<div class="hero-kicker"><span class="hero-chip">◉ {{ cycle['title'] }}</span><span class="hero-chip">{{ cycle['start_date'] }} → {{ cycle['end_date'] }}</span></div>{% endif %}
   </div>
-  <div class="hero-side final-progress-card">
-    <div class="final-progress-top">
-      <span>PROGRESSO GERAL</span>
-      <strong>{{ overall_activity if cycle else 0 }}%</strong>
+  <div class="hero-side">
+    <div class="progress-orb" style="--progress: {{ overall_activity if cycle else 0 }}">
+      <div class="progress-orb-content">
+        <strong>{{ overall_activity if cycle else 0 }}%</strong>
+        <span>PROGRESSO GERAL</span>
+      </div>
     </div>
-    <div class="progress progress-review final-progress-bar">
-      <i class="progress-approved" style="width:{{ overall_approved_pct if cycle else 0 }}%"></i>
-      <i class="progress-pending" style="width:{{ overall_pending_pct if cycle else 0 }}%; left:{{ overall_approved_pct if cycle else 0 }}%"></i>
-    </div>
-    <div class="progress-legend final-progress-legend">
-      <span><b class="legend-dot approved-dot"></b>Aprovado {{ overall_approved_pct if cycle else 0 }}%</span>
-      <span><b class="legend-dot pending-dot"></b>Em análise {{ overall_pending_pct if cycle else 0 }}%</span>
+    <div class="progress-orb-legend">
+      <span><b class="legend-dot approved-dot"></b>{{ overall_approved_pct if cycle else 0 }}% aprovado</span>
+      <span><b class="legend-dot pending-dot"></b>{{ overall_pending_pct if cycle else 0 }}% em análise</span>
     </div>
   </div>
 </section>

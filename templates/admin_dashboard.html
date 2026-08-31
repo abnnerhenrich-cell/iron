@@ -4,13 +4,13 @@
 <section class="hero admin-hero hierarchy-hero">
   <div>
     <h1>Painel da Hierarquia</h1>
-    <div class="hero-kicker"><span class="hero-chip"><span id="liveMembersHero">{{ stats.users }}</span> membros</span><span class="hero-chip">{{ stats.pending }} revisões pendentes</span>{% if cycle %}<span class="hero-chip">Meta ativa: {{ cycle['title'] }}</span>{% endif %}</div>
+    <div class="hero-kicker"><span class="hero-chip"><span id="liveMembersHero">{{ stats.users }}</span> membros ativos</span><span class="hero-chip">{{ stats.pending }} revisões pendentes</span>{% if cycle %}<span class="hero-chip">Meta ativa: {{ cycle['title'] }}</span>{% endif %}</div>
   </div>
   <a class="btn primary" href="{{ url_for('admin_members') }}">Abrir membros →</a>
 </section>
 
 <section class="stats">
-  <div><strong id="liveMembersCount">{{ stats.users }}</strong><span>MEMBROS CADASTRADOS</span></div>
+  <div><strong id="liveMembersCount">{{ stats.users }}</strong><span>MEMBROS ATIVOS</span></div>
   <div><strong class="yellow" id="livePendingUsers">{{ stats.pending_users }}</strong><span>CADASTROS PENDENTES</span></div>
   <div><strong class="yellow" id="livePendingReviews">{{ stats.pending }}</strong><span>ENTREGAS EM ANÁLISE</span></div>
   <div><strong class="green" id="liveApprovedReviews">{{ stats.approved }}</strong><span>ENTREGAS APROVADAS</span></div>
@@ -39,8 +39,8 @@
       });
       if (!response.ok) return;
       const data = await response.json();
-      document.getElementById('liveMembersHero').textContent = data.registered_members;
-      document.getElementById('liveMembersCount').textContent = data.registered_members;
+      document.getElementById('liveMembersHero').textContent = data.active_members;
+      document.getElementById('liveMembersCount').textContent = data.active_members;
       document.getElementById('livePendingUsers').textContent = data.pending_users;
       document.getElementById('livePendingReviews').textContent = data.pending_reviews;
       document.getElementById('liveApprovedReviews').textContent = data.approved_reviews;

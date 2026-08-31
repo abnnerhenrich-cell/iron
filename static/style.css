@@ -602,3 +602,30 @@ input,button,select,textarea{font-size:max(16px,1rem)}
 @media(max-width:700px){
   .review-alert-badge{top:-7px;right:-5px}
 }
+
+
+/* ===== IRON V37 — retorno do gráfico circular do membro ===== */
+.progress-orb-legend{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-top:10px;
+  color:var(--muted);
+  font-size:.68rem;
+}
+.progress-orb-legend span{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  white-space:nowrap;
+}
+@media(max-width:700px){
+  .dashboard-hero .hero-side{
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+}

@@ -926,7 +926,7 @@ def submission_image(submission_id):
 def admin_live_stats():
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) AS c FROM users WHERE role IN ('user','manager') AND approved=TRUE")
+            cur.execute("SELECT COUNT(*) AS c FROM users WHERE role IN ('user','manager') AND approved=TRUE AND active=TRUE")
             registered_members = int(cur.fetchone()["c"] or 0)
             cur.execute("SELECT COUNT(*) AS c FROM users WHERE role='user' AND approved=FALSE")
             pending_users = int(cur.fetchone()["c"] or 0)
@@ -936,7 +936,7 @@ def admin_live_stats():
             approved_reviews = int(cur.fetchone()["c"] or 0)
 
     response = jsonify({
-        "registered_members": registered_members,
+        "active_members": registered_members,
         "pending_users": pending_users,
         "pending_reviews": pending_reviews,
         "approved_reviews": approved_reviews,
@@ -1372,15 +1372,45 @@ def admin_members():
 def admin_member_detail(user_id):
     with get_conn() as conn:
         with conn.cursor() as cur:
+            # Compatibilidade com bancos que ainda não receberam as colunas
+            # de auditoria da V35. A pasta do membro nunca deve cair em erro 500
+            # apenas porque approved_by/approved_at ainda não existem.
             cur.execute("""
-                SELECT u.id, u.name, u.email, u.active, u.approved, u.created_at,
-                       u.approved_at, u.approved_by,
-                       approver.name AS approved_by_name,
-                       (u.profile_image IS NOT NULL) AS has_profile_image
-                FROM users u
-                LEFT JOIN users approver ON approver.id=u.approved_by
-                WHERE u.id=%s
-            """, (user_id,))
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema='public'
+                      AND table_name='users'
+                      AND column_name='approved_by'
+                ) AS has_approved_by,
+                EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema='public'
+                      AND table_name='users'
+                      AND column_name='approved_at'
+                ) AS has_approved_at
+            """)
+            audit_columns = cur.fetchone()
+
+            if audit_columns["has_approved_by"] and audit_columns["has_approved_at"]:
+                cur.execute("""
+                    SELECT u.id, u.name, u.email, u.active, u.approved, u.created_at,
+                           u.approved_at, u.approved_by,
+                           approver.name AS approved_by_name,
+                           (u.profile_image IS NOT NULL) AS has_profile_image
+                    FROM users u
+                    LEFT JOIN users approver ON approver.id=u.approved_by
+                    WHERE u.id=%s
+                """, (user_id,))
+            else:
+                cur.execute("""
+                    SELECT u.id, u.name, u.email, u.active, u.approved, u.created_at,
+                           NULL::TIMESTAMPTZ AS approved_at,
+                           NULL::BIGINT AS approved_by,
+                           NULL::TEXT AS approved_by_name,
+                           (u.profile_image IS NOT NULL) AS has_profile_image
+                    FROM users u
+                    WHERE u.id=%s
+                """, (user_id,))
             member = cur.fetchone()
             if not member:
                 abort(404)
@@ -2185,6 +2215,8 @@ def admin_user_approve(user_id):
     approver = get_current_user()
     with get_conn() as conn:
         with conn.cursor() as cur:
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_by BIGINT REFERENCES users(id) ON DELETE SET NULL")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ")
             cur.execute("""
                 UPDATE users
                 SET approved=TRUE,
