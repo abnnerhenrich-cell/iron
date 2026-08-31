@@ -30,33 +30,37 @@
   <div class="panel-head">
     <div>
       <span class="eyebrow">NOVA META INDIVIDUAL</span>
-      <h2>Criar meta para {{ member['name'] }}</h2>
-      <p>Esta meta será visível somente para este membro na meta ativa <strong>{{ cycle['title'] }}</strong>.</p>
+      <h2>Materiais padrão para {{ member['name'] }}</h2>
+      <p>Escolha somente os materiais que farão parte da meta e informe a quantidade de cada um.</p>
     </div>
   </div>
 
-  <form method="post" class="form-grid">
+  <form method="post" class="materials-goal-form">
     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
 
-    <label>Nome da meta
-      <input name="title" required placeholder="Ex.: Bateria AA+">
-    </label>
-
-    <label>Quantidade
-      <input name="target" type="number" min="0.01" step="0.01" inputmode="decimal" required placeholder="Ex.: 100">
-    </label>
-
-    <label>Unidade
-      <select name="unit">
-        <option value="un">un</option>
-        <option value="kg">kg</option>
-        <option value="R$">R$</option>
-      </select>
-    </label>
-
-    <label>Ícone
-      <input name="icon" value="📦" maxlength="8">
-    </label>
+    <div class="materials-catalog">
+      {% for material in personal_goal_catalog %}
+      <label class="material-goal-card">
+        <div class="material-goal-head">
+          <span class="material-goal-image">
+            <img src="{{ url_for('static', filename=material['image']) }}" alt="{{ material['title'] }}" loading="lazy">
+          </span>
+          <strong>{{ material['title'] }}</strong>
+        </div>
+        <div class="material-goal-qty">
+          <span>Quantidade</span>
+          <input
+            name="qty_{{ material['key'] }}"
+            type="number"
+            min="0"
+            step="1"
+            inputmode="numeric"
+            placeholder="0"
+          >
+        </div>
+      </label>
+      {% endfor %}
+    </div>
 
     <div class="goal-owner-lock">
       <span>MEMBRO DA META</span>
@@ -64,7 +68,7 @@
       <small>{{ member['email'] }}</small>
     </div>
 
-    <button class="btn primary" type="submit">＋ Criar meta para {{ member['name'] }}</button>
+    <button class="btn primary material-submit" type="submit">＋ Criar metas selecionadas</button>
   </form>
 </section>
 

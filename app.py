@@ -47,6 +47,18 @@ TRADE_PRODUCTS = {
     },
 }
 
+PERSONAL_GOAL_CATALOG = [
+    {"key": "plastico", "title": "Plástico", "icon": "🧴", "image": "materials/plastico.webp", "unit": "un"},
+    {"key": "borracha", "title": "Borracha", "icon": "🛞", "image": "materials/borracha.webp", "unit": "un"},
+    {"key": "vidro", "title": "Vidro", "icon": "🪟", "image": "materials/vidro.webp", "unit": "un"},
+    {"key": "cobre", "title": "Cobre", "icon": "🔶", "image": "materials/cobre.webp", "unit": "un"},
+    {"key": "aluminio", "title": "Alumínio", "icon": "🥫", "image": "materials/aluminio.webp", "unit": "un"},
+    {"key": "chapa_metal", "title": "Chapa de Metal", "icon": "🔩", "image": "materials/chapa_metal.webp", "unit": "un"},
+    {"key": "placa_transito", "title": "Placa de Trânsito", "icon": "🚸", "image": "materials/placa_transito.webp", "unit": "un"},
+    {"key": "lona", "title": "Lona", "icon": "🧵", "image": "materials/lona.webp", "unit": "un"},
+    {"key": "dinheiro", "title": "Dinheiro Sujo ou Limpo", "icon": "💵", "image": "materials/dinheiro.webp", "unit": "un"},
+]
+
 def get_conn():
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL não encontrada. Conecte o Neon ao projeto na Vercel.")
@@ -1484,117 +1496,83 @@ def admin_member_goals(user_id):
                     flash("Não existe meta ativa. Crie e ative uma meta primeiro.", "danger")
                     return redirect(url_for("admin_member_goals", user_id=user_id))
 
-                title = (request.form.get("title") or "").strip()
-                category = (request.form.get("category") or "GERAL").strip() or "GERAL"
-                unit = (request.form.get("unit") or "un").strip() or "un"
-                icon = (request.form.get("icon") or "📦").strip() or "📦"
+                selected_materials = []
+                for material in PERSONAL_GOAL_CATALOG:
+                    raw = (request.form.get(f"qty_{material['key']}") or "").strip().replace(",", ".")
+                    if not raw:
+                        continue
+                    try:
+                        qty = float(raw)
+                    except (TypeError, ValueError):
+                        qty = 0
+                    if qty > 0:
+                        selected_materials.append((material, qty))
 
-                target_raw = (request.form.get("target") or "").strip().replace(",", ".")
-                try:
-                    target = float(target_raw)
-                except (TypeError, ValueError):
-                    target = 0
-
-                if not title:
-                    flash("Digite o nome da meta.", "danger")
+                if not selected_materials:
+                    flash("Informe a quantidade de pelo menos um material.", "danger")
                     return redirect(url_for("admin_member_goals", user_id=user_id))
 
-                if target <= 0:
-                    flash("Informe uma quantidade maior que zero.", "danger")
-                    return redirect(url_for("admin_member_goals", user_id=user_id))
-
+                created = []
                 try:
-                    cur.execute("""
-                        SELECT COALESCE(MAX(sort_order),0)+1 AS next_order
-                        FROM goals
-                        WHERE cycle_id=%s AND user_id=%s
-                    """, (cycle["id"], user_id))
-                    order_row = cur.fetchone()
-                    sort_order = int(order_row["next_order"] or 1)
-
-                    goal_key = goal_credit_key(title)
-                    cur.execute("""
-                        SELECT id, balance
-                        FROM member_goal_credits
-                        WHERE user_id=%s AND goal_key=%s AND unit=%s
-                        FOR UPDATE
-                    """, (user_id, goal_key, unit))
-                    credit_row = cur.fetchone()
-                    available_balance = float(credit_row["balance"] or 0) if credit_row else 0
-
-                    # Saldo positivo reduz a próxima meta; saldo negativo aumenta.
-                    # O saldo é consumido integralmente ao criar a nova meta equivalente.
-                    credit_applied = available_balance
-
-                    if credit_row and abs(credit_applied) > 1e-9:
+                    for material, target in selected_materials:
                         cur.execute("""
-                            UPDATE member_goal_credits
-                            SET balance=0, updated_at=NOW()
-                            WHERE id=%s
-                        """, (credit_row["id"],))
+                            SELECT COALESCE(MAX(sort_order),0)+1 AS next_order
+                            FROM goals
+                            WHERE cycle_id=%s AND user_id=%s
+                        """, (cycle["id"], user_id))
+                        sort_order = int(cur.fetchone()["next_order"] or 1)
 
-                    cur.execute("""
-                        INSERT INTO goals (
-                            cycle_id,
-                            title,
-                            category,
-                            target,
-                            unit,
-                            icon,
-                            sort_order,
-                            user_id,
-                            credit_applied,
-                            closed
-                        )
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,FALSE)
-                        RETURNING id
-                    """, (
-                        cycle["id"],
-                        title,
-                        category,
-                        target,
-                        unit,
-                        icon,
-                        sort_order,
-                        user_id,
-                        credit_applied
-                    ))
-                    new_goal_id = cur.fetchone()["id"]
-
-                    # Quando o saldo anterior entra na nova meta, os fechamentos
-                    # que alimentavam esse saldo deixam de aparecer no extrato
-                    # ativo. Eles ficam arquivados internamente para auditoria.
-                    if abs(credit_applied) > 1e-9:
+                        goal_key = goal_credit_key(material["title"])
                         cur.execute("""
-                            UPDATE goal_closures
-                            SET applied_to_goal_id=%s,
-                                consumed_at=NOW()
-                            WHERE user_id=%s
-                              AND unit=%s
-                              AND LOWER(REGEXP_REPLACE(TRIM(goal_title), '\\s+', ' ', 'g'))=%s
-                              AND consumed_at IS NULL
-                              AND carried_balance <> 0
-                        """, (new_goal_id, user_id, unit, goal_key))
+                            SELECT id, balance
+                            FROM member_goal_credits
+                            WHERE user_id=%s AND goal_key=%s AND unit=%s
+                            FOR UPDATE
+                        """, (user_id, goal_key, material["unit"]))
+                        credit_row = cur.fetchone()
+                        credit_applied = float(credit_row["balance"] or 0) if credit_row else 0
+
+                        if credit_row and abs(credit_applied) > 1e-9:
+                            cur.execute("""
+                                UPDATE member_goal_credits
+                                SET balance=0, updated_at=NOW()
+                                WHERE id=%s
+                            """, (credit_row["id"],))
+
+                        cur.execute("""
+                            INSERT INTO goals (
+                                cycle_id, title, category, target, unit, icon,
+                                sort_order, user_id, credit_applied, closed
+                            )
+                            VALUES (%s,%s,'MATERIAL',%s,%s,%s,%s,%s,%s,FALSE)
+                            RETURNING id
+                        """, (
+                            cycle["id"], material["title"], target, material["unit"],
+                            material["icon"], sort_order, user_id, credit_applied
+                        ))
+                        new_goal_id = cur.fetchone()["id"]
+
+                        if abs(credit_applied) > 1e-9:
+                            cur.execute("""
+                                UPDATE goal_closures
+                                SET applied_to_goal_id=%s, consumed_at=NOW()
+                                WHERE user_id=%s
+                                  AND unit=%s
+                                  AND LOWER(REGEXP_REPLACE(TRIM(goal_title), '\\s+', ' ', 'g'))=%s
+                                  AND consumed_at IS NULL
+                                  AND carried_balance <> 0
+                            """, (new_goal_id, user_id, material["unit"], goal_key))
+
+                        created.append(material["title"])
 
                     conn.commit()
                 except Exception:
                     conn.rollback()
-                    app.logger.exception(
-                        "Erro ao criar meta personalizada: user_id=%s cycle_id=%s",
-                        user_id,
-                        cycle["id"]
-                    )
-                    flash("Não foi possível criar a meta. Tente novamente.", "danger")
+                    app.logger.exception("Erro ao criar metas padronizadas: user_id=%s cycle_id=%s", user_id, cycle["id"])
+                    flash("Não foi possível criar as metas. Tente novamente.", "danger")
                     return redirect(url_for("admin_member_goals", user_id=user_id))
 
-                flash(
-                    f"Meta criada para {member['name']}."
-                    + (
-                        f" Saldo anterior aplicado: {credit_applied:+g} {unit}."
-                        if abs(credit_applied) > 1e-9 else ""
-                    ),
-                    "success"
-                )
+                flash(f"{len(created)} meta(s) criada(s): " + ", ".join(created) + ".", "success")
                 return redirect(url_for("admin_member_goals", user_id=user_id))
 
             goals = []
@@ -1652,7 +1630,8 @@ def admin_member_goals(user_id):
         member=member,
         cycle=cycle,
         goals=goals,
-        credits=credits
+        credits=credits,
+        personal_goal_catalog=PERSONAL_GOAL_CATALOG
     )
 
 
