@@ -33,10 +33,7 @@
 
 <section class="member-folder-grid">
   {% for m in members %}
-  <article class="member-folder{{ ' member-needs-review' if m['needs_review'] else '' }}" data-member="{{ (m['name'] ~ ' ' ~ m['email'])|lower }}">
-    {% if m['needs_review'] %}
-    <div class="review-alert-badge" title="Este membro possui entrega aguardando aprovação" aria-label="Entrega aguardando aprovação">!</div>
-    {% endif %}
+  <article class="member-folder" data-member="{{ (m['name'] ~ ' ' ~ m['email'])|lower }}">
     <div class="member-folder-head">
       <div class="avatar-silver">
         {% if m.get('has_profile_image') %}
@@ -50,7 +47,6 @@
         <p>{{ m['email'] }}</p>
       </div>
       <div class="member-badges">
-        {% if m['needs_review'] %}<span class="status review-needed-status">! EM ANÁLISE</span>{% endif %}
         {% if m.get('role') == 'admin' %}<span class="status approved">ADMIN + MEMBRO</span>{% endif %}
         <span class="status {{ 'approved' if m['active'] else 'rejected' }}">{{ 'ATIVO' if m['active'] else 'BLOQUEADO' }}</span>
       </div>
@@ -61,13 +57,15 @@
         <span>Progresso da meta</span>
         <strong>{{ m['percent'] }}%</strong>
       </div>
+      {% set pending_room = 100 - m['percent'] %}
+      {% set folder_pending = ([m['pending_percent'], pending_room]|min) %}
       <div class="progress progress-review">
-        <i class="progress-approved" style="width:{{ m['approved_pct'] }}%"></i>
-        <i class="progress-pending" style="width:{{ m['pending_pct'] }}%; left:{{ m['approved_pct'] }}%"></i>
+        <i class="progress-approved" style="width:{{ m['percent'] }}%"></i>
+        <i class="progress-pending" style="width:{{ folder_pending }}%; left:{{ m['percent'] }}%"></i>
       </div>
-      <div class="progress-legend compact-progress-legend">
-        <span><b class="legend-dot approved-dot"></b>{{ m['approved_pct'] }}% aprovado</span>
-        <span><b class="legend-dot pending-dot"></b>{{ m['pending_pct'] }}% em análise</span>
+      <div class="progress-legend">
+        <span><b class="legend-dot approved-dot"></b>Aprovado {{ m['percent'] }}%</span>
+        <span><b class="legend-dot pending-dot"></b>Em análise {{ folder_pending }}%</span>
       </div>
     </div>
 

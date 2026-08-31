@@ -7,7 +7,7 @@ from io import BytesIO
 
 from flask import (
     Flask, render_template, request, redirect, url_for, session,
-    flash, send_file, abort, jsonify
+    flash, send_file, abort
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.exceptions import HTTPException
@@ -363,7 +363,6 @@ def restrict_manager_access():
 
         # Painel operacional do Gerente
         "admin_dashboard",
-        "admin_live_stats",
         "admin_registrations",
         "admin_user_approve",
         "admin_user_reject",
@@ -921,30 +920,6 @@ def submission_image(submission_id):
     )
 
 
-@app.route("/admin/live-stats")
-@staff_required
-def admin_live_stats():
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) AS c FROM users WHERE role IN ('user','manager') AND approved=TRUE AND active=TRUE")
-            registered_members = int(cur.fetchone()["c"] or 0)
-            cur.execute("SELECT COUNT(*) AS c FROM users WHERE role='user' AND approved=FALSE")
-            pending_users = int(cur.fetchone()["c"] or 0)
-            cur.execute("SELECT COUNT(*) AS c FROM submissions WHERE status='pending'")
-            pending_reviews = int(cur.fetchone()["c"] or 0)
-            cur.execute("SELECT COUNT(*) AS c FROM submissions WHERE status='approved'")
-            approved_reviews = int(cur.fetchone()["c"] or 0)
-
-    response = jsonify({
-        "active_members": registered_members,
-        "pending_users": pending_users,
-        "pending_reviews": pending_reviews,
-        "approved_reviews": approved_reviews,
-    })
-    response.headers["Cache-Control"] = "no-store, max-age=0"
-    return response
-
-
 @app.route("/admin")
 @staff_required
 def admin_dashboard():
@@ -1314,37 +1289,53 @@ def admin_members():
                 total_target = 0.0
                 total_approved = 0.0
                 total_pending = 0.0
+                goal_progress_sum = 0.0
+                goal_pending_sum = 0.0
+                goal_count = 0
 
                 if cycle:
+                    # O progresso geral precisa dar o mesmo peso a cada material.
+                    # Somar quantidades brutas distorcia o percentual quando uma meta
+                    # tinha muito mais unidades do que outra.
                     cur.execute("""
-                        SELECT
-                            COALESCE(SUM(GREATEST(g.target-COALESCE(g.credit_applied,0),0)),0) AS target,
-                            COALESCE(SUM((
-                                SELECT COALESCE(SUM(s.amount),0)
-                                FROM submissions s
-                                WHERE s.goal_id=g.id
-                                  AND s.user_id=%s
-                                  AND s.status='approved'
-                            )),0) AS approved,
-                            COALESCE(SUM((
-                                SELECT COALESCE(SUM(s.amount),0)
-                                FROM submissions s
-                                WHERE s.goal_id=g.id
-                                  AND s.user_id=%s
-                                  AND s.status='pending'
-                            )),0) AS pending
+                        SELECT g.id, g.target, g.credit_applied,
+                               COALESCE(SUM(CASE WHEN s.status='approved' THEN s.amount ELSE 0 END),0) AS approved,
+                               COALESCE(SUM(CASE WHEN s.status='pending' THEN s.amount ELSE 0 END),0) AS pending
                         FROM goals g
+                        LEFT JOIN submissions s
+                          ON s.goal_id=g.id
+                         AND s.user_id=%s
                         WHERE g.cycle_id=%s
                           AND g.user_id=%s
-                    """, (member["id"], member["id"], cycle["id"], member["id"]))
-                    totals = cur.fetchone()
-                    total_target = float(totals["target"] or 0)
-                    total_approved = float(totals["approved"] or 0)
-                    total_pending = float(totals["pending"] or 0)
+                        GROUP BY g.id
+                        ORDER BY g.sort_order, g.id
+                    """, (member["id"], cycle["id"], member["id"]))
+                    goal_rows = cur.fetchall()
 
-                approved_pct = min(100, round((total_approved / total_target) * 100)) if total_target else 0
-                activity_pct = min(100, round(((total_approved + total_pending) / total_target) * 100)) if total_target else 0
-                pending_pct = max(0, min(100 - approved_pct, activity_pct - approved_pct))
+                    for g in goal_rows:
+                        original_target = float(g["target"] or 0)
+                        credit_applied = float(g.get("credit_applied") or 0)
+                        required = max(original_target - credit_applied, 0)
+                        approved = float(g["approved"] or 0)
+                        pending = float(g["pending"] or 0)
+
+                        total_target += required
+                        total_approved += approved
+                        total_pending += pending
+                        goal_count += 1
+
+                        if required <= 0:
+                            approved_ratio = 1.0
+                            pending_ratio = 0.0
+                        else:
+                            approved_ratio = min(approved / required, 1.0)
+                            pending_ratio = min(pending / required, max(1.0 - approved_ratio, 0.0))
+
+                        goal_progress_sum += approved_ratio
+                        goal_pending_sum += pending_ratio
+
+                percent = round((goal_progress_sum / goal_count) * 100) if goal_count else 0
+                pending_percent = round((goal_pending_sum / goal_count) * 100) if goal_count else 0
                 rows.append({
                     "id": member["id"],
                     "name": member["name"],
@@ -1357,10 +1348,8 @@ def admin_members():
                     "target": total_target,
                     "approved_total": total_approved,
                     "pending_total": total_pending,
-                    "needs_review": total_pending > 0,
-                    "percent": activity_pct,
-                    "approved_pct": approved_pct,
-                    "pending_pct": pending_pct,
+                    "percent": percent,
+                    "pending_percent": pending_percent,
                     "remaining": max(total_target - total_approved, 0),
                 })
 
@@ -1372,45 +1361,12 @@ def admin_members():
 def admin_member_detail(user_id):
     with get_conn() as conn:
         with conn.cursor() as cur:
-            # Compatibilidade com bancos que ainda não receberam as colunas
-            # de auditoria da V35. A pasta do membro nunca deve cair em erro 500
-            # apenas porque approved_by/approved_at ainda não existem.
             cur.execute("""
-                SELECT EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_schema='public'
-                      AND table_name='users'
-                      AND column_name='approved_by'
-                ) AS has_approved_by,
-                EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_schema='public'
-                      AND table_name='users'
-                      AND column_name='approved_at'
-                ) AS has_approved_at
-            """)
-            audit_columns = cur.fetchone()
-
-            if audit_columns["has_approved_by"] and audit_columns["has_approved_at"]:
-                cur.execute("""
-                    SELECT u.id, u.name, u.email, u.active, u.approved, u.created_at,
-                           u.approved_at, u.approved_by,
-                           approver.name AS approved_by_name,
-                           (u.profile_image IS NOT NULL) AS has_profile_image
-                    FROM users u
-                    LEFT JOIN users approver ON approver.id=u.approved_by
-                    WHERE u.id=%s
-                """, (user_id,))
-            else:
-                cur.execute("""
-                    SELECT u.id, u.name, u.email, u.active, u.approved, u.created_at,
-                           NULL::TIMESTAMPTZ AS approved_at,
-                           NULL::BIGINT AS approved_by,
-                           NULL::TEXT AS approved_by_name,
-                           (u.profile_image IS NOT NULL) AS has_profile_image
-                    FROM users u
-                    WHERE u.id=%s
-                """, (user_id,))
+                SELECT id, name, email, active, approved, created_at,
+                       (profile_image IS NOT NULL) AS has_profile_image
+                FROM users
+                WHERE id=%s
+            """, (user_id,))
             member = cur.fetchone()
             if not member:
                 abort(404)
@@ -1420,6 +1376,8 @@ def admin_member_detail(user_id):
 
             total_target = total_approved = total_pending = 0.0
             goals_completed = goals_total = 0
+            goal_progress_sum = 0.0
+            goal_pending_sum = 0.0
 
             if cycle:
                 cur.execute("""
@@ -1444,13 +1402,24 @@ def admin_member_detail(user_id):
                     total_target += target
                     total_approved += approved
                     total_pending += pending
-                    if target > 0 and approved >= target:
-                        goals_completed += 1
 
-            overall_approved_pct = min(100, round((total_approved / total_target) * 100)) if total_target else (100 if goals_total else 0)
-            overall_activity_pct = min(100, round(((total_approved + total_pending) / total_target) * 100)) if total_target else (100 if goals_total else 0)
-            overall_pending_pct = max(0, min(100 - overall_approved_pct, overall_activity_pct - overall_approved_pct))
-            overall = overall_activity_pct
+                    if target <= 0:
+                        approved_ratio = 1.0
+                        pending_ratio = 0.0
+                        goals_completed += 1
+                    else:
+                        approved_ratio = min(approved / target, 1.0)
+                        pending_ratio = min(pending / target, max(1.0 - approved_ratio, 0.0))
+                        if approved >= target:
+                            goals_completed += 1
+
+                    goal_progress_sum += approved_ratio
+                    goal_pending_sum += pending_ratio
+
+            # Percentual geral = média do progresso de cada material, e não
+            # soma de unidades de materiais diferentes.
+            overall = round((goal_progress_sum / goals_total) * 100) if goals_total else 0
+            overall_pending = round((goal_pending_sum / goals_total) * 100) if goals_total else 0
 
             cur.execute("""
                 SELECT COUNT(*) FILTER (WHERE status='pending') AS pending_count,
@@ -1467,8 +1436,7 @@ def admin_member_detail(user_id):
         member=member,
         cycle=cycle,
         overall=overall,
-        overall_approved_pct=overall_approved_pct,
-        overall_pending_pct=overall_pending_pct,
+        overall_pending=overall_pending,
         total_target=total_target,
         total_approved=total_approved,
         total_pending=total_pending,
@@ -2098,14 +2066,11 @@ def admin_member_history(user_id):
                        ((b.image2_data IS NOT NULL) OR (s.image2_data IS NOT NULL)) AS has_image2,
                        ((b.image3_data IS NOT NULL) OR (s.image3_data IS NOT NULL)) AS has_image3,
                        g.title AS goal_title, g.unit,
-                       c.title AS cycle_title,
-                       reviewer.name AS reviewer_name,
-                       reviewer.role AS reviewer_role
+                       c.title AS cycle_title
                 FROM submissions s
                 JOIN goals g ON g.id=s.goal_id
                 JOIN cycles c ON c.id=g.cycle_id
                 LEFT JOIN delivery_batches b ON b.id=s.batch_id
-                LEFT JOIN users reviewer ON reviewer.id=s.reviewed_by
                 WHERE s.user_id=%s
                 ORDER BY s.created_at DESC, s.id DESC
             """, (user_id,))
@@ -2212,26 +2177,15 @@ def admin_user_toggle(user_id):
 @staff_required
 def admin_user_approve(user_id):
     validate_csrf()
-    approver = get_current_user()
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_by BIGINT REFERENCES users(id) ON DELETE SET NULL")
-            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ")
             cur.execute("""
                 UPDATE users
-                SET approved=TRUE,
-                    active=TRUE,
-                    approved_by=%s,
-                    approved_at=NOW()
+                SET approved=TRUE, active=TRUE
                 WHERE id=%s
-                  AND approved=FALSE
-            """, (approver["id"], user_id))
-            changed = cur.rowcount
+            """, (user_id,))
         conn.commit()
-    if changed:
-        flash(f"Membro aprovado por {approver['name']} e liberado para acessar o painel.", "success")
-    else:
-        flash("Este cadastro já estava aprovado ou não foi encontrado.", "danger")
+    flash("Membro aprovado e liberado para acessar o painel.", "success")
     return redirect(request.referrer or url_for("admin_registrations"))
 
 @app.post("/admin/users/<int:user_id>/reject")

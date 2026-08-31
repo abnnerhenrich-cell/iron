@@ -9,14 +9,7 @@
   </div>
   <div class="hero-side">
     <div class="progress-orb" style="--progress: {{ overall_activity if cycle else 0 }}">
-      <div class="progress-orb-content">
-        <strong>{{ overall_activity if cycle else 0 }}%</strong>
-        <span>PROGRESSO GERAL</span>
-      </div>
-    </div>
-    <div class="progress-orb-legend">
-      <span><b class="legend-dot approved-dot"></b>{{ overall_approved_pct if cycle else 0 }}% aprovado</span>
-      <span><b class="legend-dot pending-dot"></b>{{ overall_pending_pct if cycle else 0 }}% em análise</span>
+      <div class="progress-orb-content"><strong>{{ overall_activity if cycle else 0 }}%</strong><span>APROVADO + EM ANÁLISE</span></div>
     </div>
   </div>
 </section>
@@ -75,7 +68,7 @@
 <section class="panel">
   <div class="panel-head"><div><span class="eyebrow">ATIVIDADE RECENTE</span><h2>Últimas entregas</h2><p>Um resumo rápido das suas atualizações mais recentes.</p></div><a href="{{ url_for('history') }}">Ver histórico completo →</a></div>
   <div class="table-wrap"><table><thead><tr><th>Meta</th><th>Valor</th><th>Status</th><th>Enviado em</th></tr></thead><tbody>
-    {% for s in history %}<tr><td><strong>{{ s['goal_title'] }}</strong></td><td>{{ money(s['amount']) if s['unit']=='R$' else (s['amount']|int|string + ' ' + s['unit']) }}</td><td><span class="status {{ s['status'] }}">{{ {'approved':'Aprovada','pending':'Em análise','rejected':'Recusada'}.get(s['status'], s['status']) }}</span>{% if s['status']!='pending' and s.get('reviewer_name') %}<small class="audit-inline">por {{ s['reviewer_name'] }}</small>{% endif %}</td><td>{{ s['created_at'].strftime('%d/%m/%Y %H:%M') if s['created_at'] else '—' }}</td></tr>{% else %}<tr><td colspan="4" class="muted">Nenhuma entrega ainda. Use “Nova entrega” para começar.</td></tr>{% endfor %}
+    {% for s in history %}<tr><td><strong>{{ s['goal_title'] }}</strong></td><td>{{ money(s['amount']) if s['unit']=='R$' else (s['amount']|int|string + ' ' + s['unit']) }}</td><td><span class="status {{ s['status'] }}">{{ {'approved':'Aprovada','pending':'Em análise','rejected':'Recusada'}.get(s['status'], s['status']) }}</span></td><td>{{ s['created_at'].strftime('%d/%m/%Y %H:%M') if s['created_at'] else '—' }}</td></tr>{% else %}<tr><td colspan="4" class="muted">Nenhuma entrega ainda. Use “Nova entrega” para começar.</td></tr>{% endfor %}
   </tbody></table></div>
 </section>
 {% endblock %}

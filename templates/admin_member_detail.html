@@ -26,15 +26,18 @@
 </nav>
 
 <section class="member-summary">
-  <div class="summary-card summary-progress-wide">
-    <div class="summary-progress-head"><span>Progresso geral</span><strong>{{ overall }}%</strong></div>
-    <div class="progress progress-review final-progress-bar">
-      <i class="progress-approved" style="width:{{ overall_approved_pct }}%"></i>
-      <i class="progress-pending" style="width:{{ overall_pending_pct }}%; left:{{ overall_approved_pct }}%"></i>
+  <div class="summary-card">
+    <span>Progresso geral</span>
+    <strong>{{ overall }}%</strong>
+    {% set pending_room = 100 - overall %}
+    {% set detail_pending = ([overall_pending, pending_room]|min) %}
+    <div class="progress progress-review">
+      <i class="progress-approved" style="width:{{ overall }}%"></i>
+      <i class="progress-pending" style="width:{{ detail_pending }}%; left:{{ overall }}%"></i>
     </div>
     <div class="progress-legend">
-      <span><b class="legend-dot approved-dot"></b>Aprovado {{ overall_approved_pct }}%</span>
-      <span><b class="legend-dot pending-dot"></b>Em análise {{ overall_pending_pct }}%</span>
+      <span><b class="legend-dot approved-dot"></b>Aprovado {{ overall }}%</span>
+      <span><b class="legend-dot pending-dot"></b>Em análise {{ detail_pending }}%</span>
     </div>
   </div>
   <div class="summary-card">
@@ -73,16 +76,7 @@
   </div>
   <div class="status-strip">
     <div><span>Conta</span><strong>{{ 'ATIVA' if member['active'] else 'BLOQUEADA' }}</strong></div>
-    <div>
-      <span>Aprovação</span>
-      <strong>{{ 'APROVADO' if member['approved'] else 'PENDENTE' }}</strong>
-      {% if member['approved'] %}
-      <small class="audit-small">
-        {% if member.get('approved_by_name') %}por {{ member['approved_by_name'] }}{% else %}aprovado antes do log{% endif %}
-        {% if member.get('approved_at') %} · {{ member['approved_at']|dt }}{% endif %}
-      </small>
-      {% endif %}
-    </div>
+    <div><span>Aprovação</span><strong>{{ 'APROVADO' if member['approved'] else 'PENDENTE' }}</strong></div>
     <div><span>Entregas aprovadas</span><strong>{{ submission_counts['approved_count'] or 0 }}</strong></div>
     <div><span>Em análise</span><strong>{{ submission_counts['pending_count'] or 0 }}</strong></div>
     <div><span>Recusadas</span><strong>{{ submission_counts['rejected_count'] or 0 }}</strong></div>
