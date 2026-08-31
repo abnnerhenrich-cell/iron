@@ -47,7 +47,15 @@
     {% set pct_pending = ([((g['pending'] / need) * 100)|round|int, 100 - pct_approved]|min) if need else 0 %}
     {% set pct = ([((((g['approved'] + g['pending']) / need) * 100)|round|int), 100]|min) if need else 100 %}
     <article class="goal-card">
-      <div class="goal-top"><span class="goal-icon">{{ g['icon'] }}</span><div><strong>{{ g['title'] }}</strong></div><b class="{{ 'green' if pct >= 100 else 'silver' }}">{{ pct }}%</b></div>
+      <div class="goal-top">
+        {% set material_img = material_image(g['title']) %}
+        {% if material_img %}
+          <span class="goal-icon goal-material-image"><img src="{{ url_for('static', filename=material_img) }}" alt="{{ g['title'] }}" loading="lazy"></span>
+        {% else %}
+          <span class="goal-icon">{{ g['icon'] }}</span>
+        {% endif %}
+        <div><strong>{{ g['title'] }}</strong></div><b class="{{ 'green' if pct >= 100 else 'silver' }}">{{ pct }}%</b>
+      </div>
       <div class="progress progress-segmented"><i class="approved-segment" style="width:{{ pct_approved }}%"></i><i class="pending-segment" style="width:{{ pct_pending }}%; left:{{ pct_approved }}%"></i></div>
       <div class="goal-values">
         <span>Aprovado<b class="green">{{ money(g['approved']) if g['unit']=='R$' else (g['approved']|int|string + ' ' + g['unit']) }}</b></span>

@@ -392,6 +392,15 @@ def restrict_manager_access():
     return None
 
 
+def material_image(title):
+    """Retorna a imagem do material padrão pelo título da meta."""
+    wanted = (title or "").strip().casefold()
+    for material in PERSONAL_GOAL_CATALOG:
+        if material["title"].strip().casefold() == wanted:
+            return material["image"]
+    return None
+
+
 def money(value):
     try:
         v = float(value or 0)
@@ -417,6 +426,7 @@ def inject_globals():
         "current_user": get_current_user(),
         "csrf_token": csrf_token,
         "money": money,
+        "material_image": material_image,
         "today": date.today(),
     }
 

@@ -148,7 +148,8 @@
       {% for g in goals if not g['closed'] %}
       <div class="closing-product-row">
         <div class="closing-product-name">
-          <span class="goal-icon">{{ g['icon'] }}</span>
+          {% set material_img = material_image(g['title']) %}
+          {% if material_img %}<span class="goal-icon goal-material-image"><img src="{{ url_for('static', filename=material_img) }}" alt="{{ g['title'] }}" loading="lazy"></span>{% else %}<span class="goal-icon">{{ g['icon'] }}</span>{% endif %}
           <div><strong>{{ g['title'] }}</strong><small>Necessário {{ g['required_f']|round|int }} · Aprovado {{ g['approved_f']|round|int }} {{ g['unit'] }}</small></div>
         </div>
         <div class="closing-difference {{ 'positive' if g['difference'] > 0 else ('negative' if g['difference'] < 0 else 'neutral') }}">
@@ -175,7 +176,8 @@
     <article class="goal-admin-card {{ 'goal-complete' if g['complete'] else '' }}">
       <div class="goal-admin-top">
         <div>
-          <span class="goal-icon">{{ g['icon'] }}</span>
+          {% set material_img = material_image(g['title']) %}
+          {% if material_img %}<span class="goal-icon goal-material-image"><img src="{{ url_for('static', filename=material_img) }}" alt="{{ g['title'] }}" loading="lazy"></span>{% else %}<span class="goal-icon">{{ g['icon'] }}</span>{% endif %}
           <strong>{{ g['title'] }}</strong>
         </div>
         {% if g['closed'] %}

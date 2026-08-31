@@ -607,3 +607,4 @@ input,button,select,textarea{font-size:max(16px,1rem)}
 .material-goal-qty{padding:0 14px 14px}
 .material-goal-card:focus-within .material-goal-image img{transform:scale(1.025)}
 .material-goal-image img{transition:transform .2s ease}
+\n\n/* ===== IRON V39 — imagens reais dos materiais ===== */\n.goal-icon.goal-material-image{\n  padding:0;\n  overflow:hidden;\n  background:#050505;\n}\n.goal-icon.goal-material-image img{\n  width:100%;\n  height:100%;\n  display:block;\n  object-fit:cover;\n}\n

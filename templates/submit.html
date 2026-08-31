@@ -22,7 +22,12 @@
       {% set remaining = needed - g['approved'] - g['pending'] %}
       <article class="delivery-item" data-name="{{ g['title']|lower }}">
         <div class="delivery-info">
-          <span class="goal-icon">{{ g['icon'] }}</span>
+          {% set material_img = material_image(g['title']) %}
+          {% if material_img %}
+            <span class="goal-icon goal-material-image"><img src="{{ url_for('static', filename=material_img) }}" alt="{{ g['title'] }}" loading="lazy"></span>
+          {% else %}
+            <span class="goal-icon">{{ g['icon'] }}</span>
+          {% endif %}
           <div>
             <strong>{{ g['title'] }}</strong>
             <small>Necessário: <b>{{ money(needed) if g['unit']=='R$' else ((needed|int)|string + ' ' + g['unit']) }}</b> · Falta: <b>{{ money([remaining,0]|max) if g['unit']=='R$' else ((([remaining,0]|max)|int)|string + ' ' + g['unit']) }}</b></small>
