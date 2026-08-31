@@ -4,16 +4,16 @@
 <section class="hero admin-hero hierarchy-hero">
   <div>
     <h1>Painel da Hierarquia</h1>
-    <div class="hero-kicker"><span class="hero-chip">{{ stats.users }} membros</span><span class="hero-chip">{{ stats.pending }} revisões pendentes</span>{% if cycle %}<span class="hero-chip">Meta ativa: {{ cycle['title'] }}</span>{% endif %}</div>
+    <div class="hero-kicker"><span class="hero-chip"><span id="liveMembersHero">{{ stats.users }}</span> membros</span><span class="hero-chip">{{ stats.pending }} revisões pendentes</span>{% if cycle %}<span class="hero-chip">Meta ativa: {{ cycle['title'] }}</span>{% endif %}</div>
   </div>
   <a class="btn primary" href="{{ url_for('admin_members') }}">Abrir membros →</a>
 </section>
 
 <section class="stats">
-  <div><strong>{{ stats.users }}</strong><span>MEMBROS APROVADOS</span></div>
-  <div><strong class="yellow">{{ stats.pending_users }}</strong><span>CADASTROS PENDENTES</span></div>
-  <div><strong class="yellow">{{ stats.pending }}</strong><span>ENTREGAS EM ANÁLISE</span></div>
-  <div><strong class="green">{{ stats.approved }}</strong><span>ENTREGAS APROVADAS</span></div>
+  <div><strong id="liveMembersCount">{{ stats.users }}</strong><span>MEMBROS CADASTRADOS</span></div>
+  <div><strong class="yellow" id="livePendingUsers">{{ stats.pending_users }}</strong><span>CADASTROS PENDENTES</span></div>
+  <div><strong class="yellow" id="livePendingReviews">{{ stats.pending }}</strong><span>ENTREGAS EM ANÁLISE</span></div>
+  <div><strong class="green" id="liveApprovedReviews">{{ stats.approved }}</strong><span>ENTREGAS APROVADAS</span></div>
 </section>
 
 {% if cycle %}<section class="cycle-highlight active-goal-card"><div class="active-goal-copy"><span class="cycle-status-label">META ATIVA</span><strong class="cycle-status-title">{{ cycle['title'] }}</strong><small class="cycle-status-date">{{ cycle['start_date'] }} até {{ cycle['end_date'] }}</small></div><a class="btn ghost" href="{{ url_for('admin_cycle_detail', cycle_id=cycle['id']) }}">Gerenciar meta</a></section>{% endif %}
@@ -28,3 +28,26 @@
   </div>
 </section>
 {% endblock %}
+
+<script>
+(() => {
+  const updateLiveStats = async () => {
+    try {
+      const response = await fetch("{{ url_for('admin_live_stats') }}", {
+        cache: 'no-store',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      document.getElementById('liveMembersHero').textContent = data.registered_members;
+      document.getElementById('liveMembersCount').textContent = data.registered_members;
+      document.getElementById('livePendingUsers').textContent = data.pending_users;
+      document.getElementById('livePendingReviews').textContent = data.pending_reviews;
+      document.getElementById('liveApprovedReviews').textContent = data.approved_reviews;
+    } catch (_) {}
+  };
+  updateLiveStats();
+  setInterval(updateLiveStats, 30000);
+  window.addEventListener('focus', updateLiveStats);
+})();
+</script>

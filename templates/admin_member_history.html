@@ -159,9 +159,16 @@
         <button class="btn danger" type="submit" name="decision" value="rejected">✕ Recusar meta</button>
       </form>
       {% else %}
-      <div class="review-result">
-        <span>Observação do administrador</span>
-        <strong>{{ s['admin_note'] or '—' }}</strong>
+      <div class="review-result audit-review-result">
+        <div>
+          <span>Observação da revisão</span>
+          <strong>{{ s['admin_note'] or '—' }}</strong>
+        </div>
+        <div>
+          <span>{{ 'Aprovado por' if s['status']=='approved' else 'Recusado por' }}</span>
+          <strong>{{ s['reviewer_name'] or 'Usuário não identificado' }}</strong>
+          <small>{{ s['reviewed_at']|dt if s['reviewed_at'] else 'Data não registrada' }}</small>
+        </div>
       </div>
       {% endif %}
     </article>

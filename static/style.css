@@ -519,3 +519,86 @@ input,button,select,textarea{font-size:max(16px,1rem)}
 .progress-legend span{display:inline-flex;align-items:center;gap:6px}
 .legend-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
 .approved-dot{background:#62dda0}.pending-dot{background:#f1bb3d}
+
+
+/* ===== IRON V35 — progresso geral + auditoria ===== */
+.final-progress-card{
+  min-width:min(390px,100%);
+  padding:16px 18px;
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:18px;
+  background:rgba(255,255,255,.025);
+}
+.final-progress-top,.summary-progress-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px
+}
+.final-progress-top span,.summary-progress-head span{
+  color:var(--muted);font-size:.72rem;font-weight:800;letter-spacing:.08em
+}
+.final-progress-top strong,.summary-progress-head strong{
+  font-size:1.45rem;font-variant-numeric:tabular-nums
+}
+.final-progress-bar{height:12px!important}
+.final-progress-legend{margin-top:9px}
+.summary-progress-wide{min-width:0}
+.compact-progress-legend{gap:10px;margin-top:6px;font-size:.67rem}
+.audit-inline{
+  display:block;margin-top:4px;color:var(--muted);font-size:.68rem;font-weight:500
+}
+.audit-small{
+  display:block;margin-top:5px;color:var(--muted);font-size:.7rem;line-height:1.35
+}
+.audit-review-result{
+  display:grid!important;
+  grid-template-columns:1fr 1fr;
+  gap:10px
+}
+.audit-review-result>div{
+  padding:11px;border-radius:11px;background:rgba(255,255,255,.025)
+}
+.audit-review-result span{
+  display:block;color:var(--muted);font-size:.7rem;margin-bottom:4px
+}
+.audit-review-result small{
+  display:block;color:var(--muted);font-size:.68rem;margin-top:4px
+}
+@media(max-width:760px){
+  .final-progress-card{width:100%;min-width:0}
+  .audit-review-result{grid-template-columns:1fr}
+}
+
+
+/* ===== IRON V36 — alerta visual de membro aguardando revisão ===== */
+.member-folder{position:relative}
+.member-folder.member-needs-review{
+  border-color:rgba(255,72,72,.72)!important;
+  box-shadow:0 0 0 1px rgba(255,72,72,.14),0 0 24px rgba(255,45,45,.08);
+}
+.review-alert-badge{
+  position:absolute;
+  top:-9px;
+  right:-9px;
+  z-index:3;
+  width:29px;
+  height:29px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:50%;
+  background:#e53935;
+  color:#fff;
+  border:3px solid #111;
+  box-shadow:0 4px 15px rgba(229,57,53,.4);
+  font-size:1rem;
+  line-height:1;
+  font-weight:950;
+}
+.review-needed-status{
+  background:rgba(229,57,53,.13)!important;
+  border-color:rgba(255,75,75,.35)!important;
+  color:#ff7777!important;
+  font-weight:850;
+}
+@media(max-width:700px){
+  .review-alert-badge{top:-7px;right:-5px}
+}

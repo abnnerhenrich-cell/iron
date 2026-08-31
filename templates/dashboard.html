@@ -7,9 +7,18 @@
     <h1>Olá, {{ current_user['name'].split(' ')[0] }}.</h1>
     {% if cycle %}<div class="hero-kicker"><span class="hero-chip">◉ {{ cycle['title'] }}</span><span class="hero-chip">{{ cycle['start_date'] }} → {{ cycle['end_date'] }}</span></div>{% endif %}
   </div>
-  <div class="hero-side">
-    <div class="progress-orb" style="--progress: {{ overall_activity if cycle else 0 }}">
-      <div class="progress-orb-content"><strong>{{ overall_activity if cycle else 0 }}%</strong><span>APROVADO + EM ANÁLISE</span></div>
+  <div class="hero-side final-progress-card">
+    <div class="final-progress-top">
+      <span>PROGRESSO GERAL</span>
+      <strong>{{ overall_activity if cycle else 0 }}%</strong>
+    </div>
+    <div class="progress progress-review final-progress-bar">
+      <i class="progress-approved" style="width:{{ overall_approved_pct if cycle else 0 }}%"></i>
+      <i class="progress-pending" style="width:{{ overall_pending_pct if cycle else 0 }}%; left:{{ overall_approved_pct if cycle else 0 }}%"></i>
+    </div>
+    <div class="progress-legend final-progress-legend">
+      <span><b class="legend-dot approved-dot"></b>Aprovado {{ overall_approved_pct if cycle else 0 }}%</span>
+      <span><b class="legend-dot pending-dot"></b>Em análise {{ overall_pending_pct if cycle else 0 }}%</span>
     </div>
   </div>
 </section>
@@ -68,7 +77,7 @@
 <section class="panel">
   <div class="panel-head"><div><span class="eyebrow">ATIVIDADE RECENTE</span><h2>Últimas entregas</h2><p>Um resumo rápido das suas atualizações mais recentes.</p></div><a href="{{ url_for('history') }}">Ver histórico completo →</a></div>
   <div class="table-wrap"><table><thead><tr><th>Meta</th><th>Valor</th><th>Status</th><th>Enviado em</th></tr></thead><tbody>
-    {% for s in history %}<tr><td><strong>{{ s['goal_title'] }}</strong></td><td>{{ money(s['amount']) if s['unit']=='R$' else (s['amount']|int|string + ' ' + s['unit']) }}</td><td><span class="status {{ s['status'] }}">{{ {'approved':'Aprovada','pending':'Em análise','rejected':'Recusada'}.get(s['status'], s['status']) }}</span></td><td>{{ s['created_at'].strftime('%d/%m/%Y %H:%M') if s['created_at'] else '—' }}</td></tr>{% else %}<tr><td colspan="4" class="muted">Nenhuma entrega ainda. Use “Nova entrega” para começar.</td></tr>{% endfor %}
+    {% for s in history %}<tr><td><strong>{{ s['goal_title'] }}</strong></td><td>{{ money(s['amount']) if s['unit']=='R$' else (s['amount']|int|string + ' ' + s['unit']) }}</td><td><span class="status {{ s['status'] }}">{{ {'approved':'Aprovada','pending':'Em análise','rejected':'Recusada'}.get(s['status'], s['status']) }}</span>{% if s['status']!='pending' and s.get('reviewer_name') %}<small class="audit-inline">por {{ s['reviewer_name'] }}</small>{% endif %}</td><td>{{ s['created_at'].strftime('%d/%m/%Y %H:%M') if s['created_at'] else '—' }}</td></tr>{% else %}<tr><td colspan="4" class="muted">Nenhuma entrega ainda. Use “Nova entrega” para começar.</td></tr>{% endfor %}
   </tbody></table></div>
 </section>
 {% endblock %}
