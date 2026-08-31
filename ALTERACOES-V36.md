@@ -1,9 +1,19 @@
-# IRON V36 — Alerta de revisão por membro
+# IRON V36 — Metas personalizadas por catálogo de materiais
 
-- Membro com qualquer quantidade Em análise recebe:
-  - círculo vermelho com ! no card;
-  - borda vermelha discreta;
-  - selo “! PRECISA DE REVISÃO”.
-- O alerta usa os dados atuais do banco.
-- Quando não existir mais nenhuma entrega Em análise para o membro, o alerta desaparece automaticamente ao atualizar/abrir a lista.
-- Aprovação e recusa removem a pendência, portanto ambas retiram o alerta quando forem a última revisão pendente.
+A criação de metas individuais deixou de permitir nome, ícone ou unidade livres.
+
+Agora existe um catálogo fixo:
+- Plástico 🧴
+- Borracha 🛞
+- Vidro 🪟
+- Cobre 🔶
+- Alumínio 🥫
+- Chapa de Metal 🔩
+- Placa de Trânsito 🚸
+- Lona 🧵
+- Dinheiro Sujo ou Limpo 💵
+
+O administrador apenas informa a quantidade de cada material desejado.
+Materiais com quantidade 0 ou vazia não são criados.
+Vários materiais podem ser criados em um único envio.
+Créditos positivos/negativos continuam sendo aplicados individualmente por material.

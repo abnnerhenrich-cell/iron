@@ -705,11 +705,39 @@ def profile_photo(user_id):
 def dashboard():
     user = get_current_user()
     cycle, goals = active_cycle_with_goals(user["id"])
-    total_target = sum(float(g.get("effective_target", g["target"])) for g in goals)
-    total_approved = sum(float(g["approved"]) for g in goals)
-    total_pending = sum(float(g["pending"]) for g in goals)
-    overall = min(100, round((total_approved / total_target) * 100)) if total_target else (100 if goals else 0)
-    overall_activity = min(100, round(((total_approved + total_pending) / total_target) * 100)) if total_target else (100 if goals else 0)
+
+    # Mesma regra usada no Admin:
+    # cada material tem o mesmo peso no percentual geral, independentemente
+    # de a meta ser 10, 100 ou 10.000 unidades.
+    total_target = 0.0
+    total_approved = 0.0
+    total_pending = 0.0
+    goal_progress_sum = 0.0
+    goal_pending_sum = 0.0
+    goal_count = len(goals)
+
+    for g in goals:
+        required = float(g.get("effective_target", g["target"]) or 0)
+        approved = float(g["approved"] or 0)
+        pending = float(g["pending"] or 0)
+
+        total_target += required
+        total_approved += approved
+        total_pending += pending
+
+        if required <= 0:
+            approved_ratio = 1.0
+            pending_ratio = 0.0
+        else:
+            approved_ratio = min(approved / required, 1.0)
+            pending_ratio = min(pending / required, max(1.0 - approved_ratio, 0.0))
+
+        goal_progress_sum += approved_ratio
+        goal_pending_sum += pending_ratio
+
+    overall = round((goal_progress_sum / goal_count) * 100) if goal_count else 0
+    overall_pending = round((goal_pending_sum / goal_count) * 100) if goal_count else 0
+    overall_activity = min(100, overall + overall_pending)
 
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -732,7 +760,16 @@ def dashboard():
             """, (user["id"],))
             counts = cur.fetchone()
 
-    return render_template("dashboard.html", cycle=cycle, goals=goals, overall=overall, overall_activity=overall_activity, history=history, counts=counts)
+    return render_template(
+        "dashboard.html",
+        cycle=cycle,
+        goals=goals,
+        overall=overall,
+        overall_pending=overall_pending,
+        overall_activity=overall_activity,
+        history=history,
+        counts=counts
+    )
 
 @app.route("/submit", methods=["GET", "POST"])
 @login_required
