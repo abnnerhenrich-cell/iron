@@ -1,6 +1,6 @@
-const CACHE = 'iron-v40';
+const CACHE = 'iron-v42';
 const SHELL = [
-  '/static/style.css?v=40.0.0',
+  '/static/style.css?v=42.0.0',
   '/static/icons/favicon-32.png',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
@@ -14,7 +14,7 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+    caches.keys().then(keys => Promise.all(keys.map(k => k === CACHE ? Promise.resolve() : caches.delete(k))))
   );
   self.clients.claim();
 });

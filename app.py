@@ -20,9 +20,12 @@ app.secret_key = os.environ.get("SECRET_KEY", "troque-esta-chave-no-vercel")
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 app.config.update(
+    # Novo nome elimina colisões com cookies antigos/corrompidos de versões anteriores.
+    SESSION_COOKIE_NAME="iron_session_v41",
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=bool(os.environ.get("VERCEL")),
+    SESSION_COOKIE_PATH="/",
     PERMANENT_SESSION_LIFETIME=timedelta(days=30),
     SESSION_REFRESH_EACH_REQUEST=True,
 )
@@ -348,8 +351,23 @@ def staff_required(fn):
 
 @app.before_request
 def restrict_manager_access():
-    """Gerente enxerga somente o núcleo operacional autorizado."""
-    if request.endpoint in {None, "static"}:
+    """Gerente enxerga somente o núcleo operacional autorizado.
+
+    Rotas públicas de autenticação jamais podem ser bloqueadas por uma sessão
+    antiga. Isso evita o 403 em /login que ocorria quando um Gerente ainda
+    possuía cookie válido no navegador.
+    """
+    public_endpoints = {
+        None,
+        "static",
+        "login",
+        "admin_login",
+        "register",
+        "logout",
+        "web_manifest",
+        "service_worker",
+    }
+    if request.endpoint in public_endpoints:
         return None
 
     user = get_current_user()
@@ -486,6 +504,11 @@ def index():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    # Se existir cookie antigo apontando para usuário inexistente, limpe a
+    # sessão em vez de deixar o navegador preso em um estado inválido.
+    if request.method == "GET" and session.get("uid") and not get_current_user():
+        session.clear()
+
     if request.method == "POST":
         validate_csrf()
         email = request.form.get("email", "").strip().lower()
@@ -519,6 +542,9 @@ def login():
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
+    if request.method == "GET" and session.get("uid") and not get_current_user():
+        session.clear()
+
     if request.method == "POST":
         validate_csrf()
         email = request.form.get("email", "").strip().lower()
