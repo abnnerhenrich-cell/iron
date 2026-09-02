@@ -11,6 +11,7 @@ from flask import (
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.exceptions import HTTPException
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 import psycopg
 from psycopg.rows import dict_row
@@ -363,6 +364,8 @@ def restrict_manager_access():
         "login",
         "admin_login",
         "register",
+        "forgot_password",
+        "reset_password",
         "logout",
         "web_manifest",
         "service_worker",
@@ -539,6 +542,99 @@ def login():
         return redirect(url_for("admin_dashboard" if user["role"] in {"admin","manager"} else "dashboard"))
 
     return render_template("login.html")
+
+
+def password_reset_serializer():
+    return URLSafeTimedSerializer(app.secret_key, salt="iron-password-reset-v43")
+
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    reset_link = None
+    email = ""
+    if request.method == "POST":
+        validate_csrf()
+        email = (request.form.get("email") or "").strip().lower()
+
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT id, email, active, approved
+                    FROM users
+                    WHERE LOWER(email)=%s AND role IN ('user','manager')
+                    LIMIT 1
+                """, (email,))
+                user = cur.fetchone()
+
+        # Resposta neutra evita revelar publicamente quais e-mails existem.
+        if user and user["active"] and user["approved"]:
+            token = password_reset_serializer().dumps({
+                "uid": user["id"],
+                "email": user["email"].lower(),
+            })
+            reset_link = url_for("reset_password", token=token, _external=True)
+            flash("Link de redefinição gerado. Ele expira em 30 minutos.", "success")
+        else:
+            flash("Se o e-mail estiver cadastrado e ativo, a recuperação poderá ser realizada.", "success")
+
+    return render_template("forgot_password.html", email=email, reset_link=reset_link)
+
+
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    try:
+        payload = password_reset_serializer().loads(token, max_age=1800)
+    except SignatureExpired:
+        flash("Este link de redefinição expirou. Gere um novo link.", "danger")
+        return redirect(url_for("forgot_password"))
+    except BadSignature:
+        flash("Link de redefinição inválido. Gere um novo link.", "danger")
+        return redirect(url_for("forgot_password"))
+
+    user_id = payload.get("uid")
+    token_email = (payload.get("email") or "").lower()
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, email, active, approved
+                FROM users
+                WHERE id=%s AND LOWER(email)=%s AND role IN ('user','manager')
+            """, (user_id, token_email))
+            user = cur.fetchone()
+
+    if not user or not user["active"] or not user["approved"]:
+        flash("Não foi possível redefinir a senha desta conta.", "danger")
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        validate_csrf()
+        password = request.form.get("password") or ""
+        confirm = request.form.get("confirm_password") or ""
+
+        if len(password) < 6:
+            flash("A nova senha precisa ter pelo menos 6 caracteres.", "danger")
+            return render_template("reset_password.html", token=token)
+
+        if password != confirm:
+            flash("As senhas não coincidem.", "danger")
+            return render_template("reset_password.html", token=token)
+
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE users SET password_hash=%s WHERE id=%s",
+                    (generate_password_hash(password), user_id)
+                )
+            conn.commit()
+
+        # A sessão atual também é encerrada para que o próximo acesso use a nova senha.
+        session.clear()
+        flash("Senha redefinida com sucesso. Entre usando sua nova senha.", "success")
+        return redirect(url_for("login"))
+
+    return render_template("reset_password.html", token=token)
+
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
