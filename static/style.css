@@ -614,3 +614,140 @@ input,button,select,textarea{font-size:max(16px,1rem)}
 .reset-link-box strong{display:block;margin-bottom:6px}
 .reset-link-box p{color:var(--muted);font-size:.8rem;line-height:1.45;margin:0 0 12px}
 .reset-link-box .btn{display:flex;text-decoration:none;justify-content:center}
+
+
+/* ===== IRON V44 — Login refinado ===== */
+.login-page{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:28px 18px;
+  font-family:Arial, Helvetica, sans-serif;
+}
+.login-page .login-card{
+  width:min(100%, 440px);
+  margin:auto;
+  padding:30px 32px 26px;
+  border-radius:22px;
+}
+.login-page .logo-box-art{
+  margin:0 auto 18px;
+  height:190px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.login-page .logo-box-art img{
+  max-width:210px;
+  max-height:180px;
+  width:auto;
+  height:auto;
+  object-fit:contain;
+}
+.login-page h1{
+  margin:0 0 6px;
+  font-family:Arial, Helvetica, sans-serif;
+  font-size:30px;
+  line-height:1.08;
+  font-weight:800;
+  letter-spacing:-.7px;
+}
+.login-page .muted{
+  margin:0 0 22px;
+  font-family:Arial, Helvetica, sans-serif;
+  font-size:13px;
+  line-height:1.45;
+}
+.login-page .feature-list{
+  display:grid;
+  gap:8px;
+  margin:0 0 20px;
+}
+.login-page .feature-list>div{
+  min-height:38px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:0 13px;
+  border-radius:11px;
+  font-family:Arial, Helvetica, sans-serif;
+  font-size:12px;
+}
+.login-page .stack{gap:13px}
+.login-page label{
+  font-family:Arial, Helvetica, sans-serif;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:0;
+}
+.login-page input{
+  margin-top:7px;
+  min-height:45px;
+  font-family:Arial, Helvetica, sans-serif;
+  font-size:13px;
+  font-weight:400;
+}
+.login-page .remember-device{
+  padding:11px 12px;
+  border-radius:11px;
+  font-family:Arial, Helvetica, sans-serif;
+}
+.login-page .remember-device strong{
+  font-family:Arial, Helvetica, sans-serif;
+  font-size:12px;
+  font-weight:700;
+}
+.login-page .remember-device small{
+  font-family:Arial, Helvetica, sans-serif;
+  font-size:10px;
+  font-weight:400;
+  line-height:1.4;
+}
+.login-page .btn{
+  min-height:47px;
+  border-radius:11px;
+  font-family:Arial, Helvetica, sans-serif;
+  font-size:13px;
+  font-weight:800;
+}
+.login-page .forgot-password-link{
+  margin:2px auto 0;
+  width:max-content;
+  max-width:100%;
+  font-family:Arial, Helvetica, sans-serif;
+  font-size:12px;
+  font-weight:600;
+  text-decoration:none;
+  opacity:.9;
+}
+.login-page .forgot-password-link:hover{text-decoration:underline}
+.login-page .tiny{
+  margin:14px 0 0;
+  text-align:center;
+  font-family:Arial, Helvetica, sans-serif;
+  font-size:10.5px;
+  line-height:1.5;
+}
+.login-page .tiny + .tiny{margin-top:8px}
+.login-page .eyebrow{
+  font-family:Arial, Helvetica, sans-serif;
+  font-size:10px;
+  letter-spacing:1.3px;
+}
+.login-page .reset-link-box,
+.login-page .reset-link-box *{
+  font-family:Arial, Helvetica, sans-serif;
+}
+@media(max-width:600px){
+  .login-page{padding:16px 12px;align-items:flex-start}
+  .login-page .login-card{padding:22px 20px 20px;border-radius:18px}
+  .login-page .logo-box-art{height:145px;margin-bottom:12px}
+  .login-page .logo-box-art img{max-width:175px;max-height:140px}
+  .login-page h1{font-size:25px}
+  .login-page .feature-list{margin-bottom:17px}
+}
+
+.login-page .field-label-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.login-page .field-label-row a{font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:600;text-decoration:none;opacity:.88}
+.login-page .field-label-row a:hover{text-decoration:underline}
