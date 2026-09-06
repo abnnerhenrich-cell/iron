@@ -751,3 +751,62 @@ input,button,select,textarea{font-size:max(16px,1rem)}
 .login-page .field-label-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .login-page .field-label-row a{font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:600;text-decoration:none;opacity:.88}
 .login-page .field-label-row a:hover{text-decoration:underline}
+
+
+/* ===== IRON V45 — notificações de novas metas ===== */
+.notification-badge{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:#f0f2f5;color:#07090d;font-size:10px;line-height:1;font-style:normal}
+.mobile-notification-link{position:relative}
+.mobile-notification-link b{position:absolute;top:-5px;right:-7px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:#f0f2f5;color:#07090d;display:flex;align-items:center;justify-content:center;font-size:9px}
+.bottom-notification-icon{position:relative}
+.bottom-notification-icon i{position:absolute;top:-8px;right:-12px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:#f0f2f5;color:#07090d;display:flex;align-items:center;justify-content:center;font-size:9px;font-style:normal}
+.new-notification-banner{display:flex;align-items:center;gap:13px;margin:0 0 18px;padding:14px 16px;border:1px solid rgba(255,255,255,.16);border-radius:15px;background:linear-gradient(135deg,rgba(255,255,255,.085),rgba(255,255,255,.025));text-decoration:none;color:inherit}
+.new-notification-banner:hover{border-color:rgba(255,255,255,.28)}
+.new-notification-banner-icon{width:36px;height:36px;flex:0 0 36px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:#f0f2f5;color:#07090d;font-size:20px}
+.new-notification-banner div{display:flex;flex-direction:column;gap:2px;flex:1}
+.new-notification-banner strong{font-size:13px}
+.new-notification-banner small{color:var(--muted);font-size:11px}
+.notifications-hero{align-items:center}
+.notification-panel{padding:14px}
+.notification-list{display:grid;gap:10px}
+.notification-item{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;padding:15px 16px;border:1px solid rgba(255,255,255,.09);border-radius:15px;background:rgba(255,255,255,.018)}
+.notification-item.is-unread{border-color:rgba(255,255,255,.22);background:rgba(255,255,255,.055)}
+.notification-symbol{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.07);font-size:20px}
+.notification-item.is-unread .notification-symbol{background:#f0f2f5;color:#07090d}
+.notification-copy{min-width:0}
+.notification-title-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.notification-title-row strong{font-size:14px}
+.notification-new{font-size:9px;font-weight:800;letter-spacing:.7px;padding:3px 6px;border-radius:999px;background:#f0f2f5;color:#07090d}
+.notification-copy p{margin:5px 0 6px;color:var(--muted);font-size:12px;line-height:1.5}
+.notification-copy small{font-size:10px;color:var(--muted)}
+.notification-empty{padding:32px 20px;text-align:center}
+@media(max-width:720px){
+  .notification-item{grid-template-columns:auto 1fr;align-items:start}
+  .notification-item form{grid-column:1/-1}
+  .notification-item form .btn{width:100%}
+  .notifications-hero{align-items:flex-start}
+  .notifications-hero form{width:100%}
+  .notifications-hero form .btn{width:100%}
+}
+
+
+/* ===== IRON V46 — Web Push no celular ===== */
+.push-permission-toast{
+  position:fixed;right:22px;bottom:22px;z-index:1200;
+  width:min(460px,calc(100vw - 32px));display:grid;
+  grid-template-columns:auto 1fr auto auto;align-items:center;gap:12px;
+  padding:14px;border:1px solid rgba(255,255,255,.18);border-radius:16px;
+  background:rgba(12,15,20,.97);box-shadow:0 18px 55px rgba(0,0,0,.45);
+  backdrop-filter:blur(18px)
+}
+.push-permission-toast[hidden]{display:none!important}
+.push-permission-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:#f0f2f5;color:#07090d;font-size:21px}
+.push-permission-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
+.push-permission-copy strong{font-size:13px}
+.push-permission-copy small{font-size:10.5px;color:var(--muted);line-height:1.4}
+.push-permission-toast .btn{min-height:38px;padding:0 14px}
+.push-permission-close{width:30px;height:30px;border:0;background:transparent;color:var(--muted);font-size:20px;cursor:pointer}
+@media(max-width:720px){
+  .push-permission-toast{right:12px;left:12px;bottom:78px;width:auto;grid-template-columns:auto 1fr auto}
+  .push-permission-toast .btn{grid-column:1/-1;width:100%}
+  .push-permission-close{position:absolute;top:7px;right:7px}
+}

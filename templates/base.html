@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#07090d">
   <meta name="color-scheme" content="dark">
+  {% if current_user %}<meta name="csrf-token" content="{{ csrf_token() }}">{% endif %}
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,9 +15,9 @@
   <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v=9">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=9">
   <link rel="manifest" href="/manifest.webmanifest?v=9">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=44.0.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=46.0.0">
 </head>
-{% set member_mode = request.endpoint in ['dashboard','submit','history','member_home','calculator','calculator_app'] %}
+{% set member_mode = request.endpoint in ['dashboard','submit','history','notifications','notification_mark_read','notifications_mark_all_read','member_home','calculator','calculator_app'] %}
 <body class="{{ 'is-auth' if current_user else 'is-guest' }} {{ 'is-member-mode' if member_mode else 'is-admin-mode' }}">
   {% if current_user %}
   <aside class="app-sidebar">
@@ -44,6 +45,7 @@
         <a class="{{ 'active' if request.endpoint=='dashboard' }}" href="{{ url_for('dashboard') }}"><span class="nav-ico">⌂</span><span>Meu progresso</span></a>
         <a class="{{ 'active' if request.endpoint=='submit' }}" href="{{ url_for('submit') }}"><span class="nav-ico">＋</span><span>Nova entrega</span></a>
         <a class="{{ 'active' if request.endpoint=='history' }}" href="{{ url_for('history') }}"><span class="nav-ico">◔</span><span>Histórico</span></a>
+        <a class="{{ 'active' if request.endpoint in ['notifications','notification_mark_read','notifications_mark_all_read'] }}" href="{{ url_for('notifications') }}"><span class="nav-ico">♢</span><span>Notificações</span>{% if unread_notifications %}<b class="notification-badge">{{ unread_notifications if unread_notifications < 100 else '99+' }}</b>{% endif %}</a>
         <a class="{{ 'active' if request.endpoint in ['calculator','calculator_app'] }}" href="{{ url_for('calculator') }}"><span class="nav-ico">⌗</span><span>Calculadora</span></a>
       {% endif %}
     </nav>
@@ -72,6 +74,7 @@
   <header class="mobile-topbar">
     <a class="mobile-brand" href="{{ url_for('admin_dashboard' if current_user['role'] in ['admin','manager'] and not member_mode else 'dashboard') }}"><img class="brand-logo" src="{{ url_for('static', filename='iron-logo.png') }}?v=9" alt="IRON Brotherhood"><strong>IRON</strong></a>
     <div class="mobile-top-actions">
+      {% if member_mode %}<a class="mobile-notification-link" href="{{ url_for('notifications') }}" aria-label="Notificações" title="Notificações">♢{% if unread_notifications %}<b>{{ unread_notifications if unread_notifications < 100 else '99+' }}</b>{% endif %}</a>{% endif %}
       <button class="mobile-install js-install-app" type="button" aria-label="Instalar IRON" title="Instalar IRON">↓</button>
       {% if current_user['role'] in ['admin','manager'] %}<a href="{{ url_for('admin_dashboard' if member_mode else 'dashboard') }}">⇄</a>{% endif %}
       <a href="{{ url_for('logout') }}">↗</a>
@@ -88,6 +91,17 @@
       {% endif %}
     {% endwith %}
     {% block content %}{% endblock %}
+    {% if current_user and member_mode %}
+    <div class="push-permission-toast" id="pushPermissionToast" hidden>
+      <div class="push-permission-icon">◇</div>
+      <div class="push-permission-copy">
+        <strong>Receber avisos no celular</strong>
+        <small>Ative para ser avisado quando uma nova meta for lançada, mesmo com o IRON fechado.</small>
+      </div>
+      <button class="btn primary" id="enablePushButton" type="button">Ativar</button>
+      <button class="push-permission-close" id="dismissPushButton" type="button" aria-label="Agora não">×</button>
+    </div>
+    {% endif %}
   </main>
 
   {% if not current_user %}
@@ -111,7 +125,7 @@
       <a class="{{ 'active' if request.endpoint=='dashboard' }}" href="{{ url_for('dashboard') }}"><b>⌂</b><span>Início</span></a>
       <a class="{{ 'active' if request.endpoint=='submit' }}" href="{{ url_for('submit') }}"><b>＋</b><span>Entregar</span></a>
       <a class="{{ 'active' if request.endpoint=='history' }}" href="{{ url_for('history') }}"><b>◔</b><span>Histórico</span></a>
-      <a class="{{ 'active' if request.endpoint in ['calculator','calculator_app'] }}" href="{{ url_for('calculator') }}"><b>⌗</b><span>Calcular</span></a>
+      <a class="{{ 'active' if request.endpoint in ['notifications','notification_mark_read','notifications_mark_all_read'] }}" href="{{ url_for('notifications') }}"><b class="bottom-notification-icon">♢{% if unread_notifications %}<i>{{ unread_notifications if unread_notifications < 100 else '99+' }}</i>{% endif %}</b><span>Avisos</span></a>
     {% endif %}
   </nav>
   {% endif %}
@@ -145,7 +159,7 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {
         try {
-          const registration = await navigator.serviceWorker.register('/service-worker.js?v=44', { updateViaCache: 'none' });
+          const registration = await navigator.serviceWorker.register('/service-worker.js?v=46', { updateViaCache: 'none' });
           await registration.update();
         } catch (_) {}
       });
@@ -201,5 +215,114 @@
     });
   })();
   </script>
+  {% if current_user and member_mode %}
+  <script>
+  (() => {
+    const toast = document.getElementById('pushPermissionToast');
+    const enableBtn = document.getElementById('enablePushButton');
+    const dismissBtn = document.getElementById('dismissPushButton');
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    const b64ToUint8 = value => {
+      const padding = '='.repeat((4 - value.length % 4) % 4);
+      const normalized = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const raw = atob(normalized);
+      return Uint8Array.from([...raw].map(ch => ch.charCodeAt(0)));
+    };
+
+    async function saveSubscription(subscription) {
+      const json = subscription.toJSON();
+      const response = await fetch('/push/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrf
+        },
+        body: JSON.stringify(json),
+        credentials: 'same-origin'
+      });
+      if (!response.ok) throw new Error('Falha ao salvar inscrição');
+    }
+
+    async function activatePush() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+        alert('Este navegador não oferece suporte a notificações push.');
+        return;
+      }
+
+      // No iPhone/iPad, Web Push funciona de forma confiável no app instalado na Tela de Início.
+      const isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+      if (isiOS && !standalone) {
+        alert('No iPhone/iPad, primeiro instale o IRON na Tela de Início pelo Safari. Depois abra o app instalado e ative as notificações.');
+        return;
+      }
+
+      try {
+        enableBtn.disabled = true;
+        enableBtn.textContent = 'Ativando…';
+
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          toast.hidden = true;
+          return;
+        }
+
+        const registration = await navigator.serviceWorker.ready;
+        let subscription = await registration.pushManager.getSubscription();
+
+        if (!subscription) {
+          const cfg = await fetch('/push/config', { credentials: 'same-origin' }).then(r => {
+            if (!r.ok) throw new Error('Falha ao carregar chave push');
+            return r.json();
+          });
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: b64ToUint8(cfg.publicKey)
+          });
+        }
+
+        await saveSubscription(subscription);
+        localStorage.setItem('iron_push_enabled', '1');
+        toast.hidden = true;
+      } catch (error) {
+        console.error(error);
+        alert('Não foi possível ativar as notificações neste dispositivo. Tente novamente.');
+      } finally {
+        enableBtn.disabled = false;
+        enableBtn.textContent = 'Ativar';
+      }
+    }
+
+    async function syncExistingSubscription() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
+      if (Notification.permission === 'granted') {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          const subscription = await registration.pushManager.getSubscription();
+          if (subscription) {
+            await saveSubscription(subscription);
+            localStorage.setItem('iron_push_enabled', '1');
+            toast.hidden = true;
+            return;
+          }
+        } catch (_) {}
+      }
+
+      if (Notification.permission === 'default' && localStorage.getItem('iron_push_dismissed') !== '1') {
+        toast.hidden = false;
+      }
+    }
+
+    enableBtn?.addEventListener('click', activatePush);
+    dismissBtn?.addEventListener('click', () => {
+      localStorage.setItem('iron_push_dismissed', '1');
+      toast.hidden = true;
+    });
+
+    window.addEventListener('load', () => setTimeout(syncExistingSubscription, 900));
+  })();
+  </script>
+  {% endif %}
 </body>
 </html>

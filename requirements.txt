@@ -1,2 +1,4 @@
 Flask==3.0.3
 psycopg[binary]==3.2.9
+
+pywebpush==2.5.0

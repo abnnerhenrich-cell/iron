@@ -1,6 +1,9 @@
 import os
 import secrets
 import re
+import json
+import base64
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, timedelta
 from functools import wraps
 from io import BytesIO
@@ -11,6 +14,9 @@ from flask import (
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.exceptions import HTTPException
+from pywebpush import webpush, WebPushException
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import serialization
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 import psycopg
@@ -90,6 +96,50 @@ def init_db():
             cur.execute("""
                 ALTER TABLE users
                 ADD COLUMN IF NOT EXISTS approved BOOLEAN NOT NULL DEFAULT FALSE
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS member_notifications (
+                    id BIGSERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    title TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    link TEXT,
+                    notification_key TEXT,
+                    read_at TIMESTAMPTZ,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_member_notifications_user_key
+                ON member_notifications(user_id, notification_key)
+                WHERE notification_key IS NOT NULL
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS ix_member_notifications_user_unread
+                ON member_notifications(user_id, read_at, created_at DESC)
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS app_settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS push_subscriptions (
+                    id BIGSERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    endpoint TEXT NOT NULL UNIQUE,
+                    p256dh TEXT NOT NULL,
+                    auth TEXT NOT NULL,
+                    user_agent TEXT,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS ix_push_subscriptions_user
+                ON push_subscriptions(user_id)
             """)
             # Bancos antigos possuem CHECK apenas para user/admin.
             cur.execute("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check")
@@ -297,6 +347,206 @@ def request_too_large(_error):
     )
     return redirect(request.referrer or url_for("submit"))
 
+def _b64url(data):
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+def get_or_create_vapid_keys():
+    """Mantém um único par VAPID no Neon, evitando segredo no GitHub/Vercel."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT key, value
+                FROM app_settings
+                WHERE key IN ('vapid_private_pem','vapid_public_key')
+            """)
+            existing = {row["key"]: row["value"] for row in cur.fetchall()}
+
+            if existing.get("vapid_private_pem") and existing.get("vapid_public_key"):
+                return existing["vapid_private_pem"], existing["vapid_public_key"]
+
+            private_key = ec.generate_private_key(ec.SECP256R1())
+            private_pem = private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption(),
+            ).decode("utf-8")
+
+            public_numbers = private_key.public_key().public_numbers()
+            public_bytes = (
+                b"\\x04"
+                + public_numbers.x.to_bytes(32, "big")
+                + public_numbers.y.to_bytes(32, "big")
+            )
+            public_key = _b64url(public_bytes)
+
+            cur.execute("""
+                INSERT INTO app_settings(key,value)
+                VALUES ('vapid_private_pem',%s)
+                ON CONFLICT(key) DO NOTHING
+            """, (private_pem,))
+            cur.execute("""
+                INSERT INTO app_settings(key,value)
+                VALUES ('vapid_public_key',%s)
+                ON CONFLICT(key) DO NOTHING
+            """, (public_key,))
+        conn.commit()
+
+    # Releitura evita condição de corrida em deploy serverless.
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT key, value FROM app_settings
+                WHERE key IN ('vapid_private_pem','vapid_public_key')
+            """)
+            final = {row["key"]: row["value"] for row in cur.fetchall()}
+    return final["vapid_private_pem"], final["vapid_public_key"]
+
+
+def _push_payload(title, message, link=None):
+    return json.dumps({
+        "title": title,
+        "body": message,
+        "url": link or "/dashboard",
+        "icon": "/static/icons/icon-192.png",
+        "badge": "/static/icons/favicon-32.png",
+        "tag": "iron-meta",
+    }, ensure_ascii=False)
+
+
+def _send_one_push(subscription, payload, private_key):
+    try:
+        webpush(
+            subscription_info={
+                "endpoint": subscription["endpoint"],
+                "keys": {
+                    "p256dh": subscription["p256dh"],
+                    "auth": subscription["auth"],
+                },
+            },
+            data=payload,
+            vapid_private_key=private_key,
+            vapid_claims={"sub": "mailto:iron@localhost"},
+            ttl=3600,
+        )
+        return subscription["endpoint"], True
+    except WebPushException as exc:
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        # 404/410 = inscrição expirada/removida pelo navegador.
+        return subscription["endpoint"], False if status in {404, 410} else None
+    except Exception:
+        app.logger.exception("Falha inesperada ao enviar Web Push")
+        return subscription["endpoint"], None
+
+
+def send_push_to_subscriptions(subscriptions, title, message, link=None):
+    if not subscriptions:
+        return 0
+    private_key, _ = get_or_create_vapid_keys()
+    payload = _push_payload(title, message, link)
+    expired = []
+    sent = 0
+
+    with ThreadPoolExecutor(max_workers=min(8, max(1, len(subscriptions)))) as pool:
+        futures = [pool.submit(_send_one_push, sub, payload, private_key) for sub in subscriptions]
+        for future in as_completed(futures):
+            endpoint, result = future.result()
+            if result is True:
+                sent += 1
+            elif result is False:
+                expired.append(endpoint)
+
+    if expired:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM push_subscriptions WHERE endpoint = ANY(%s)", (expired,))
+            conn.commit()
+    return sent
+
+
+def send_push_to_user(user_id, title, message, link=None):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT endpoint, p256dh, auth
+                FROM push_subscriptions
+                WHERE user_id=%s
+            """, (user_id,))
+            subscriptions = cur.fetchall()
+    return send_push_to_subscriptions(subscriptions, title, message, link)
+
+
+def send_push_to_all_members(title, message, link=None):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT ps.endpoint, ps.p256dh, ps.auth
+                FROM push_subscriptions ps
+                JOIN users u ON u.id=ps.user_id
+                WHERE u.active=TRUE
+                  AND u.approved=TRUE
+                  AND u.role IN ('user','manager')
+            """)
+            subscriptions = cur.fetchall()
+    return send_push_to_subscriptions(subscriptions, title, message, link)
+
+
+def create_member_notification(cur, user_id, title, message, link=None, notification_key=None):
+    """Cria notificação interna sem duplicar a mesma chave para o mesmo membro."""
+    cur.execute("""
+        INSERT INTO member_notifications (user_id, title, message, link, notification_key)
+        VALUES (%s,%s,%s,%s,%s)
+        ON CONFLICT (user_id, notification_key)
+        WHERE notification_key IS NOT NULL
+        DO NOTHING
+    """, (user_id, title, message, link, notification_key))
+
+
+def create_notification_for_all_members(cur, title, message, link=None, notification_key_prefix=None):
+    """Cria uma notificação para todos os membros/gerentes ativos e aprovados."""
+    cur.execute("""
+        INSERT INTO member_notifications (user_id, title, message, link, notification_key)
+        SELECT
+            u.id,
+            %s,
+            %s,
+            %s,
+            CASE WHEN %s IS NULL THEN NULL ELSE %s || ':' || u.id::text END
+        FROM users u
+        WHERE u.approved=TRUE
+          AND u.active=TRUE
+          AND u.role IN ('user','manager')
+        ON CONFLICT (user_id, notification_key)
+        WHERE notification_key IS NOT NULL
+        DO NOTHING
+    """, (title, message, link, notification_key_prefix, notification_key_prefix))
+
+
+def get_member_notifications(user_id, limit=20):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT *
+                FROM member_notifications
+                WHERE user_id=%s
+                ORDER BY (read_at IS NULL) DESC, created_at DESC, id DESC
+                LIMIT %s
+            """, (user_id, limit))
+            return cur.fetchall()
+
+
+def get_unread_notification_count(user_id):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT COUNT(*) AS total
+                FROM member_notifications
+                WHERE user_id=%s AND read_at IS NULL
+            """, (user_id,))
+            row = cur.fetchone()
+            return int(row["total"] or 0)
+
+
 def csrf_token():
     if "_csrf" not in session:
         session["_csrf"] = secrets.token_urlsafe(24)
@@ -387,6 +637,12 @@ def restrict_manager_access():
         "dashboard",
         "submit",
         "history",
+        "notifications",
+        "notification_mark_read",
+        "notifications_mark_all_read",
+        "push_config",
+        "push_subscribe",
+        "push_unsubscribe",
         "profile_photo",
         "profile_photo_upload",
         "profile_photo_remove",
@@ -443,12 +699,17 @@ def format_datetime(value):
 
 @app.context_processor
 def inject_globals():
+    user = get_current_user()
+    unread_notifications = 0
+    if user and user["role"] in {"user", "manager"}:
+        unread_notifications = get_unread_notification_count(user["id"])
     return {
-        "current_user": get_current_user(),
+        "current_user": user,
         "csrf_token": csrf_token,
         "money": money,
         "material_image": material_image,
         "today": date.today(),
+        "unread_notifications": unread_notifications,
     }
 
 def active_cycle_with_goals(user_id=None, open_only=False):
@@ -724,6 +985,118 @@ def register():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+@app.get("/push/config")
+@login_required
+def push_config():
+    _, public_key = get_or_create_vapid_keys()
+    return {
+        "publicKey": public_key,
+        "supported": True,
+    }
+
+
+@app.post("/push/subscribe")
+@login_required
+def push_subscribe():
+    if request.headers.get("X-CSRF-Token") != session.get("_csrf"):
+        abort(400, "Token CSRF inválido.")
+
+    data = request.get_json(silent=True) or {}
+    endpoint = (data.get("endpoint") or "").strip()
+    keys = data.get("keys") or {}
+    p256dh = (keys.get("p256dh") or "").strip()
+    auth = (keys.get("auth") or "").strip()
+    if not endpoint or not p256dh or not auth:
+        abort(400, "Inscrição push inválida.")
+
+    user = get_current_user()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO push_subscriptions(
+                    user_id, endpoint, p256dh, auth, user_agent, updated_at
+                )
+                VALUES(%s,%s,%s,%s,%s,NOW())
+                ON CONFLICT(endpoint)
+                DO UPDATE SET
+                    user_id=EXCLUDED.user_id,
+                    p256dh=EXCLUDED.p256dh,
+                    auth=EXCLUDED.auth,
+                    user_agent=EXCLUDED.user_agent,
+                    updated_at=NOW()
+            """, (
+                user["id"], endpoint, p256dh, auth,
+                (request.headers.get("User-Agent") or "")[:500],
+            ))
+        conn.commit()
+
+    return {"ok": True}
+
+
+@app.post("/push/unsubscribe")
+@login_required
+def push_unsubscribe():
+    if request.headers.get("X-CSRF-Token") != session.get("_csrf"):
+        abort(400, "Token CSRF inválido.")
+
+    data = request.get_json(silent=True) or {}
+    endpoint = (data.get("endpoint") or "").strip()
+    user = get_current_user()
+    if endpoint:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    DELETE FROM push_subscriptions
+                    WHERE endpoint=%s AND user_id=%s
+                """, (endpoint, user["id"]))
+            conn.commit()
+    return {"ok": True}
+
+
+@app.route("/notifications")
+@login_required
+def notifications():
+    user = get_current_user()
+    items = get_member_notifications(user["id"], limit=100)
+    return render_template("notifications.html", notifications=items)
+
+
+@app.post("/notifications/<int:notification_id>/read")
+@login_required
+def notification_mark_read(notification_id):
+    validate_csrf()
+    user = get_current_user()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE member_notifications
+                SET read_at=COALESCE(read_at, NOW())
+                WHERE id=%s AND user_id=%s
+                RETURNING link
+            """, (notification_id, user["id"]))
+            row = cur.fetchone()
+        conn.commit()
+    if row and row["link"]:
+        return redirect(row["link"])
+    return redirect(url_for("notifications"))
+
+
+@app.post("/notifications/read-all")
+@login_required
+def notifications_mark_all_read():
+    validate_csrf()
+    user = get_current_user()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                UPDATE member_notifications
+                SET read_at=NOW()
+                WHERE user_id=%s AND read_at IS NULL
+            """, (user["id"],))
+        conn.commit()
+    return redirect(url_for("notifications"))
+
 
 @app.route("/member")
 @login_required
@@ -1176,8 +1549,23 @@ def admin_cycles():
                         VALUES(%s,%s,%s,%s) RETURNING id
                     """, (title, start_date, end_date, active))
                     cycle_id = cur.fetchone()["id"]
+                    create_notification_for_all_members(
+                        cur,
+                        "Nova meta lançada",
+                        f"A meta “{title}” foi lançada. Abra o IRON para conferir suas metas e acompanhar seu progresso.",
+                        url_for("dashboard"),
+                        f"cycle:{cycle_id}:launched",
+                    )
                 conn.commit()
-            flash("Meta criada e ativada automaticamente.", "success")
+            try:
+                send_push_to_all_members(
+                    "Nova meta lançada",
+                    f"A meta “{title}” foi lançada no IRON. Toque para conferir.",
+                    url_for("dashboard", _external=True),
+                )
+            except Exception:
+                app.logger.exception("Falha ao disparar push da nova meta")
+            flash("Meta criada, ativada e notificação enviada aos membros.", "success")
             return redirect(url_for("admin_cycle_detail", cycle_id=cycle_id))
 
     with get_conn() as conn:
@@ -1734,7 +2122,26 @@ def admin_member_goals(user_id):
 
                         created.append(material["title"])
 
+                    if created:
+                        create_member_notification(
+                            cur,
+                            user_id,
+                            "Suas metas foram atualizadas",
+                            f"{len(created)} nova(s) meta(s) foram adicionadas em “{cycle['title']}”: " + ", ".join(created) + ".",
+                            url_for("dashboard"),
+                            f"goals:{cycle['id']}:{user_id}:" + "-".join(sorted(created)),
+                        )
+
                     conn.commit()
+                    try:
+                        send_push_to_user(
+                            user_id,
+                            "Suas metas foram atualizadas",
+                            f"{len(created)} nova(s) meta(s) foram adicionadas em “{cycle['title']}”. Toque para conferir.",
+                            url_for("dashboard", _external=True),
+                        )
+                    except Exception:
+                        app.logger.exception("Falha ao disparar push para user_id=%s", user_id)
                 except Exception:
                     conn.rollback()
                     app.logger.exception("Erro ao criar metas padronizadas: user_id=%s cycle_id=%s", user_id, cycle["id"])

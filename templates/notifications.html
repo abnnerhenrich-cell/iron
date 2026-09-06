@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Notificações · IRON{% endblock %}
+{% block content %}
+<section class="hero notifications-hero">
+  <div class="hero-copy">
+    <span class="eyebrow">CENTRAL DE AVISOS</span>
+    <h1>Notificações</h1>
+    <p>Novas metas e atualizações importantes aparecem aqui.</p>
+  </div>
+  {% if unread_notifications %}
+  <form method="post" action="{{ url_for('notifications_mark_all_read') }}">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <button class="btn ghost" type="submit">Marcar todas como lidas</button>
+  </form>
+  {% endif %}
+</section>
+
+<section class="panel notification-panel">
+  <div class="notification-list">
+    {% for n in notifications %}
+    <article class="notification-item {{ 'is-unread' if not n['read_at'] else '' }}">
+      <div class="notification-symbol">◇</div>
+      <div class="notification-copy">
+        <div class="notification-title-row">
+          <strong>{{ n['title'] }}</strong>
+          {% if not n['read_at'] %}<span class="notification-new">NOVO</span>{% endif %}
+        </div>
+        <p>{{ n['message'] }}</p>
+        <small>{{ n['created_at'].strftime('%d/%m/%Y %H:%M') if n['created_at'] else '' }}</small>
+      </div>
+      {% if n['link'] or not n['read_at'] %}
+      <form method="post" action="{{ url_for('notification_mark_read', notification_id=n['id']) }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button class="btn {{ 'primary' if not n['read_at'] else 'ghost' }}" type="submit">{{ 'Abrir' if n['link'] else 'Marcar lida' }}</button>
+      </form>
+      {% endif %}
+    </article>
+    {% else %}
+    <div class="empty notification-empty"><h2>Nenhuma notificação</h2><p>Quando uma nova meta for lançada, o aviso aparecerá aqui.</p></div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
