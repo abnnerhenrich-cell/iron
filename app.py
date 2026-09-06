@@ -351,8 +351,25 @@ def _b64url(data):
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
+def _derive_vapid_public_key(private_key):
+    """Retorna a chave pública P-256 no formato uncompressed de 65 bytes."""
+    public_numbers = private_key.public_key().public_numbers()
+    public_bytes = (
+        b"\x04"
+        + public_numbers.x.to_bytes(32, "big")
+        + public_numbers.y.to_bytes(32, "big")
+    )
+    return _b64url(public_bytes)
+
+
 def get_or_create_vapid_keys():
-    """Mantém um único par VAPID no Neon, evitando segredo no GitHub/Vercel."""
+    """Mantém um único par VAPID válido no Neon.
+
+    A V46 montava o primeiro byte da chave pública como texto "\\x04", o que
+    produzia uma applicationServerKey inválida no navegador. Aqui a chave
+    pública é sempre derivada da chave privada real e qualquer valor antigo
+    incorreto é corrigido automaticamente.
+    """
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
@@ -362,46 +379,44 @@ def get_or_create_vapid_keys():
             """)
             existing = {row["key"]: row["value"] for row in cur.fetchall()}
 
-            if existing.get("vapid_private_pem") and existing.get("vapid_public_key"):
-                return existing["vapid_private_pem"], existing["vapid_public_key"]
+            private_pem = existing.get("vapid_private_pem")
+            private_key = None
 
-            private_key = ec.generate_private_key(ec.SECP256R1())
-            private_pem = private_key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption(),
-            ).decode("utf-8")
+            if private_pem:
+                try:
+                    private_key = serialization.load_pem_private_key(
+                        private_pem.encode("utf-8"),
+                        password=None,
+                    )
+                except Exception:
+                    app.logger.warning("Chave VAPID privada antiga inválida; será regenerada.")
 
-            public_numbers = private_key.public_key().public_numbers()
-            public_bytes = (
-                b"\\x04"
-                + public_numbers.x.to_bytes(32, "big")
-                + public_numbers.y.to_bytes(32, "big")
-            )
-            public_key = _b64url(public_bytes)
+            if private_key is None:
+                private_key = ec.generate_private_key(ec.SECP256R1())
+                private_pem = private_key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.PKCS8,
+                    encryption_algorithm=serialization.NoEncryption(),
+                ).decode("utf-8")
 
+            public_key = _derive_vapid_public_key(private_key)
+
+            # Upsert deliberado: corrige automaticamente a chave pública defeituosa da V46.
             cur.execute("""
-                INSERT INTO app_settings(key,value)
-                VALUES ('vapid_private_pem',%s)
-                ON CONFLICT(key) DO NOTHING
+                INSERT INTO app_settings(key,value,updated_at)
+                VALUES ('vapid_private_pem',%s,NOW())
+                ON CONFLICT(key)
+                DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
             """, (private_pem,))
             cur.execute("""
-                INSERT INTO app_settings(key,value)
-                VALUES ('vapid_public_key',%s)
-                ON CONFLICT(key) DO NOTHING
+                INSERT INTO app_settings(key,value,updated_at)
+                VALUES ('vapid_public_key',%s,NOW())
+                ON CONFLICT(key)
+                DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
             """, (public_key,))
         conn.commit()
 
-    # Releitura evita condição de corrida em deploy serverless.
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT key, value FROM app_settings
-                WHERE key IN ('vapid_private_pem','vapid_public_key')
-            """)
-            final = {row["key"]: row["value"] for row in cur.fetchall()}
-    return final["vapid_private_pem"], final["vapid_public_key"]
-
+    return private_pem, public_key
 
 def _push_payload(title, message, link=None):
     return json.dumps({
@@ -426,7 +441,7 @@ def _send_one_push(subscription, payload, private_key):
             },
             data=payload,
             vapid_private_key=private_key,
-            vapid_claims={"sub": "mailto:iron@localhost"},
+            vapid_claims={"sub": "mailto:admin@iron-app.invalid"},
             ttl=3600,
         )
         return subscription["endpoint"], True
@@ -536,15 +551,20 @@ def get_member_notifications(user_id, limit=20):
 
 
 def get_unread_notification_count(user_id):
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT COUNT(*) AS total
-                FROM member_notifications
-                WHERE user_id=%s AND read_at IS NULL
-            """, (user_id,))
-            row = cur.fetchone()
-            return int(row["total"] or 0)
+    """Contador auxiliar: falha de notificações nunca pode impedir login/painel."""
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT COUNT(*) AS total
+                    FROM member_notifications
+                    WHERE user_id=%s AND read_at IS NULL
+                """, (user_id,))
+                row = cur.fetchone()
+                return int(row["total"] or 0)
+    except Exception:
+        app.logger.exception("Falha não crítica ao contar notificações do usuário %s", user_id)
+        return 0
 
 
 def csrf_token():
