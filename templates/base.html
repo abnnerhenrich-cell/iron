@@ -15,7 +15,7 @@
   <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v=9">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=9">
   <link rel="manifest" href="/manifest.webmanifest?v=9">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=47.0.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=48.0.0">
 </head>
 {% set member_mode = request.endpoint in ['dashboard','submit','history','notifications','notification_mark_read','notifications_mark_all_read','member_home','calculator','calculator_app'] %}
 <body class="{{ 'is-auth' if current_user else 'is-guest' }} {{ 'is-member-mode' if member_mode else 'is-admin-mode' }}">
@@ -159,7 +159,7 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {
         try {
-          const registration = await navigator.serviceWorker.register('/service-worker.js?v=47', { updateViaCache: 'none' });
+          const registration = await navigator.serviceWorker.register('/service-worker.js?v=48', { updateViaCache: 'none' });
           await registration.update();
         } catch (_) {}
       });
@@ -229,32 +229,41 @@
       const raw = atob(normalized);
       return Uint8Array.from([...raw].map(ch => ch.charCodeAt(0)));
     };
+    const bytesEqual = (a, b) => {
+      if (!a || !b) return false;
+      const aa = new Uint8Array(a), bb = new Uint8Array(b);
+      return aa.length === bb.length && aa.every((v, i) => v === bb[i]);
+    };
 
     async function saveSubscription(subscription) {
-      const json = subscription.toJSON();
       const response = await fetch('/push/subscribe', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrf
-        },
-        body: JSON.stringify(json),
-        credentials: 'same-origin'
+        headers: {'Content-Type':'application/json','X-CSRF-Token':csrf},
+        body: JSON.stringify(subscription.toJSON()),
+        credentials: 'same-origin',
+        cache: 'no-store'
       });
-      if (!response.ok) throw new Error('Falha ao salvar inscrição');
+      if (!response.ok) {
+        let detail = '';
+        try { detail = (await response.json()).error || ''; } catch (_) {}
+        throw new Error('SERVER_SUBSCRIBE_' + response.status + (detail ? '_' + detail : ''));
+      }
     }
 
     async function activatePush() {
+      if (!window.isSecureContext) {
+        alert('As notificações precisam de uma conexão HTTPS segura.');
+        return;
+      }
       if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
-        alert('Este navegador não oferece suporte a notificações push.');
+        alert('Este navegador não oferece suporte a notificações push. No Android, use Chrome ou o IRON instalado.');
         return;
       }
 
-      // No iPhone/iPad, Web Push funciona de forma confiável no app instalado na Tela de Início.
       const isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-      const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+      const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
       if (isiOS && !standalone) {
-        alert('No iPhone/iPad, primeiro instale o IRON na Tela de Início pelo Safari. Depois abra o app instalado e ative as notificações.');
+        alert('No iPhone/iPad, adicione o IRON à Tela de Início pelo Safari e ative as notificações dentro do app instalado.');
         return;
       }
 
@@ -262,28 +271,41 @@
         enableBtn.disabled = true;
         enableBtn.textContent = 'Ativando…';
 
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          toast.hidden = true;
+        if (Notification.permission === 'denied') {
+          alert('As notificações estão bloqueadas para o IRON. Libere a permissão nas configurações do site/app e tente novamente.');
           return;
         }
 
-        const registration = await navigator.serviceWorker.ready;
-        const cfg = await fetch('/push/config', { credentials: 'same-origin' }).then(r => {
-          if (!r.ok) throw new Error('Falha ao carregar configuração de notificações');
-          return r.json();
-        });
+        const permission = Notification.permission === 'granted'
+          ? 'granted'
+          : await Notification.requestPermission();
+        if (permission !== 'granted') return;
 
-        const applicationServerKey = b64ToUint8(cfg.publicKey);
+        // Aguarda o worker V48 assumir o controle antes de criar a inscrição.
+        const registration = await navigator.serviceWorker.ready;
+        await registration.update().catch(() => {});
+
+        const cfgResponse = await fetch('/push/config', {
+          credentials:'same-origin', cache:'no-store'
+        });
+        let cfg = {};
+        try { cfg = await cfgResponse.json(); } catch (_) {}
+        if (!cfgResponse.ok || !cfg.supported || !cfg.publicKey) {
+          throw new Error('SERVER_CONFIG_' + cfgResponse.status + '_' + (cfg.error || 'unknown'));
+        }
+
+        const serverKey = b64ToUint8(cfg.publicKey);
+        if (serverKey.length !== 65 || serverKey[0] !== 4) {
+          throw new Error('VAPID_PUBLIC_KEY_INVALID');
+        }
+
         let subscription = await registration.pushManager.getSubscription();
 
-        // A V46 podia deixar uma inscrição parcial/incompatível. Recria com a
-        // chave VAPID corrigida se a inscrição atual não puder ser reaproveitada.
+        // Se veio de uma versão/chave anterior, recria de verdade.
         if (subscription) {
-          try {
-            await saveSubscription(subscription);
-          } catch (_) {
-            try { await subscription.unsubscribe(); } catch (_) {}
+          const currentKey = subscription.options && subscription.options.applicationServerKey;
+          if (!bytesEqual(currentKey, serverKey)) {
+            await subscription.unsubscribe().catch(() => {});
             subscription = null;
           }
         }
@@ -291,16 +313,34 @@
         if (!subscription) {
           subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey
+            applicationServerKey: serverKey
           });
         }
 
         await saveSubscription(subscription);
         localStorage.setItem('iron_push_enabled', '1');
+        localStorage.removeItem('iron_push_dismissed');
         toast.hidden = true;
       } catch (error) {
-        console.error(error);
-        alert('Não foi possível ativar agora. Verifique se as notificações estão permitidas para o IRON nas configurações do navegador e tente novamente.');
+        console.error('IRON Push:', error);
+        const code = String(error && (error.message || error.name) || '');
+        if (/NotAllowedError|permission|denied/i.test(code)) {
+          alert('As notificações estão bloqueadas neste aparelho. Libere a permissão do IRON nas configurações e tente novamente.');
+        } else if (/SERVER_CONFIG|VAPID/i.test(code)) {
+          alert('O serviço de notificações ainda não ficou pronto no servidor. Atualize o IRON e tente novamente em alguns segundos.');
+        } else if (/SERVER_SUBSCRIBE/i.test(code)) {
+          alert('O celular autorizou a notificação, mas o IRON não conseguiu salvar este aparelho. Saia da conta, entre novamente e tente ativar.');
+        } else if (/AbortError|InvalidStateError/i.test(code)) {
+          // Remove inscrição quebrada e deixa uma nova tentativa limpa.
+          try {
+            const reg = await navigator.serviceWorker.ready;
+            const old = await reg.pushManager.getSubscription();
+            if (old) await old.unsubscribe();
+          } catch (_) {}
+          alert('Encontramos uma inscrição antiga de notificações. Ela foi limpa. Toque em Ativar novamente.');
+        } else {
+          alert('Não foi possível concluir a ativação neste aparelho. Atualize o IRON e tente novamente.');
+        }
       } finally {
         enableBtn.disabled = false;
         enableBtn.textContent = 'Ativar';
@@ -315,25 +355,28 @@
           const subscription = await registration.pushManager.getSubscription();
           if (subscription) {
             await saveSubscription(subscription);
-            localStorage.setItem('iron_push_enabled', '1');
+            localStorage.setItem('iron_push_enabled','1');
             toast.hidden = true;
             return;
           }
-        } catch (_) {}
+        } catch (e) {
+          console.warn('IRON push sync:', e);
+        }
       }
-
       if (Notification.permission === 'default' && localStorage.getItem('iron_push_dismissed') !== '1') {
+        toast.hidden = false;
+      } else if (Notification.permission === 'granted') {
+        // Permissão existe, mas não há inscrição: oferece ativação novamente.
         toast.hidden = false;
       }
     }
 
     enableBtn?.addEventListener('click', activatePush);
     dismissBtn?.addEventListener('click', () => {
-      localStorage.setItem('iron_push_dismissed', '1');
+      localStorage.setItem('iron_push_dismissed','1');
       toast.hidden = true;
     });
-
-    window.addEventListener('load', () => setTimeout(syncExistingSubscription, 900));
+    window.addEventListener('load', () => setTimeout(syncExistingSubscription, 1200));
   })();
   </script>
   {% endif %}

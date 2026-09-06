@@ -1009,18 +1009,26 @@ def logout():
 @app.get("/push/config")
 @login_required
 def push_config():
-    _, public_key = get_or_create_vapid_keys()
-    return {
-        "publicKey": public_key,
-        "supported": True,
-    }
+    try:
+        _, public_key = get_or_create_vapid_keys()
+        # P-256 uncompressed public key = 65 bytes => 87 chars in base64url sem padding.
+        if not public_key or len(public_key) != 87:
+            app.logger.error("Chave VAPID pública inválida: tamanho=%s", len(public_key or ""))
+            return {"supported": False, "error": "vapid_key_invalid"}, 503
+        return {
+            "publicKey": public_key,
+            "supported": True,
+        }
+    except Exception:
+        app.logger.exception("Falha ao carregar configuração Web Push")
+        return {"supported": False, "error": "push_config_failed"}, 503
 
 
 @app.post("/push/subscribe")
 @login_required
 def push_subscribe():
-    if request.headers.get("X-CSRF-Token") != session.get("_csrf"):
-        abort(400, "Token CSRF inválido.")
+    if not session.get("_csrf") or request.headers.get("X-CSRF-Token") != session.get("_csrf"):
+        return {"ok": False, "error": "csrf"}, 400
 
     data = request.get_json(silent=True) or {}
     endpoint = (data.get("endpoint") or "").strip()
