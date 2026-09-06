@@ -15,7 +15,7 @@
   <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v=9">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=9">
   <link rel="manifest" href="/manifest.webmanifest?v=9">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=48.0.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=49.0.0">
 </head>
 {% set member_mode = request.endpoint in ['dashboard','submit','history','notifications','notification_mark_read','notifications_mark_all_read','member_home','calculator','calculator_app'] %}
 <body class="{{ 'is-auth' if current_user else 'is-guest' }} {{ 'is-member-mode' if member_mode else 'is-admin-mode' }}">
@@ -159,7 +159,7 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {
         try {
-          const registration = await navigator.serviceWorker.register('/service-worker.js?v=48', { updateViaCache: 'none' });
+          const registration = await navigator.serviceWorker.register('/service-worker.js?v=49', { updateViaCache: 'none' });
           await registration.update();
         } catch (_) {}
       });
@@ -318,6 +318,20 @@
         }
 
         await saveSubscription(subscription);
+
+        // Confirma o caminho completo: Vercel -> serviço Push -> este aparelho.
+        const testResponse = await fetch('/push/test', {
+          method: 'POST',
+          headers: {'X-CSRF-Token': csrf},
+          credentials: 'same-origin',
+          cache: 'no-store'
+        });
+        let testResult = {};
+        try { testResult = await testResponse.json(); } catch (_) {}
+        if (!testResponse.ok || !testResult.ok) {
+          throw new Error('PUSH_TEST_' + (testResult.error || testResponse.status));
+        }
+
         localStorage.setItem('iron_push_enabled', '1');
         localStorage.removeItem('iron_push_dismissed');
         toast.hidden = true;
@@ -330,6 +344,8 @@
           alert('O serviço de notificações ainda não ficou pronto no servidor. Atualize o IRON e tente novamente em alguns segundos.');
         } else if (/SERVER_SUBSCRIBE/i.test(code)) {
           alert('O celular autorizou a notificação, mas o IRON não conseguiu salvar este aparelho. Saia da conta, entre novamente e tente ativar.');
+        } else if (/PUSH_TEST/i.test(code)) {
+          alert('O aparelho foi cadastrado, mas o servidor não conseguiu entregar a notificação de teste. Atualize o IRON e tente ativar novamente.');
         } else if (/AbortError|InvalidStateError/i.test(code)) {
           // Remove inscrição quebrada e deixa uma nova tentativa limpa.
           try {

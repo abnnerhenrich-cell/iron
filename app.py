@@ -352,7 +352,7 @@ def _b64url(data):
 
 
 def _derive_vapid_public_key(private_key):
-    """Retorna a chave pública P-256 no formato uncompressed de 65 bytes."""
+    """Chave pública P-256 uncompressed (65 bytes), Base64URL sem padding."""
     public_numbers = private_key.public_key().public_numbers()
     public_bytes = (
         b"\x04"
@@ -362,13 +362,18 @@ def _derive_vapid_public_key(private_key):
     return _b64url(public_bytes)
 
 
-def get_or_create_vapid_keys():
-    """Mantém um único par VAPID válido no Neon.
+def _derive_vapid_private_raw(private_key):
+    """Scalar privado P-256 de 32 bytes no formato aceito pelo py-vapid."""
+    private_value = private_key.private_numbers().private_value
+    return _b64url(private_value.to_bytes(32, "big"))
 
-    A V46 montava o primeiro byte da chave pública como texto "\\x04", o que
-    produzia uma applicationServerKey inválida no navegador. Aqui a chave
-    pública é sempre derivada da chave privada real e qualquer valor antigo
-    incorreto é corrigido automaticamente.
+
+def get_or_create_vapid_keys():
+    """Mantém um único par VAPID no Neon e retorna chave privada RAW + pública.
+
+    O pywebpush aceita um caminho PEM ou uma string DER/RAW Base64URL.
+    Versões anteriores entregavam o CONTEÚDO PEM diretamente como string;
+    o py-vapid tentava interpretá-lo como DER Base64URL e o envio falhava.
     """
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -381,15 +386,13 @@ def get_or_create_vapid_keys():
 
             private_pem = existing.get("vapid_private_pem")
             private_key = None
-
             if private_pem:
                 try:
                     private_key = serialization.load_pem_private_key(
-                        private_pem.encode("utf-8"),
-                        password=None,
+                        private_pem.encode("utf-8"), password=None
                     )
                 except Exception:
-                    app.logger.warning("Chave VAPID privada antiga inválida; será regenerada.")
+                    app.logger.warning("Chave VAPID antiga inválida; regenerando.")
 
             if private_key is None:
                 private_key = ec.generate_private_key(ec.SECP256R1())
@@ -400,8 +403,8 @@ def get_or_create_vapid_keys():
                 ).decode("utf-8")
 
             public_key = _derive_vapid_public_key(private_key)
+            private_raw = _derive_vapid_private_raw(private_key)
 
-            # Upsert deliberado: corrige automaticamente a chave pública defeituosa da V46.
             cur.execute("""
                 INSERT INTO app_settings(key,value,updated_at)
                 VALUES ('vapid_private_pem',%s,NOW())
@@ -416,7 +419,7 @@ def get_or_create_vapid_keys():
             """, (public_key,))
         conn.commit()
 
-    return private_pem, public_key
+    return private_raw, public_key
 
 def _push_payload(title, message, link=None):
     return json.dumps({
@@ -441,12 +444,15 @@ def _send_one_push(subscription, payload, private_key):
             },
             data=payload,
             vapid_private_key=private_key,
-            vapid_claims={"sub": "mailto:admin@iron-app.invalid"},
+            vapid_claims={"sub": "mailto:admin@example.org"},
             ttl=3600,
+            timeout=8,
         )
         return subscription["endpoint"], True
     except WebPushException as exc:
-        status = getattr(getattr(exc, "response", None), "status_code", None)
+        status = getattr(exc, "status_code", None) or getattr(getattr(exc, "response", None), "status_code", None)
+        body = getattr(getattr(exc, "response", None), "text", None)
+        app.logger.warning("Web Push recusado: status=%s body=%s", status, body)
         # 404/410 = inscrição expirada/removida pelo navegador.
         return subscription["endpoint"], False if status in {404, 410} else None
     except Exception:
@@ -663,6 +669,7 @@ def restrict_manager_access():
         "push_config",
         "push_subscribe",
         "push_unsubscribe",
+        "push_test",
         "profile_photo",
         "profile_photo_upload",
         "profile_photo_remove",
@@ -1060,6 +1067,28 @@ def push_subscribe():
         conn.commit()
 
     return {"ok": True}
+
+
+@app.post("/push/test")
+@login_required
+def push_test():
+    if not session.get("_csrf") or request.headers.get("X-CSRF-Token") != session.get("_csrf"):
+        return {"ok": False, "error": "csrf"}, 400
+
+    user = get_current_user()
+    try:
+        sent = send_push_to_user(
+            user["id"],
+            "IRON — notificações ativadas",
+            "Tudo certo! Este celular já pode receber avisos de novas metas.",
+            url_for("dashboard", _external=True),
+        )
+        if sent > 0:
+            return {"ok": True, "sent": sent}
+        return {"ok": False, "error": "no_active_subscription"}, 503
+    except Exception:
+        app.logger.exception("Falha no teste Web Push para user_id=%s", user["id"])
+        return {"ok": False, "error": "send_failed"}, 503
 
 
 @app.post("/push/unsubscribe")
