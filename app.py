@@ -3,6 +3,7 @@ import secrets
 import re
 import json
 import base64
+import hashlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, timedelta
 from functools import wraps
@@ -33,7 +34,7 @@ app.config.update(
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=bool(os.environ.get("VERCEL")),
     SESSION_COOKIE_PATH="/",
-    PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+    PERMANENT_SESSION_LIFETIME=timedelta(days=90),
     SESSION_REFRESH_EACH_REQUEST=True,
 )
 
@@ -140,6 +141,25 @@ def init_db():
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS ix_push_subscriptions_user
                 ON push_subscriptions(user_id)
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS remembered_devices (
+                    id BIGSERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    token_hash TEXT NOT NULL UNIQUE,
+                    user_agent TEXT,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    last_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    expires_at TIMESTAMPTZ NOT NULL
+                )
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS ix_remembered_devices_user
+                ON remembered_devices(user_id)
+            """)
+            cur.execute("""
+                DELETE FROM remembered_devices
+                WHERE expires_at < NOW()
             """)
             # Bancos antigos possuem CHECK apenas para user/admin.
             cur.execute("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check")
@@ -573,6 +593,118 @@ def get_unread_notification_count(user_id):
         return 0
 
 
+REMEMBER_COOKIE_NAME = "iron_remember_v51"
+REMEMBER_DAYS = 90
+
+
+def _remember_token_hash(token):
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def issue_remember_device(user_id):
+    """Cria um token persistente independente do cookie de sessão do Flask."""
+    token = secrets.token_urlsafe(48)
+    token_hash = _remember_token_hash(token)
+    user_agent = (request.headers.get("User-Agent") or "")[:500]
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            # Limita tokens antigos por usuário e remove expirados.
+            cur.execute("DELETE FROM remembered_devices WHERE expires_at < NOW()")
+            cur.execute("""
+                INSERT INTO remembered_devices(
+                    user_id, token_hash, user_agent, expires_at
+                )
+                VALUES(%s,%s,%s,NOW() + INTERVAL '90 days')
+            """, (user_id, token_hash, user_agent))
+        conn.commit()
+    return token
+
+
+def revoke_remember_device(token):
+    if not token:
+        return
+    try:
+        token_hash = _remember_token_hash(token)
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM remembered_devices WHERE token_hash=%s", (token_hash,))
+            conn.commit()
+    except Exception:
+        app.logger.exception("Falha não crítica ao revogar dispositivo lembrado")
+
+
+def restore_from_remember_cookie():
+    """Restaura a sessão caso o navegador/PWA tenha descartado o cookie Flask."""
+    if session.get("uid"):
+        return None
+
+    token = request.cookies.get(REMEMBER_COOKIE_NAME)
+    if not token:
+        return None
+
+    try:
+        token_hash = _remember_token_hash(token)
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT rd.id AS device_id, u.id, u.name, u.email, u.role,
+                           u.active, u.approved
+                    FROM remembered_devices rd
+                    JOIN users u ON u.id=rd.user_id
+                    WHERE rd.token_hash=%s
+                      AND rd.expires_at > NOW()
+                    LIMIT 1
+                """, (token_hash,))
+                user = cur.fetchone()
+
+                if not user or not user["active"] or not user["approved"]:
+                    if user:
+                        cur.execute("DELETE FROM remembered_devices WHERE id=%s", (user["device_id"],))
+                    conn.commit()
+                    return None
+
+                cur.execute("""
+                    UPDATE remembered_devices
+                    SET last_used_at=NOW(),
+                        expires_at=NOW() + INTERVAL '90 days'
+                    WHERE id=%s
+                """, (user["device_id"],))
+            conn.commit()
+
+        session.clear()
+        session.permanent = True
+        session["uid"] = user["id"]
+        session["_csrf"] = secrets.token_urlsafe(24)
+        session["remember_device"] = True
+        return user
+    except Exception:
+        app.logger.exception("Falha não crítica ao restaurar acesso persistente")
+        return None
+
+
+def set_remember_cookie(response, token):
+    response.set_cookie(
+        REMEMBER_COOKIE_NAME,
+        token,
+        max_age=REMEMBER_DAYS * 24 * 60 * 60,
+        secure=bool(os.environ.get("VERCEL")),
+        httponly=True,
+        samesite="Lax",
+        path="/",
+    )
+    return response
+
+
+@app.before_request
+def restore_persistent_login():
+    # Não é necessário tocar no banco para arquivos estáticos.
+    if request.endpoint == "static":
+        return None
+    restore_from_remember_cookie()
+    return None
+
+
 def csrf_token():
     if "_csrf" not in session:
         session["_csrf"] = secrets.token_urlsafe(24)
@@ -827,7 +959,21 @@ def login():
         session.permanent = remember_device
         session["uid"] = user["id"]
         session["_csrf"] = secrets.token_urlsafe(24)
-        return redirect(url_for("admin_dashboard" if user["role"] in {"admin","manager"} else "dashboard"))
+        session["remember_device"] = remember_device
+
+        response = redirect(url_for("admin_dashboard" if user["role"] in {"admin","manager"} else "dashboard"))
+        if remember_device:
+            try:
+                remember_token = issue_remember_device(user["id"])
+                set_remember_cookie(response, remember_token)
+            except Exception:
+                app.logger.exception("Falha ao criar acesso persistente para user_id=%s", user["id"])
+        else:
+            # Desmarcado: remove eventual token persistente anterior deste aparelho.
+            old_token = request.cookies.get(REMEMBER_COOKIE_NAME)
+            revoke_remember_device(old_token)
+            response.delete_cookie(REMEMBER_COOKIE_NAME, path="/")
+        return response
 
     return render_template("login.html")
 
@@ -956,7 +1102,20 @@ def admin_login():
         session.permanent = remember_device
         session["uid"] = user["id"]
         session["_csrf"] = secrets.token_urlsafe(24)
-        return redirect(url_for("admin_dashboard"))
+        session["remember_device"] = remember_device
+
+        response = redirect(url_for("admin_dashboard"))
+        if remember_device:
+            try:
+                remember_token = issue_remember_device(user["id"])
+                set_remember_cookie(response, remember_token)
+            except Exception:
+                app.logger.exception("Falha ao criar acesso persistente para staff user_id=%s", user["id"])
+        else:
+            old_token = request.cookies.get(REMEMBER_COOKIE_NAME)
+            revoke_remember_device(old_token)
+            response.delete_cookie(REMEMBER_COOKIE_NAME, path="/")
+        return response
 
     return render_template("admin_login.html")
 
@@ -1010,8 +1169,12 @@ def register():
 
 @app.route("/logout")
 def logout():
+    remember_token = request.cookies.get(REMEMBER_COOKIE_NAME)
+    revoke_remember_device(remember_token)
     session.clear()
-    return redirect(url_for("login"))
+    response = redirect(url_for("login"))
+    response.delete_cookie(REMEMBER_COOKIE_NAME, path="/")
+    return response
 
 @app.get("/push/config")
 @login_required

@@ -810,3 +810,13 @@ input,button,select,textarea{font-size:max(16px,1rem)}
   .push-permission-toast .btn{grid-column:1/-1;width:100%}
   .push-permission-close{position:absolute;top:7px;right:7px}
 }
+
+
+/* ===== IRON V52 — orientação ao ativar notificações ===== */
+.push-permission-toast .push-permission-copy small{
+  line-height:1.5;
+}
+.push-permission-toast .btn:disabled{
+  opacity:.65;
+  cursor:wait;
+}
