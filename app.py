@@ -544,7 +544,24 @@ def create_member_notification(cur, user_id, title, message, link=None, notifica
 
 
 def create_notification_for_all_members(cur, title, message, link=None, notification_key_prefix=None):
-    """Cria uma notificação para todos os membros/gerentes ativos e aprovados."""
+    """Cria avisos internos sem tornar a função de meta dependente do módulo de notificações."""
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS member_notifications (
+            id BIGSERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            message TEXT NOT NULL,
+            link TEXT,
+            notification_key TEXT,
+            read_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+    cur.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_member_notifications_user_key
+        ON member_notifications(user_id, notification_key)
+        WHERE notification_key IS NOT NULL
+    """)
     cur.execute("""
         INSERT INTO member_notifications (user_id, title, message, link, notification_key)
         SELECT
@@ -1753,30 +1770,56 @@ def admin_cycles():
     if request.method == "POST":
         validate_csrf()
         title = request.form.get("title", "").strip()
-        start_date = request.form.get("start_date", "")
-        end_date = request.form.get("end_date", "")
-        # Toda nova meta passa a ser a meta ativa automaticamente.
-        # Como o sistema trabalha com uma meta ativa por vez, desativamos a anterior.
-        active = True
+        start_date = request.form.get("start_date", "").strip()
+        end_date = request.form.get("end_date", "").strip()
+
         if not title or not start_date or not end_date:
             flash("Preencha todos os campos da meta.", "danger")
         else:
-            with get_conn() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("UPDATE cycles SET active=FALSE")
-                    cur.execute("""
-                        INSERT INTO cycles(title,start_date,end_date,active)
-                        VALUES(%s,%s,%s,%s) RETURNING id
-                    """, (title, start_date, end_date, active))
-                    cycle_id = cur.fetchone()["id"]
-                    create_notification_for_all_members(
-                        cur,
-                        "Nova meta lançada",
-                        f"A meta “{title}” foi lançada. Abra o IRON para conferir suas metas e acompanhar seu progresso.",
-                        url_for("dashboard"),
-                        f"cycle:{cycle_id}:launched",
-                    )
-                conn.commit()
+            try:
+                start_dt = date.fromisoformat(start_date)
+                end_dt = date.fromisoformat(end_date)
+                if end_dt < start_dt:
+                    flash("A data final não pode ser anterior à data inicial.", "danger")
+                    return redirect(url_for("admin_cycles"))
+            except ValueError:
+                flash("Informe datas válidas para a meta.", "danger")
+                return redirect(url_for("admin_cycles"))
+
+            cycle_id = None
+            try:
+                with get_conn() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("UPDATE cycles SET active=FALSE")
+                        cur.execute("""
+                            INSERT INTO cycles(title,start_date,end_date,active)
+                            VALUES(%s,%s,%s,TRUE)
+                            RETURNING id
+                        """, (title, start_date, end_date))
+                        cycle_id = cur.fetchone()["id"]
+                    conn.commit()
+            except Exception:
+                app.logger.exception(
+                    "Erro ao criar meta/ciclo: title=%r start=%r end=%r",
+                    title, start_date, end_date
+                )
+                flash("Não foi possível criar a meta. Tente novamente.", "danger")
+                return redirect(url_for("admin_cycles"))
+
+            try:
+                with get_conn() as conn:
+                    with conn.cursor() as cur:
+                        create_notification_for_all_members(
+                            cur,
+                            "Nova meta lançada",
+                            f"A meta “{title}” foi lançada. Abra o IRON para conferir suas metas e acompanhar seu progresso.",
+                            url_for("dashboard"),
+                            f"cycle:{cycle_id}:launched",
+                        )
+                    conn.commit()
+            except Exception:
+                app.logger.exception("Meta %s criada, mas falhou a notificação interna", cycle_id)
+
             try:
                 send_push_to_all_members(
                     "Nova meta lançada",
@@ -1784,18 +1827,27 @@ def admin_cycles():
                     url_for("dashboard", _external=True),
                 )
             except Exception:
-                app.logger.exception("Falha ao disparar push da nova meta")
-            flash("Meta criada, ativada e notificação enviada aos membros.", "success")
+                app.logger.exception("Meta %s criada, mas falhou o Web Push", cycle_id)
+
+            flash("Meta criada e ativada com sucesso.", "success")
             return redirect(url_for("admin_cycle_detail", cycle_id=cycle_id))
 
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT c.*, COUNT(g.id) AS goals_count
-                FROM cycles c LEFT JOIN goals g ON g.cycle_id=c.id
-                GROUP BY c.id ORDER BY c.id DESC
-            """)
-            cycles = cur.fetchall()
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT c.*, COUNT(g.id) AS goals_count
+                    FROM cycles c
+                    LEFT JOIN goals g ON g.cycle_id=c.id
+                    GROUP BY c.id
+                    ORDER BY c.id DESC
+                """)
+                cycles = cur.fetchall()
+    except Exception:
+        app.logger.exception("Erro ao carregar lista de metas")
+        cycles = []
+        flash("Não foi possível carregar a lista de metas agora.", "danger")
+
     return render_template("admin_cycles.html", cycles=cycles)
 
 @app.post("/admin/cycles/<int:cycle_id>/activate")
