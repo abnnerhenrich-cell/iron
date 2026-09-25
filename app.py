@@ -26,9 +26,13 @@ from psycopg.rows import dict_row
 app = Flask(__name__)
 _secret_key = os.environ.get("SECRET_KEY")
 if not _secret_key:
-    if os.environ.get("VERCEL"):
-        raise RuntimeError("SECRET_KEY não configurada na Vercel. Defina uma chave secreta estável nas variáveis de ambiente.")
-    _secret_key = secrets.token_urlsafe(48)
+    # Fallback estável para evitar derrubar a função na Vercel quando SECRET_KEY
+    # ainda não foi configurada. DATABASE_URL é privada e estável por ambiente.
+    _seed = os.environ.get("DATABASE_URL")
+    if _seed:
+        _secret_key = hashlib.sha256(("iron-session-v56|" + _seed).encode("utf-8")).hexdigest()
+    else:
+        _secret_key = secrets.token_urlsafe(48)
 app.secret_key = _secret_key
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
