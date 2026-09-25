@@ -15,7 +15,7 @@
   <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v=9">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=9">
   <link rel="manifest" href="/manifest.webmanifest?v=9">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=60.0.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=57.0.0">
 </head>
 {% set member_mode = request.endpoint in ['dashboard','submit','history','notifications','notification_mark_read','notifications_mark_all_read','member_home','calculator','calculator_app'] %}
 <body class="{{ 'is-auth' if current_user else 'is-guest' }} {{ 'is-member-mode' if member_mode else 'is-admin-mode' }}">
@@ -23,7 +23,7 @@
   <aside class="app-sidebar">
     <a class="sidebar-brand" href="{{ url_for('admin_dashboard' if current_user['role'] in ['admin','manager'] and not member_mode else 'dashboard') }}">
       <img class="brand-logo" src="{{ url_for('static', filename='iron-logo.png') }}?v=9" alt="IRON Brotherhood">
-      <span class="brand-copy"><strong>IRON</strong><small>{{ 'ESPAÇO DO MEMBRO' if member_mode else ('PAINEL GERENTE' if current_user['role']=='manager' else ('CENTRAL DE COMANDO' if current_user['role']=='admin' else 'ESPAÇO DO MEMBRO')) }}</small></span>
+      <span class="brand-copy"><strong>IRON</strong><small>{{ 'ESPAÇO DO MEMBRO' if member_mode else ('PAINEL GERENTE' if current_user['role']=='manager' else ('PAINEL DA HIERARQUIA' if current_user['role']=='admin' else 'ESPAÇO DO MEMBRO')) }}</small></span>
     </a>
 
     <div class="sidebar-section-label">NAVEGAÇÃO</div>
@@ -159,7 +159,7 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {
         try {
-          const registration = await navigator.serviceWorker.register('/service-worker.js?v=59', { updateViaCache: 'none' });
+          const registration = await navigator.serviceWorker.register('/service-worker.js?v=57', { updateViaCache: 'none' });
           await registration.update();
         } catch (_) {}
       });

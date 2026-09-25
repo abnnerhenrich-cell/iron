@@ -9,7 +9,6 @@
   <a class="btn primary" href="{{ url_for('admin_members') }}">Abrir membros →</a>
 </section>
 
-<div class="command-section-label"><span>STATUS DA OPERAÇÃO</span><b>AGORA</b></div>
 <section class="stats">
   <div><strong>{{ stats.users }}</strong><span>MEMBROS APROVADOS</span></div>
   <div><strong class="yellow">{{ stats.pending_users }}</strong><span>CADASTROS PENDENTES</span></div>
@@ -19,8 +18,7 @@
 
 {% if cycle %}<section class="cycle-highlight active-goal-card"><div class="active-goal-copy"><span class="cycle-status-label">META ATIVA</span><strong class="cycle-status-title">{{ cycle['title'] }}</strong><small class="cycle-status-date">{{ cycle['start_date'] }} até {{ cycle['end_date'] }}</small></div><a class="btn ghost" href="{{ url_for('admin_cycle_detail', cycle_id=cycle['id']) }}">Gerenciar meta</a></section>{% endif %}
 
-<div class="command-section-label"><span>CENTRAL OPERACIONAL</span><b>ACESSOS RÁPIDOS</b></div>
-<section class="panel command-panel">
+<section class="panel">
   <div class="panel-head"><div><span class="eyebrow">ATALHOS</span><h2>O que você quer fazer?</h2><p>As áreas estão separadas para reduzir cliques e deixar a administração mais rápida.</p></div></div>
   <div class="admin-area-grid">
     <a class="admin-area-card" href="{{ url_for('admin_members') }}"><span class="admin-area-icon">◉</span><div><strong>Gerenciar membros</strong><small>Abra a pasta de cada pessoa, veja o progresso e configure metas individuais.</small></div><b>→</b></a>

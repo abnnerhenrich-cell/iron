@@ -3491,7 +3491,12 @@ def disable_dynamic_page_cache(response):
         response.headers["Expires"] = "0"
     # Cabeçalhos defensivos que não interferem no PWA nem nos scripts atuais.
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    # A calculadora é incorporada somente pelas páginas do próprio IRON.
+    # DENY bloqueia até mesmo esse iframe de mesma origem.
+    if request.endpoint in {"calculator_app", "admin_calculator_app"}:
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    else:
+        response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
     if os.environ.get("VERCEL"):
@@ -3518,4 +3523,3 @@ def service_worker():
     response.headers["Service-Worker-Allowed"] = "/"
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     return response
-
