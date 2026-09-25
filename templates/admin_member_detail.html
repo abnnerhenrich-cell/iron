@@ -68,6 +68,11 @@
     <div><strong>Entregas e aprovações</strong><small>Veja os envios deste membro e aprove ou recuse cada meta diretamente aqui.</small></div>
     <b>→</b>
   </a>
+  <a class="section-choice" href="{{ url_for('admin_member_password_reset', user_id=member['id']) }}">
+    <span class="section-choice-icon">◇</span>
+    <div><strong>Recuperar acesso</strong><small>Gere um link temporário de redefinição de senha para este membro.</small></div>
+    <b>→</b>
+  </a>
 </section>
 
 <section class="panel">

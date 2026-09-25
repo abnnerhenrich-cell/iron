@@ -24,7 +24,12 @@ import psycopg
 from psycopg.rows import dict_row
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "troque-esta-chave-no-vercel")
+_secret_key = os.environ.get("SECRET_KEY")
+if not _secret_key:
+    if os.environ.get("VERCEL"):
+        raise RuntimeError("SECRET_KEY não configurada na Vercel. Defina uma chave secreta estável nas variáveis de ambiente.")
+    _secret_key = secrets.token_urlsafe(48)
+app.secret_key = _secret_key
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 app.config.update(
@@ -73,7 +78,13 @@ PERSONAL_GOAL_CATALOG = [
 def get_conn():
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL não encontrada. Conecte o Neon ao projeto na Vercel.")
-    return psycopg.connect(DATABASE_URL, row_factory=dict_row)
+    return psycopg.connect(
+        DATABASE_URL,
+        row_factory=dict_row,
+        connect_timeout=10,
+        options="-c statement_timeout=20000 -c lock_timeout=5000 -c idle_in_transaction_session_timeout=30000",
+        application_name="iron-web",
+    )
 
 def goal_credit_key(title):
     """Chave estável para transportar crédito entre metas com o mesmo nome."""
@@ -323,6 +334,17 @@ def init_db():
             cur.execute("CREATE INDEX IF NOT EXISTS idx_trade_records_date ON trade_records(record_date DESC)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_trade_records_type ON trade_records(record_type)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_trade_records_delivery ON trade_records(delivery_status, delivery_date)")
+
+            # Índices V55: aceleram dashboards, metas, histórico e fila de aprovação.
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_users_email_lower ON users(LOWER(email))")
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_cycles_single_active ON cycles(active) WHERE active=TRUE")
+            cur.execute("CREATE INDEX IF NOT EXISTS ix_goals_cycle_user_order ON goals(cycle_id, user_id, sort_order, id)")
+            cur.execute("CREATE INDEX IF NOT EXISTS ix_submissions_user_goal_status ON submissions(user_id, goal_id, status)")
+            cur.execute("CREATE INDEX IF NOT EXISTS ix_submissions_status_created ON submissions(status, created_at DESC)")
+            cur.execute("CREATE INDEX IF NOT EXISTS ix_submissions_batch ON submissions(batch_id) WHERE batch_id IS NOT NULL")
+            cur.execute("CREATE INDEX IF NOT EXISTS ix_delivery_batches_user_cycle ON delivery_batches(user_id, cycle_id, created_at DESC)")
+            cur.execute("CREATE INDEX IF NOT EXISTS ix_goal_closures_user_cycle ON goal_closures(user_id, cycle_id, closed_at DESC)")
+            cur.execute("CREATE INDEX IF NOT EXISTS ix_goal_credits_user_balance ON member_goal_credits(user_id) WHERE balance <> 0")
             admin_email = os.environ.get("ADMIN_EMAIL")
             admin_password = os.environ.get("ADMIN_PASSWORD")
 
@@ -533,7 +555,24 @@ def send_push_to_all_members(title, message, link=None):
 
 
 def create_member_notification(cur, user_id, title, message, link=None, notification_key=None):
-    """Cria notificação interna sem duplicar a mesma chave para o mesmo membro."""
+    """Cria notificação interna sem duplicar e tolera bancos de versões antigas."""
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS member_notifications (
+            id BIGSERIAL PRIMARY KEY,
+            user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            message TEXT NOT NULL,
+            link TEXT,
+            notification_key TEXT,
+            read_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+    cur.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_member_notifications_user_key
+        ON member_notifications(user_id, notification_key)
+        WHERE notification_key IS NOT NULL
+    """)
     cur.execute("""
         INSERT INTO member_notifications (user_id, title, message, link, notification_key)
         VALUES (%s,%s,%s,%s,%s)
@@ -744,10 +783,16 @@ def get_current_user():
             """, (uid,))
             return cur.fetchone()
 
+def _authorized_user(user):
+    return bool(user and user["active"] and user["approved"])
+
 def login_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        if not get_current_user():
+        user = get_current_user()
+        if not _authorized_user(user):
+            if user:
+                session.clear()
             return redirect(url_for("login", next=request.path))
         return fn(*args, **kwargs)
     return wrapper
@@ -756,7 +801,9 @@ def admin_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
         user = get_current_user()
-        if not user:
+        if not _authorized_user(user):
+            if user:
+                session.clear()
             return redirect(url_for("admin_login"))
         if user["role"] != "admin":
             abort(403)
@@ -768,7 +815,9 @@ def staff_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
         user = get_current_user()
-        if not user:
+        if not _authorized_user(user):
+            if user:
+                session.clear()
             return redirect(url_for("admin_login"))
         if user["role"] not in {"admin", "manager"}:
             abort(403)
@@ -1001,34 +1050,14 @@ def password_reset_serializer():
 
 @app.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
-    reset_link = None
     email = ""
     if request.method == "POST":
         validate_csrf()
         email = (request.form.get("email") or "").strip().lower()
-
-        with get_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT id, email, active, approved
-                    FROM users
-                    WHERE LOWER(email)=%s AND role IN ('user','manager')
-                    LIMIT 1
-                """, (email,))
-                user = cur.fetchone()
-
-        # Resposta neutra evita revelar publicamente quais e-mails existem.
-        if user and user["active"] and user["approved"]:
-            token = password_reset_serializer().dumps({
-                "uid": user["id"],
-                "email": user["email"].lower(),
-            })
-            reset_link = url_for("reset_password", token=token, _external=True)
-            flash("Link de redefinição gerado. Ele expira em 30 minutos.", "success")
-        else:
-            flash("Se o e-mail estiver cadastrado e ativo, a recuperação poderá ser realizada.", "success")
-
-    return render_template("forgot_password.html", email=email, reset_link=reset_link)
+        # V55: não geramos mais link público na própria tela. Isso impedia
+        # comprovar que quem pediu a troca realmente controla o e-mail.
+        flash("Solicitação registrada. Peça à Hierarquia para gerar seu link temporário de redefinição.", "success")
+    return render_template("forgot_password.html", email=email)
 
 
 @app.route("/reset-password/<token>", methods=["GET", "POST"])
@@ -1077,9 +1106,10 @@ def reset_password(token):
                     "UPDATE users SET password_hash=%s WHERE id=%s",
                     (generate_password_hash(password), user_id)
                 )
+                cur.execute("DELETE FROM remembered_devices WHERE user_id=%s", (user_id,))
             conn.commit()
 
-        # A sessão atual também é encerrada para que o próximo acesso use a nova senha.
+        # Encerra a sessão e todos os acessos persistentes antigos.
         session.clear()
         flash("Senha redefinida com sucesso. Entre usando sua nova senha.", "success")
         return redirect(url_for("login"))
@@ -2288,6 +2318,26 @@ def admin_member_detail(user_id):
     )
 
 
+@app.route("/admin/members/<int:user_id>/password-reset", methods=["GET", "POST"])
+@admin_required
+def admin_member_password_reset(user_id):
+    reset_link = None
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, name, email, role, active, approved FROM users WHERE id=%s", (user_id,))
+            member = cur.fetchone()
+    if not member:
+        abort(404)
+    if member["role"] == "admin":
+        abort(403)
+
+    if request.method == "POST":
+        validate_csrf()
+        token = password_reset_serializer().dumps({"uid": member["id"], "email": member["email"].lower()})
+        reset_link = url_for("reset_password", token=token, _external=True)
+    return render_template("admin_member_password_reset.html", member=member, reset_link=reset_link)
+
+
 @app.route("/admin/members/<int:user_id>/goals", methods=["GET", "POST"])
 @admin_required
 def admin_member_goals(user_id):
@@ -2394,17 +2444,29 @@ def admin_member_goals(user_id):
 
                         created.append(material["title"])
 
-                    if created:
-                        create_member_notification(
-                            cur,
-                            user_id,
-                            "Suas metas foram atualizadas",
-                            f"{len(created)} nova(s) meta(s) foram adicionadas em “{cycle['title']}”: " + ", ".join(created) + ".",
-                            url_for("dashboard"),
-                            f"goals:{cycle['id']}:{user_id}:" + "-".join(sorted(created)),
-                        )
-
                     conn.commit()
+                except Exception:
+                    conn.rollback()
+                    app.logger.exception("Erro ao criar metas padronizadas: user_id=%s cycle_id=%s", user_id, cycle["id"])
+                    flash("Não foi possível criar as metas. Tente novamente.", "danger")
+                    return redirect(url_for("admin_member_goals", user_id=user_id))
+
+                if created:
+                    try:
+                        with get_conn() as notify_conn:
+                            with notify_conn.cursor() as notify_cur:
+                                create_member_notification(
+                                    notify_cur,
+                                    user_id,
+                                    "Suas metas foram atualizadas",
+                                    f"{len(created)} nova(s) meta(s) foram adicionadas em “{cycle['title']}”: " + ", ".join(created) + ".",
+                                    url_for("dashboard"),
+                                    f"goals:{cycle['id']}:{user_id}:" + "-".join(sorted(created)),
+                                )
+                            notify_conn.commit()
+                    except Exception:
+                        app.logger.exception("Metas criadas, mas falhou notificação interna para user_id=%s", user_id)
+
                     try:
                         send_push_to_user(
                             user_id,
@@ -2413,12 +2475,7 @@ def admin_member_goals(user_id):
                             url_for("dashboard", _external=True),
                         )
                     except Exception:
-                        app.logger.exception("Falha ao disparar push para user_id=%s", user_id)
-                except Exception:
-                    conn.rollback()
-                    app.logger.exception("Erro ao criar metas padronizadas: user_id=%s cycle_id=%s", user_id, cycle["id"])
-                    flash("Não foi possível criar as metas. Tente novamente.", "danger")
-                    return redirect(url_for("admin_member_goals", user_id=user_id))
+                        app.logger.exception("Metas criadas, mas falhou push para user_id=%s", user_id)
 
                 flash(f"{len(created)} meta(s) criada(s): " + ", ".join(created) + ".", "success")
                 return redirect(url_for("admin_member_goals", user_id=user_id))
@@ -3422,6 +3479,13 @@ def disable_dynamic_page_cache(response):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
+    # Cabeçalhos defensivos que não interferem no PWA nem nos scripts atuais.
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    if os.environ.get("VERCEL"):
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
     return response
 
 
@@ -3445,8 +3509,3 @@ def service_worker():
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     return response
 
-
-@app.errorhandler(413)
-def too_large(_):
-    flash("Arquivo muito grande. Use uma imagem menor que 3,5 MB.", "danger")
-    return redirect(request.referrer or url_for("dashboard"))
