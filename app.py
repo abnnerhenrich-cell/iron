@@ -3491,7 +3491,7 @@ def disable_dynamic_page_cache(response):
         response.headers["Expires"] = "0"
     # Cabeçalhos defensivos que não interferem no PWA nem nos scripts atuais.
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
     if os.environ.get("VERCEL"):
