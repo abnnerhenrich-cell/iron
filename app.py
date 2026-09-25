@@ -82,13 +82,19 @@ PERSONAL_GOAL_CATALOG = [
 def get_conn():
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL não encontrada. Conecte o Neon ao projeto na Vercel.")
-    return psycopg.connect(
+    conn = psycopg.connect(
         DATABASE_URL,
         row_factory=dict_row,
         connect_timeout=10,
-        options="-c statement_timeout=20000 -c lock_timeout=5000 -c idle_in_transaction_session_timeout=30000",
         application_name="iron-web",
     )
+    # Neon pooled connections reject statement_timeout/lock_timeout in the
+    # PostgreSQL startup packet. Configure them only after connecting.
+    with conn.cursor() as cur:
+        cur.execute("SET statement_timeout = '20s'")
+        cur.execute("SET lock_timeout = '5s'")
+        cur.execute("SET idle_in_transaction_session_timeout = '30s'")
+    return conn
 
 def goal_credit_key(title):
     """Chave estável para transportar crédito entre metas com o mesmo nome."""
