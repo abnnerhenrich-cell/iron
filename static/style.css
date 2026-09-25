@@ -936,3 +936,110 @@ table{width:100%;border-collapse:collapse}th{padding:11px 12px;color:#667385;fon
   .login-page .login-card{padding:23px 19px!important;border-radius:12px!important}.login-page .logo-box-art{height:105px!important}.login-page .logo-box-art img{max-height:100px!important}
 }
 @media(max-width:430px){.page{padding-left:9px;padding-right:9px}.hero h1{font-size:30px}.quick-stats{grid-template-columns:1fr}.quick-stat:last-child:nth-child(odd){grid-column:auto}.panel{padding:14px}.bottom-nav{left:7px;right:7px;bottom:7px}}
+
+
+/* ===== V60 — IRON COMMAND DECK / STRUCTURAL REDESIGN ===== */
+@media (min-width:761px){
+  :root{--sidebar:0px;--command-h:88px}
+  body.is-auth{padding-top:var(--command-h);background:
+    radial-gradient(circle at 78% -20%,rgba(176,190,207,.10),transparent 32rem),
+    radial-gradient(circle at 15% 25%,rgba(85,101,121,.06),transparent 30rem),
+    #06080b}
+  body.is-auth:before{background-size:64px 64px;opacity:.55}
+
+  .app-sidebar{
+    position:fixed;inset:0 0 auto 0;width:100%;height:var(--command-h);
+    padding:0 28px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+    align-items:center;gap:28px;background:rgba(7,10,14,.94);
+    border:0;border-bottom:1px solid rgba(255,255,255,.09);
+    backdrop-filter:blur(22px);z-index:1000
+  }
+  .sidebar-brand{height:100%;min-height:0;margin:0;padding:0 26px 0 0;border:0;border-right:1px solid rgba(255,255,255,.08)}
+  .sidebar-brand .brand-logo{width:50px;height:50px}.brand-copy strong{font-size:17px}.brand-copy small{font-size:7px}
+  .sidebar-section-label,.sidebar-spacer,.install-app-sidebar{display:none!important}
+  .sidebar-nav{display:flex;align-items:center;gap:4px;overflow-x:auto;scrollbar-width:none}
+  .sidebar-nav::-webkit-scrollbar{display:none}
+  .sidebar-nav a{flex:0 0 auto;min-height:44px;padding:0 13px;border-radius:10px;font-size:10.5px;background:transparent}
+  .sidebar-nav a.active{background:#eef2f6;color:#080b0f;border-color:#fff;box-shadow:none}
+  .sidebar-nav a.active .nav-ico{color:#080b0f}.sidebar-nav a.active:after{display:none}
+  .nav-ico{width:auto;margin-right:7px;font-size:14px}
+  .context-switch{margin:0;min-width:0;padding:9px 11px;border-radius:10px}.context-switch div{display:none}
+  .sidebar-user{height:auto;padding:0;gap:9px;border:0;white-space:nowrap}.sidebar-user>div:nth-child(2){display:none}.sidebar-user>a{width:38px;height:38px;border:1px solid rgba(255,255,255,.09);border-radius:10px;display:grid;place-items:center}
+  .sidebar-avatar{width:38px;height:38px}
+  .app-sidebar>.context-switch{grid-column:3;grid-row:1}
+  .app-sidebar>.sidebar-user{grid-column:4;grid-row:1}
+  .app-sidebar{grid-template-columns:auto minmax(0,1fr) auto auto}
+  .page{width:100%;margin:0;max-width:1560px;padding:46px clamp(28px,4vw,70px) 90px}
+
+  /* Command-deck page headers */
+  .hero{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:28px;padding:0 0 30px;margin-bottom:30px}
+  .hero h1{font-size:clamp(42px,5vw,72px);max-width:900px}
+  .hero-kicker{margin-top:18px}.hero-chip{background:#0d131a;border-color:#26313e;padding:8px 11px}
+  .hierarchy-hero .btn,.manager-hero .manager-badge{align-self:end}
+
+  /* Dashboard becomes asymmetric cockpit */
+  .stats{display:grid;grid-template-columns:1.35fr repeat(3,1fr);gap:1px;padding:0;background:#202833;border-radius:16px;overflow:hidden;border:1px solid #202833}
+  .stats>div{min-height:118px;padding:23px;background:#0b0f14!important;border:0!important;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-start}
+  .stats>div:first-child{background:linear-gradient(135deg,#151c25,#0b0f14)!important}
+  .stats strong{font-size:36px;letter-spacing:-.05em}.stats span{font-size:7.5px;letter-spacing:.14em}
+  .cycle-highlight{display:grid;grid-template-columns:1fr auto;align-items:center;margin:16px 0 30px;padding:22px 24px;border-radius:16px;background:linear-gradient(100deg,#111821,#0b0f14)}
+  .admin-area-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .admin-area-card{min-height:170px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;padding:22px}
+  .admin-area-card .admin-area-icon{font-size:23px}.admin-area-card div{margin-top:auto;padding-top:28px}.admin-area-card>b{position:absolute;right:20px;top:18px}
+
+  /* Member cockpit */
+  .dashboard-hero{grid-template-columns:minmax(0,1fr) 250px;padding:0 0 30px}
+  .dashboard-hero .hero-side{border:0;padding:0;justify-content:flex-end}
+  .progress-orb{width:176px;height:176px}
+  .quick-stats{grid-template-columns:repeat(3,1fr);margin-bottom:14px}
+  .quick-stat{min-height:118px;padding:20px}
+  .profile-photo-card{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;padding:16px 20px;margin-bottom:26px}
+  .profile-avatar-large{width:58px;height:58px}.profile-photo-info{padding-left:14px}
+  .goals-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .goal-card{min-height:230px;border-radius:15px;background:#0b1016;border:1px solid rgba(255,255,255,.075)}
+
+  /* Internal pages */
+  .panel{border-radius:16px;padding:24px}.panel-head{min-height:58px}
+  .member-folders{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .member-folder{min-height:150px;padding:20px}
+  .form-grid{gap:16px}
+  .calculator-frame-shell{height:calc(100vh - 230px);min-height:620px;border-radius:18px}
+
+  /* Tables become command lists */
+  .table-wrap{border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:auto}
+  table{background:#090d12}th{position:sticky;top:0;z-index:2;background:#0f141b}td{padding-top:15px;padding-bottom:15px}
+
+  .mobile-topbar,.bottom-nav{display:none!important}
+}
+@media (min-width:761px) and (max-width:1180px){
+  .app-sidebar{padding:0 16px;gap:14px}.brand-copy{display:none}.sidebar-brand{padding-right:14px}
+  .sidebar-nav a{padding:0 9px}.sidebar-nav a span:last-child{font-size:9px}
+  .context-switch{display:none}
+  .app-sidebar{grid-template-columns:auto minmax(0,1fr) auto}
+  .app-sidebar>.sidebar-user{grid-column:3}
+  .admin-area-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .goals-grid,.member-folders{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:760px){
+  /* Mobile V60 is deliberately a different composition */
+  body.is-auth{background:#06080b}
+  .mobile-topbar{height:68px;background:rgba(7,10,14,.97)}
+  .page{padding-top:88px}
+  .hero{border-bottom:0;padding-bottom:12px}.hero h1{font-size:38px;line-height:.95}
+  .hero-kicker{display:flex;overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}
+  .hero-chip{white-space:nowrap}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:transparent;border:0}
+  .stats>div{min-height:100px;border:1px solid rgba(255,255,255,.07)!important;border-radius:12px!important;background:#0b1016!important;align-items:flex-start!important;text-align:left!important}
+  .stats strong{font-size:30px}
+  .admin-area-grid{grid-template-columns:1fr 1fr;gap:8px}.admin-area-card{min-height:150px;padding:16px;display:flex;flex-direction:column;align-items:flex-start}.admin-area-card div{margin-top:auto}.admin-area-card small{display:none}
+  .dashboard-hero .hero-side{display:flex;justify-content:flex-start}.progress-orb{width:140px;height:140px}
+  .profile-photo-card{display:grid;grid-template-columns:auto 1fr;gap:10px}.profile-card-action{grid-column:1/-1;width:100%;display:flex}.profile-card-action .btn{flex:1}
+  .goals-grid{grid-template-columns:1fr}
+  .bottom-nav{border-radius:18px;background:rgba(12,17,23,.98)}
+}
+
+.command-section-label{display:flex;align-items:center;justify-content:space-between;margin:28px 0 10px;color:#6f7c8c;font-size:8px;font-weight:800;letter-spacing:.18em}
+.command-section-label:after{content:"";height:1px;background:rgba(255,255,255,.06);flex:1;margin:0 14px}
+.command-section-label b{font-size:7px;color:#4e5b6a;order:3}
+.command-panel{background:transparent;border:0;padding:0}
+@media(max-width:760px){.command-section-label{margin-top:20px}.command-section-label b{display:none}.command-panel{padding:0;background:transparent}}

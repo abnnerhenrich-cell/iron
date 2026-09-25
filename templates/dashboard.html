@@ -22,6 +22,7 @@
 </a>
 {% endif %}
 
+<div class="command-section-label"><span>RESUMO DO CICLO</span><b>SEU STATUS</b></div>
 <section class="quick-stats">
   <div class="quick-stat"><span>Em análise</span><strong class="yellow">{{ counts['pending'] or 0 }}</strong><small>aguardando revisão</small></div>
   <div class="quick-stat"><span>Aprovadas</span><strong class="green">{{ counts['approved'] or 0 }}</strong><small>entregas confirmadas</small></div>
@@ -43,6 +44,7 @@
 </div>
 
 {% if cycle %}
+<div class="command-section-label"><span>OBJETIVOS</span><b>PROGRESSO POR MATERIAL</b></div>
 <section class="panel">
   <div class="panel-head">
     <div><span class="eyebrow">SUAS METAS</span><h2>Suas metas</h2><p>A porcentagem considera o que já foi aprovado e também o que está em análise.</p></div>
