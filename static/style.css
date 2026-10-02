@@ -857,3 +857,82 @@ input,select,textarea{background:#030a1b;border-color:#2a3955;color:#f4f5f7}inpu
 .table-wrap,table{background:#030a1a;border-color:#263550}th{background:#0a1630;color:#aeb7c6}td{border-color:#1f2c45}
 ::selection{background:#5e000e;color:#fff}
 @media(max-width:760px){.hero:after{font-size:52px;right:10px;bottom:-10px}.app-sidebar{background:#00040f}.page{background:transparent}}
+
+/* ===== VETERANI V3 — SUPERFICIES TEMATICAS ===== */
+:root{
+  --v-card:#061127;
+  --v-card-2:#091831;
+  --v-card-3:#0c1c36;
+  --v-field:#050f24;
+  --v-burgundy-glow:rgba(94,0,14,.22);
+  --v-border:#2d3e5e;
+}
+/* Neutral/black blocks -> Veterani navy */
+.stats>div,.quick-stat,.manager-stats>article,.summary-card,.mini-card,.metric-card,
+.goal-card,.goal-admin-card,.member-review-card,.member-folder,.admin-area-card,
+.profile-photo-card,.cycle-highlight,.section-choice,.notification-item,
+.trade-card,.trade-stat,.balance-card,.closure-card,.submission-card,
+.product-card,.material-card,.meta-card,.review-card,.member-card{
+  background:linear-gradient(145deg,var(--v-card-2),var(--v-card))!important;
+  border-color:var(--v-border)!important;
+}
+.panel{
+  background:linear-gradient(145deg,rgba(7,18,41,.97),rgba(3,10,27,.985))!important;
+  border-color:#2c3d5d!important;
+}
+/* Nested dark surfaces */
+.goal-card [class*="stat"],.goal-card [class*="metric"],
+.goal-admin-card [class*="stat"],.member-review-card [class*="stat"],
+.balance-card [class*="stat"],.submission-card [class*="stat"],
+.product-card [class*="stat"],.calculator-card [class*="stat"],
+.info-box,.empty-state,.status-box,.quantity-box,.observation-box,
+.photo-box,.upload-box,.proof-box,.saldo-box,.balance-box{
+  background:linear-gradient(145deg,#07142d,#050f23)!important;
+  border-color:#2b3d5d!important;
+}
+/* Inputs were almost black */
+input,select,textarea,.search-input,.quantity-input{
+  background:linear-gradient(180deg,#06132c,#040e22)!important;
+  border-color:#304463!important;
+}
+input:hover,select:hover,textarea:hover{border-color:#465b7e!important}
+input:focus,select:focus,textarea:focus{
+  background:#081731!important;border-color:#8b1832!important;
+  box-shadow:0 0 0 3px rgba(94,0,14,.20)!important;
+}
+/* Tables */
+.table-wrap,table{background:#051126!important;border-color:#2b3d5d!important}
+th{background:#0a1935!important;border-color:#30415f!important}
+td{background:rgba(5,15,34,.72);border-color:#223451!important}
+tr:hover td{background:#0a1831!important}
+/* Calculator: replace neutral black cards and quantity rows */
+.calculator-shell,.calculator-frame-shell{background:linear-gradient(145deg,#07142d,#02091b)!important;border-color:#402037!important}
+.calculator-card,.calc-card,.calc-product,.calculator-product,.calculator-section{
+  background:linear-gradient(145deg,#0b1934,#061127)!important;
+  border-color:#304463!important;
+}
+.calculator-card input,.calc-card input,.calc-product input,.calculator-product input{
+  background:#06132b!important;
+}
+/* Review / proof image area */
+.member-review-card img,.submission-card img,.proof-image{
+  background:#07142d!important;
+}
+/* Secondary boxes receive a subtle Veterani burgundy cast */
+.active-goal-card,.new-notification-banner,.push-permission-toast{
+  background:linear-gradient(135deg,#091a35 0%,#07142b 62%,rgba(65,0,12,.94) 100%)!important;
+  border-color:#543047!important;
+}
+.push-permission-toast{box-shadow:0 18px 55px rgba(0,0,0,.45),0 0 32px rgba(94,0,14,.10)!important}
+/* Buttons inside counters / segmented controls */
+.qty-control button,.quantity-control button,.stepper button,.segmented button,.type-options button,.markup-options button{
+  background:#0a1831!important;border-color:#304463!important;color:#e8ebf0!important;
+}
+.qty-control button:hover,.quantity-control button:hover,.stepper button:hover,.segmented button:hover{
+  background:#111f3d!important;border-color:#6e1730!important;
+}
+/* Generic inline dark backgrounds from older styles */
+.card,.box,.inner-card,.inner-panel{
+  background:linear-gradient(145deg,#091831,#061127)!important;
+  border-color:#2d3e5e!important;
+}
