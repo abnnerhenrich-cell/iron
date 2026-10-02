@@ -4,8 +4,8 @@
   "description": "Veterani — Metas, entregas e acompanhamento.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#01081e",
-  "theme_color": "#01081e",
+  "background_color": "#00040f",
+  "theme_color": "#00040f",
   "icons": [
     {
       "src": "/static/icons/icon-192.png",
