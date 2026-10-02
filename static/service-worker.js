@@ -40,10 +40,10 @@ self.addEventListener('push', event => {
   try {
     data = event.data ? event.data.json() : {};
   } catch (_) {
-    data = { title: 'IRON', body: event.data ? event.data.text() : 'Você tem uma nova atualização.' };
+    data = { title: 'Veterani', body: event.data ? event.data.text() : 'Você tem uma nova atualização.' };
   }
 
-  const title = data.title || 'IRON';
+  const title = data.title || 'Veterani';
   const options = {
     body: data.body || 'Você tem uma nova atualização.',
     icon: data.icon || '/static/icons/icon-192.png',

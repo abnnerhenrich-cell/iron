@@ -131,3 +131,8 @@ footer p { margin: 6px 0 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
+
+
+/* ===== VETERANI CALCULATOR THEME ===== */
+:root{--bg:#01040f;--surface:rgba(7,17,38,.92);--surface-2:#0a1630;--surface-3:#101d37;--line:rgba(190,196,207,.12);--line-strong:rgba(139,16,40,.58);--text:#f4f5f7;--muted:#929cad;--cyan:#b8bdc7;--cyan-strong:#8b1028}
+body{background:radial-gradient(circle at 12% 0%,rgba(94,0,14,.28),transparent 30rem),radial-gradient(circle at 90% 30%,rgba(25,49,94,.22),transparent 24rem),#01040f}.logo{filter:drop-shadow(0 0 22px rgba(94,0,14,.32))}.eyebrow,.card-kicker,h1 span,.summary strong,.price-line strong{color:#c7cbd2}.summary{border-color:rgba(139,16,40,.48);background:rgba(3,10,27,.92)}.segmented button.ativo{color:#fff;border-color:#8b1028;background:linear-gradient(180deg,rgba(139,16,40,.35),rgba(94,0,14,.14));box-shadow:inset 0 0 0 1px rgba(255,255,255,.04),0 0 20px rgba(94,0,14,.18)}.segmented button:hover,.stepper-btn:hover{border-color:#7d1730;color:#fff;background:rgba(94,0,14,.16)}.produto{background:linear-gradient(145deg,rgba(14,30,61,.68),rgba(3,9,24,.96));border-color:#273754}.produto::after{background:linear-gradient(120deg,transparent 58%,rgba(94,0,14,.07))}.toast{border-color:#7d1730;background:#071127;color:#fff}

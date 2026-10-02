@@ -1299,7 +1299,7 @@ def push_test():
     try:
         sent = send_push_to_user(
             user["id"],
-            "IRON — notificações ativadas",
+            "Veterani — notificações ativadas",
             "Tudo certo! Este celular já pode receber avisos de novas metas.",
             url_for("dashboard", _external=True),
         )
@@ -1606,7 +1606,7 @@ def submit():
             images.append((data, image.mimetype, image.filename[:180]))
 
         if total_bytes > 2_800_000:
-            flash("As fotos juntas ficaram grandes demais. Tente novamente; o IRON vai compactá-las antes do próximo envio.", "danger")
+            flash("As fotos juntas ficaram grandes demais. Tente novamente; o Veterani vai compactá-las antes do próximo envio.", "danger")
             return render_template("submit.html", cycle=cycle, goals=goals)
 
         while len(images) < 3:
@@ -1852,7 +1852,7 @@ def admin_cycles():
                         create_notification_for_all_members(
                             cur,
                             "Nova meta lançada",
-                            f"A meta “{title}” foi lançada. Abra o IRON para conferir suas metas e acompanhar seu progresso.",
+                            f"A meta “{title}” foi lançada. Abra o Veterani para conferir suas metas e acompanhar seu progresso.",
                             url_for("dashboard"),
                             f"cycle:{cycle_id}:launched",
                         )
@@ -1863,7 +1863,7 @@ def admin_cycles():
             try:
                 send_push_to_all_members(
                     "Nova meta lançada",
-                    f"A meta “{title}” foi lançada no IRON. Toque para conferir.",
+                    f"A meta “{title}” foi lançada no Veterani. Toque para conferir.",
                     url_for("dashboard", _external=True),
                 )
             except Exception:
@@ -3491,7 +3491,7 @@ def disable_dynamic_page_cache(response):
         response.headers["Expires"] = "0"
     # Cabeçalhos defensivos que não interferem no PWA nem nos scripts atuais.
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    # A calculadora é incorporada somente pelas páginas do próprio IRON.
+    # A calculadora é incorporada somente pelas páginas do próprio Veterani.
     # DENY bloqueia até mesmo esse iframe de mesma origem.
     if request.endpoint in {"calculator_app", "admin_calculator_app"}:
         response.headers["X-Frame-Options"] = "SAMEORIGIN"

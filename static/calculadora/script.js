@@ -241,7 +241,7 @@ function typeLabel(value) {
 function buildSummary() {
   const totals = calculate();
   return [
-    "CALCULADORA IRONS",
+    "CALCULADORA Veterani",
     "",
     `Colete: ${state.quantities.colete} un. • ${typeLabel(state.types.colete)} • +${state.additions.colete}% • ${money(totals.totalColete)}`,
     `Celular Hacker: ${state.quantities.hacker} un. • ${typeLabel(state.types.hacker)} • +${state.additions.hacker}% • ${money(totals.totalHacker)}`,

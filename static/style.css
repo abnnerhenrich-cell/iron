@@ -820,3 +820,40 @@ input,button,select,textarea{font-size:max(16px,1rem)}
   opacity:.65;
   cursor:wait;
 }
+
+
+/* ===== VETERANI — IDENTIDADE OFICIAL ===== */
+:root{
+  --bg:#01040f;--bg-soft:#01081e;--surface:#071126;--surface-2:#0b1730;--surface-3:#101d37;
+  --stroke:#26324a;--stroke-2:#3a4965;--text:#f2f3f5;--muted:#929cad;--muted-2:#68748a;
+  --silver:#e1e3e7;--silver-mid:#aeb4bf;--green:#52d7a0;--yellow:#e4bc62;--red:#c9384e;--blue:#6f88b9;
+  --veterani-navy:#01081e;--veterani-burgundy:#5e000e;--veterani-burgundy-2:#8b1028;
+}
+html{background:#01040f}
+body{
+  background:
+    radial-gradient(circle at 88% -8%,rgba(94,0,14,.32),transparent 34rem),
+    radial-gradient(circle at 5% 24%,rgba(34,58,104,.25),transparent 30rem),
+    linear-gradient(155deg,#01040f 0%,#01081e 48%,#020510 100%);
+}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.15;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:44px 44px;mask-image:linear-gradient(to bottom,#000,transparent 75%)}
+.app-sidebar{background:linear-gradient(180deg,rgba(1,8,30,.99),rgba(1,4,15,.995));border-right:1px solid rgba(126,23,43,.45);box-shadow:20px 0 65px rgba(0,0,0,.3)}
+.sidebar-brand{position:relative}.brand-logo{filter:drop-shadow(0 9px 16px rgba(94,0,14,.38));object-fit:contain}.brand-copy strong{color:#f2f3f5;letter-spacing:.11em}.brand-copy small{color:#9ca5b5}
+.sidebar-nav a{color:#8994a8}.sidebar-nav a:hover{color:#fff;background:#0b1730;border-color:rgba(94,0,14,.32)}
+.sidebar-nav a.active{color:#fff;background:linear-gradient(135deg,#7a071d,#4a000b);border-color:#9b1832;box-shadow:0 12px 30px rgba(94,0,14,.30),inset 0 1px rgba(255,255,255,.12)}
+.sidebar-nav a.active .nav-ico{color:#e7e8eb}.context-switch{background:#071126;border-color:#263550}.context-switch>span{background:linear-gradient(145deg,#6f0719,#3d0009);color:#fff}.sidebar-avatar{background:#0b1730;border-color:#33415b;color:#e7e8eb}
+.hero,.panel,.stats,.profile-photo-card,.member-folder,.summary-card,.section-choice,.admin-area-card,.goal-admin-card,.member-review-card,.auth-card,.cycle-highlight{border-color:#263550;background:linear-gradient(145deg,rgba(9,20,44,.96),rgba(2,8,24,.985));box-shadow:0 1px 0 rgba(255,255,255,.03),0 20px 60px rgba(0,0,0,.18)}
+.hero{background:linear-gradient(115deg,rgba(8,21,48,.98),rgba(1,8,30,.98) 58%,rgba(52,0,9,.94));border-color:#34435f}.hero:before{background:radial-gradient(circle,rgba(139,16,42,.28),rgba(94,0,14,.10) 38%,transparent 68%)}.hero:after{content:"VETERANI";font-size:86px;color:rgba(255,255,255,.025);right:24px}.eyebrow{color:#b6bdc9}.eyebrow:before{background:#8b1028}
+.btn.primary{background:linear-gradient(135deg,#8a1028,#4e000c);border-color:#9c1b35;color:#fff;box-shadow:0 12px 28px rgba(94,0,14,.30)}.btn.primary:hover{background:linear-gradient(135deg,#9b1732,#5e000e)}
+.btn.ghost{background:#0b1730;border-color:#33425f;color:#e1e3e7}.btn.ghost:hover{border-color:#6f1730;background:#111d38}
+input,select,textarea{background:#030a1b;border-color:#2a3955;color:#f4f5f7}input:focus,select:focus,textarea:focus{border-color:#85142c;box-shadow:0 0 0 3px rgba(94,0,14,.18);background:#061027}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline-color:#a72a43}
+.badge{background:#0c1830;border-color:#35435e;color:#d2d6dd}.progress-orb{background:conic-gradient(#8b1028 calc(var(--progress)*1%),#17233a 0);box-shadow:0 20px 50px rgba(0,0,0,.34),0 0 40px rgba(94,0,14,.14)}.progress-orb:after{background:#040b1c;border-color:#293854}
+.quick-stat,.goal-card,.member-folder,.admin-area-card{background:linear-gradient(145deg,#09152e,#040b1d);border-color:#283754}.goal-card:hover,.member-folder:hover,.admin-area-card:hover{border-color:#7b1730;box-shadow:0 18px 42px rgba(0,0,0,.28),0 0 0 1px rgba(94,0,14,.15)}
+.profile-avatar-large,.avatar-silver{background:linear-gradient(145deg,#d7d9de,#747c8b);color:#01081e}
+.new-notification-banner{background:linear-gradient(110deg,#0c1832,#42000a);border-color:#77172b}.new-notification-banner-icon{color:#d6d9df}
+.auth-card{position:relative;overflow:hidden}.auth-card:before,.login-card:before,.admin-login-card:before{content:"VETERANI"!important;color:rgba(255,255,255,.022)!important}.logo-box.logo-box-art{background:transparent!important;box-shadow:none!important}.logo-box.logo-box-art img{filter:drop-shadow(0 24px 38px rgba(94,0,14,.34))!important}
+.mobile-topbar{background:rgba(1,8,30,.97);border-bottom-color:rgba(94,0,14,.35)}.bottom-nav{background:rgba(1,8,30,.97);border-color:#263550}.bottom-nav a.active{color:#fff;background:linear-gradient(180deg,rgba(94,0,14,.6),rgba(94,0,14,.18))}
+.install-sheet{background:#061027;border-color:#35435f}.install-app-sidebar,.guest-install-app,.mobile-install{border-color:#6f1730!important;background:#0b1730!important;color:#e4e6ea!important}
+.table-wrap,table{background:#030a1a;border-color:#263550}th{background:#0a1630;color:#aeb7c6}td{border-color:#1f2c45}
+::selection{background:#5e000e;color:#fff}
+@media(max-width:760px){.hero:after{font-size:52px;right:10px;bottom:-10px}.app-sidebar{background:#01081e}.page{background:transparent}}

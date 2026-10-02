@@ -3,27 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#07090d">
+  <meta name="theme-color" content="#01081e">
   <meta name="color-scheme" content="dark">
   {% if current_user %}<meta name="csrf-token" content="{{ csrf_token() }}">{% endif %}
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="IRON">
-  <title>{% block title %}IRON Metas{% endblock %}</title>
+  <meta name="apple-mobile-web-app-title" content="Veterani">
+  <title>{% block title %}Veterani Metas{% endblock %}</title>
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32.png') }}?v=9">
   <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v=9">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=9">
   <link rel="manifest" href="/manifest.webmanifest?v=9">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=57.0.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=veterani-1">
 </head>
 {% set member_mode = request.endpoint in ['dashboard','submit','history','notifications','notification_mark_read','notifications_mark_all_read','member_home','calculator','calculator_app'] %}
 <body class="{{ 'is-auth' if current_user else 'is-guest' }} {{ 'is-member-mode' if member_mode else 'is-admin-mode' }}">
   {% if current_user %}
   <aside class="app-sidebar">
     <a class="sidebar-brand" href="{{ url_for('admin_dashboard' if current_user['role'] in ['admin','manager'] and not member_mode else 'dashboard') }}">
-      <img class="brand-logo" src="{{ url_for('static', filename='iron-logo.png') }}?v=9" alt="IRON Brotherhood">
-      <span class="brand-copy"><strong>IRON</strong><small>{{ 'ESPAÇO DO MEMBRO' if member_mode else ('PAINEL GERENTE' if current_user['role']=='manager' else ('PAINEL DA HIERARQUIA' if current_user['role']=='admin' else 'ESPAÇO DO MEMBRO')) }}</small></span>
+      <img class="brand-logo" src="{{ url_for('static', filename='veterani-logo.png') }}?v=9" alt="Veterani">
+      <span class="brand-copy"><strong>Veterani</strong><small>{{ 'ESPAÇO DO MEMBRO' if member_mode else ('PAINEL GERENTE' if current_user['role']=='manager' else ('PAINEL DA HIERARQUIA' if current_user['role']=='admin' else 'ESPAÇO DO MEMBRO')) }}</small></span>
     </a>
 
     <div class="sidebar-section-label">NAVEGAÇÃO</div>
@@ -53,7 +53,7 @@
     <div class="sidebar-spacer"></div>
     <button class="install-app-sidebar js-install-app" type="button">
       <span class="install-app-icon">↓</span>
-      <span><strong>Instalar IRON</strong><small>Adicionar ao dispositivo</small></span>
+      <span><strong>Instalar Veterani</strong><small>Adicionar ao dispositivo</small></span>
     </button>
     {% if current_user['role'] in ['admin','manager'] %}
       <a class="context-switch" href="{{ url_for('admin_dashboard' if member_mode else 'dashboard') }}">
@@ -72,10 +72,10 @@
   </aside>
 
   <header class="mobile-topbar">
-    <a class="mobile-brand" href="{{ url_for('admin_dashboard' if current_user['role'] in ['admin','manager'] and not member_mode else 'dashboard') }}"><img class="brand-logo" src="{{ url_for('static', filename='iron-logo.png') }}?v=9" alt="IRON Brotherhood"><strong>IRON</strong></a>
+    <a class="mobile-brand" href="{{ url_for('admin_dashboard' if current_user['role'] in ['admin','manager'] and not member_mode else 'dashboard') }}"><img class="brand-logo" src="{{ url_for('static', filename='veterani-logo.png') }}?v=9" alt="Veterani"><strong>Veterani</strong></a>
     <div class="mobile-top-actions">
       {% if member_mode %}<a class="mobile-notification-link" href="{{ url_for('notifications') }}" aria-label="Notificações" title="Notificações">♢{% if unread_notifications %}<b>{{ unread_notifications if unread_notifications < 100 else '99+' }}</b>{% endif %}</a>{% endif %}
-      <button class="mobile-install js-install-app" type="button" aria-label="Instalar IRON" title="Instalar IRON">↓</button>
+      <button class="mobile-install js-install-app" type="button" aria-label="Instalar Veterani" title="Instalar Veterani">↓</button>
       {% if current_user['role'] in ['admin','manager'] %}<a href="{{ url_for('admin_dashboard' if member_mode else 'dashboard') }}">⇄</a>{% endif %}
       <a href="{{ url_for('logout') }}">↗</a>
     </div>
@@ -96,7 +96,7 @@
       <div class="push-permission-icon">◇</div>
       <div class="push-permission-copy">
         <strong>Receber avisos no celular</strong>
-        <small>Ative para ser avisado quando uma nova meta for lançada, mesmo com o IRON fechado.</small>
+        <small>Ative para ser avisado quando uma nova meta for lançada, mesmo com o Veterani fechado.</small>
       </div>
       <button class="btn primary" id="enablePushButton" type="button">Ativar</button>
       <button class="push-permission-close" id="dismissPushButton" type="button" aria-label="Agora não">×</button>
@@ -105,7 +105,7 @@
   </main>
 
   {% if not current_user %}
-  <button class="guest-install-app js-install-app" type="button"><span>↓</span> Instalar IRON</button>
+  <button class="guest-install-app js-install-app" type="button"><span>↓</span> Instalar Veterani</button>
   {% endif %}
 
   {% if current_user %}
@@ -134,10 +134,10 @@
     <div class="install-sheet-backdrop" data-close-install></div>
     <section class="install-sheet-card" role="dialog" aria-modal="true" aria-labelledby="installTitle">
       <button class="install-sheet-close" type="button" data-close-install aria-label="Fechar">×</button>
-      <div class="install-sheet-brand"><img class="brand-logo" src="{{ url_for('static', filename='iron-logo.png') }}?v=9" alt="IRON Brotherhood"></div>
-      <span class="eyebrow">IRON NO CELULAR</span>
+      <div class="install-sheet-brand"><img class="brand-logo" src="{{ url_for('static', filename='veterani-logo.png') }}?v=9" alt="Veterani"></div>
+      <span class="eyebrow">Veterani NO CELULAR</span>
       <h2 id="installTitle">Adicionar à Tela de Início</h2>
-      <p id="installHelpText">Você pode instalar o IRON no celular ou computador para abrir como aplicativo.</p>
+      <p id="installHelpText">Você pode instalar o Veterani no celular ou computador para abrir como aplicativo.</p>
       <button class="btn primary" type="button" data-close-install>Entendi</button>
     </section>
   </div>
@@ -159,7 +159,7 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {
         try {
-          const registration = await navigator.serviceWorker.register('/service-worker.js?v=57', { updateViaCache: 'none' });
+          const registration = await navigator.serviceWorker.register('/service-worker.js?v=veterani-1', { updateViaCache: 'none' });
           await registration.update();
         } catch (_) {}
       });
@@ -266,14 +266,14 @@
         return;
       }
       if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
-        showPushHelp('Este navegador não oferece suporte a notificações push. No Android, use Chrome ou o IRON instalado.');
+        showPushHelp('Este navegador não oferece suporte a notificações push. No Android, use Chrome ou o Veterani instalado.');
         return;
       }
 
       const isiOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
       const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
       if (isiOS && !standalone) {
-        showPushHelp('No iPhone/iPad, adicione o IRON à Tela de Início pelo Safari e ative as notificações dentro do app instalado.', 'Entendi');
+        showPushHelp('No iPhone/iPad, adicione o Veterani à Tela de Início pelo Safari e ative as notificações dentro do app instalado.', 'Entendi');
         return;
       }
 
@@ -282,7 +282,7 @@
         enableBtn.textContent = 'Ativando…';
 
         if (Notification.permission === 'denied') {
-          showPushHelp('As notificações estão bloqueadas para o IRON. Libere a permissão nas configurações do site/app e depois toque em Verificar.', 'Verificar');
+          showPushHelp('As notificações estão bloqueadas para o Veterani. Libere a permissão nas configurações do site/app e depois toque em Verificar.', 'Verificar');
           return;
         }
 
@@ -291,7 +291,7 @@
           try {
             permission = await Notification.requestPermission();
           } catch (permissionError) {
-            console.warn('IRON permission request:', permissionError);
+            console.warn('Veterani permission request:', permissionError);
             showPushHelp(
               'O Android impediu o pedido de permissão porque existe uma janela, balão ou sobreposição de outro app na tela. Feche essas sobreposições e toque em Tentar novamente.'
             );
@@ -359,7 +359,7 @@
         localStorage.removeItem('iron_push_dismissed_until');
         toast.hidden = true;
       } catch (error) {
-        console.error('IRON Push:', error);
+        console.error('Veterani Push:', error);
         const code = String(error && (error.message || error.name) || '');
 
         if (/NotAllowedError|permission|denied/i.test(code)) {
@@ -367,11 +367,11 @@
             'O Android não permitiu abrir a solicitação. Feche balões, tradutores, gravadores de tela ou outros apps sobrepostos e toque em Tentar novamente.'
           );
         } else if (/SERVER_CONFIG|VAPID/i.test(code)) {
-          showPushHelp('O serviço de notificações ainda não ficou pronto no servidor. Atualize o IRON e tente novamente em alguns segundos.');
+          showPushHelp('O serviço de notificações ainda não ficou pronto no servidor. Atualize o Veterani e tente novamente em alguns segundos.');
         } else if (/SERVER_SUBSCRIBE/i.test(code)) {
-          showPushHelp('O celular autorizou a notificação, mas o IRON não conseguiu salvar este aparelho. Saia da conta, entre novamente e tente ativar.');
+          showPushHelp('O celular autorizou a notificação, mas o Veterani não conseguiu salvar este aparelho. Saia da conta, entre novamente e tente ativar.');
         } else if (/PUSH_TEST/i.test(code)) {
-          showPushHelp('O aparelho foi cadastrado, mas o servidor não conseguiu entregar a notificação de teste. Atualize o IRON e tente novamente.');
+          showPushHelp('O aparelho foi cadastrado, mas o servidor não conseguiu entregar a notificação de teste. Atualize o Veterani e tente novamente.');
         } else if (/AbortError|InvalidStateError/i.test(code)) {
           try {
             const reg = await navigator.serviceWorker.ready;
@@ -403,7 +403,7 @@
             return;
           }
         } catch (e) {
-          console.warn('IRON push sync:', e);
+          console.warn('Veterani push sync:', e);
         }
       }
       const dismissedUntil = Number(localStorage.getItem('iron_push_dismissed_until') || '0');

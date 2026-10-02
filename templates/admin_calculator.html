@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Calculadora | IRON{% endblock %}
+{% block title %}Calculadora | Veterani{% endblock %}
 {% block content %}
 <section class="admin-calculator-page">
   <div class="page-header calculator-page-header">
@@ -9,7 +9,7 @@
     </div>
   </div>
   <div class="calculator-frame-shell">
-    <iframe id="ironCalculatorFrame" class="calculator-frame" src="{{ url_for('calculator_app' if calculator_member else 'admin_calculator_app') }}" title="Calculadora IRONS" loading="eager"></iframe>
+    <iframe id="ironCalculatorFrame" class="calculator-frame" src="{{ url_for('calculator_app' if calculator_member else 'admin_calculator_app') }}" title="Calculadora Veterani" loading="eager"></iframe>
   </div>
 </section>
 {% endblock %}

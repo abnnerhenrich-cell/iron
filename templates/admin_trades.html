@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Compras & Vendas · IRON{% endblock %}
+{% block title %}Compras & Vendas · Veterani{% endblock %}
 {% block content %}
 <section class="hero trade-hero">
   <div>
@@ -60,7 +60,7 @@
     <div>
       <span class="eyebrow">{{ 'VENDA' if is_sale else 'COMPRA' }}</span>
       <h2>{{ ('Editar venda' if edit_record else 'Registrar nova venda') if is_sale else ('Editar compra' if edit_record else 'Registrar nova compra') }}</h2>
-      <p>Os dados ficam salvos no banco do IRON e podem ser acessados em qualquer dispositivo.</p>
+      <p>Os dados ficam salvos no banco do Veterani e podem ser acessados em qualquer dispositivo.</p>
     </div>
     {% if edit_record %}<a class="btn ghost" href="{{ url_for('admin_trades', view=view) }}">Cancelar edição</a>{% endif %}
   </div>
