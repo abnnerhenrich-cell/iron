@@ -1,6 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Notificações · Veterani<script>document.querySelectorAll('[data-notification-filter]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-notification-filter]').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.notification-item').forEach(n=>n.hidden=!(b.dataset.notificationFilter==='all'||n.dataset.category===b.dataset.notificationFilter));}));</script>
-{% endblock %}
+{% block title %}Notificações · Veterani{% endblock %}
 {% block content %}
 <section class="hero notifications-hero">
   <div class="hero-copy">
@@ -42,5 +41,6 @@
     {% endfor %}
   </div>
 </section>
+
 <script>document.querySelectorAll('[data-notification-filter]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-notification-filter]').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.notification-item').forEach(n=>n.hidden=!(b.dataset.notificationFilter==='all'||n.dataset.category===b.dataset.notificationFilter));}));</script>
 {% endblock %}

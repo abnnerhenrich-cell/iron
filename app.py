@@ -141,7 +141,10 @@ def init_db():
                 CREATE INDEX IF NOT EXISTS ix_member_notifications_user_unread
                 ON member_notifications(user_id, read_at, created_at DESC)
             """)
-            cur.execute("ALTER TABLE member_notifications ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'hierarchy'")
+            # V6: coluna opcional de categoria. A central também funciona em bancos
+            # antigos porque a classificação pode ser inferida pelo título.
+            cur.execute("ALTER TABLE member_notifications ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'hierarchy'")
+            cur.execute("UPDATE member_notifications SET category='hierarchy' WHERE category IS NULL")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS admin_audit_log (
                     id BIGSERIAL PRIMARY KEY,
@@ -645,15 +648,18 @@ def create_notification_for_all_members(cur, title, message, link=None, notifica
 
 
 def get_member_notifications(user_id, limit=20):
+    """Central de avisos compatível inclusive com bancos anteriores à V5."""
     with get_conn() as conn:
         with conn.cursor() as cur:
+            # Não depende da coluna `category`: instalações antigas continuam
+            # abrindo a página mesmo antes/sem a migração opcional.
             cur.execute("""
                 SELECT *, CASE
                     WHEN LOWER(title) LIKE '%meta conclu%' THEN 'goal_completed'
                     WHEN LOWER(title) LIKE '%nova meta%' OR LOWER(title) LIKE '%meta lanç%' THEN 'new_goal'
                     WHEN LOWER(title) LIKE '%aprov%' THEN 'approved'
                     WHEN LOWER(title) LIKE '%recus%' OR LOWER(title) LIKE '%reprov%' THEN 'rejected'
-                    ELSE COALESCE(category, 'hierarchy') END AS display_category
+                    ELSE 'hierarchy' END AS display_category
                 FROM member_notifications
                 WHERE user_id=%s
                 ORDER BY (read_at IS NULL) DESC, created_at DESC, id DESC
@@ -1355,7 +1361,12 @@ def push_unsubscribe():
 @login_required
 def notifications():
     user = get_current_user()
-    items = get_member_notifications(user["id"], limit=100)
+    try:
+        items = get_member_notifications(user["id"], limit=100)
+    except Exception:
+        app.logger.exception("Falha ao carregar central de notificações do usuário %s", user["id"])
+        items = []
+        flash("A central de avisos foi carregada em modo de compatibilidade.", "warning")
     return render_template("notifications.html", notifications=items)
 
 
@@ -3251,10 +3262,20 @@ def veterani_admin_audit(response):
 @app.route('/admin/auditoria')
 @admin_required
 def admin_audit():
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT * FROM admin_audit_log ORDER BY created_at DESC, id DESC LIMIT 300")
-            rows=cur.fetchall()
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""CREATE TABLE IF NOT EXISTS admin_audit_log (
+                    id BIGSERIAL PRIMARY KEY, actor_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+                    actor_name TEXT, action TEXT NOT NULL, method TEXT NOT NULL, path TEXT NOT NULL,
+                    details TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())""")
+                cur.execute("SELECT * FROM admin_audit_log ORDER BY created_at DESC, id DESC LIMIT 300")
+                rows=cur.fetchall()
+            conn.commit()
+    except Exception:
+        app.logger.exception("Falha ao carregar auditoria")
+        rows=[]
+        flash("Auditoria temporariamente indisponível; as demais áreas continuam funcionando.", "warning")
     return render_template('admin_audit.html', rows=rows)
 
 @app.route('/admin/exportar/<kind>')

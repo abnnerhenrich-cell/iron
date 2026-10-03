@@ -1,7 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Admin · {{ member['name'] }}
-<section class="panel"><div class="panel-head"><div><span class="eyebrow">HISTÓRICO RESUMIDO</span><h2>Atividade recente</h2></div><a class="btn ghost" href="{{ url_for('admin_member_history', user_id=member['id']) }}">Ver completo</a></div><div class="v5-history-list">{% for h in recent_member_history %}<div><span class="status {{ h['status'] }}">{{ h['status'] }}</span><strong>{{ h['goal_title'] }}</strong><small>{{ h['amount']|round|int }} {{ h['unit'] }} · {{ h['created_at']|dt }}</small></div>{% else %}<div class="empty-mini">Nenhuma entrega registrada.</div>{% endfor %}</div></section>
-{% endblock %}
+{% block title %}Admin · {{ member['name'] }}{% endblock %}
 {% block content %}
 <section class="hero">
   <div>
