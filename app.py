@@ -7,7 +7,8 @@ import hashlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, timedelta
 from functools import wraps
-from io import BytesIO
+from io import BytesIO, StringIO
+import csv
 
 from flask import (
     Flask, render_template, request, redirect, url_for, session,
@@ -140,6 +141,20 @@ def init_db():
                 CREATE INDEX IF NOT EXISTS ix_member_notifications_user_unread
                 ON member_notifications(user_id, read_at, created_at DESC)
             """)
+            cur.execute("ALTER TABLE member_notifications ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'hierarchy'")
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS admin_audit_log (
+                    id BIGSERIAL PRIMARY KEY,
+                    actor_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+                    actor_name TEXT,
+                    action TEXT NOT NULL,
+                    method TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    details TEXT,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS ix_admin_audit_created ON admin_audit_log(created_at DESC)")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS app_settings (
                     key TEXT PRIMARY KEY,
@@ -633,7 +648,12 @@ def get_member_notifications(user_id, limit=20):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT *
+                SELECT *, CASE
+                    WHEN LOWER(title) LIKE '%meta conclu%' THEN 'goal_completed'
+                    WHEN LOWER(title) LIKE '%nova meta%' OR LOWER(title) LIKE '%meta lanç%' THEN 'new_goal'
+                    WHEN LOWER(title) LIKE '%aprov%' THEN 'approved'
+                    WHEN LOWER(title) LIKE '%recus%' OR LOWER(title) LIKE '%reprov%' THEN 'rejected'
+                    ELSE COALESCE(category, 'hierarchy') END AS display_category
                 FROM member_notifications
                 WHERE user_id=%s
                 ORDER BY (read_at IS NULL) DESC, created_at DESC, id DESC
@@ -1801,8 +1821,26 @@ def admin_dashboard():
             recent = cur.fetchall()
             cur.execute("SELECT * FROM cycles WHERE active=TRUE ORDER BY id DESC LIMIT 1")
             cycle = cur.fetchone()
+            cur.execute("""
+                SELECT u.id, u.name, COUNT(s.id) AS approved_deliveries,
+                       COALESCE(SUM(s.amount),0) AS approved_amount
+                FROM users u
+                LEFT JOIN submissions s ON s.user_id=u.id AND s.status='approved'
+                WHERE u.approved=TRUE AND u.active=TRUE
+                GROUP BY u.id, u.name
+                ORDER BY approved_deliveries DESC, approved_amount DESC, LOWER(u.name)
+                LIMIT 5
+            """)
+            active_members = cur.fetchall()
+            cur.execute("""
+                SELECT g.title, g.unit, COUNT(s.id) AS deliveries, COALESCE(SUM(s.amount),0) AS total
+                FROM submissions s JOIN goals g ON g.id=s.goal_id
+                WHERE s.status='approved'
+                GROUP BY g.title, g.unit ORDER BY total DESC, deliveries DESC LIMIT 5
+            """)
+            top_materials = cur.fetchall()
     stats = {"users": users, "pending": pending, "approved": approved, "cycles": cycles, "pending_users": pending_users}
-    return render_template("admin_dashboard.html", stats=stats, recent=recent, cycle=cycle)
+    return render_template("admin_dashboard.html", stats=stats, recent=recent, cycle=cycle, active_members=active_members, top_materials=top_materials)
 
 @app.route("/admin/cycles", methods=["GET", "POST"])
 @admin_required
@@ -2243,7 +2281,7 @@ def admin_member_detail(user_id):
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT id, name, email, active, approved, created_at,
+                SELECT id, name, email, role, active, approved, created_at,
                        (profile_image IS NOT NULL) AS has_profile_image
                 FROM users
                 WHERE id=%s
@@ -2311,6 +2349,12 @@ def admin_member_detail(user_id):
                 WHERE user_id=%s
             """, (user_id,))
             submission_counts = cur.fetchone()
+            cur.execute("""
+                SELECT s.status, s.amount, s.created_at, g.title AS goal_title, g.unit
+                FROM submissions s JOIN goals g ON g.id=s.goal_id
+                WHERE s.user_id=%s ORDER BY s.created_at DESC, s.id DESC LIMIT 6
+            """, (user_id,))
+            recent_member_history = cur.fetchall()
 
     return render_template(
         "admin_member_detail.html",
@@ -2324,7 +2368,8 @@ def admin_member_detail(user_id):
         remaining=max(total_target-total_approved, 0),
         goals_completed=goals_completed,
         goals_total=goals_total,
-        submission_counts=submission_counts
+        submission_counts=submission_counts,
+        recent_member_history=recent_member_history
     )
 
 
@@ -3184,6 +3229,53 @@ def admin_user_remove_admin(user_id):
 
 
 
+
+
+@app.after_request
+def veterani_admin_audit(response):
+    try:
+        if request.method in ('POST','PUT','PATCH','DELETE') and request.path.startswith('/admin') and response.status_code < 400:
+            user = get_current_user()
+            if user and user.get('role') in ('admin','manager'):
+                with get_conn() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("""INSERT INTO admin_audit_log(actor_id,actor_name,action,method,path,details)
+                                     VALUES(%s,%s,%s,%s,%s,%s)""",
+                                    (user['id'], user['name'], request.endpoint or 'admin_action', request.method, request.path,
+                                     json.dumps({'form_keys':[k for k in request.form.keys() if k not in ('password','_csrf')]}, ensure_ascii=False)))
+                    conn.commit()
+    except Exception:
+        app.logger.exception('Falha não crítica no log de auditoria')
+    return response
+
+@app.route('/admin/auditoria')
+@admin_required
+def admin_audit():
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM admin_audit_log ORDER BY created_at DESC, id DESC LIMIT 300")
+            rows=cur.fetchall()
+    return render_template('admin_audit.html', rows=rows)
+
+@app.route('/admin/exportar/<kind>')
+@admin_required
+def admin_export(kind):
+    queries={
+      'membros': ("SELECT id,name,email,role,active,approved,created_at FROM users ORDER BY name", ['id','name','email','role','active','approved','created_at']),
+      'entregas': ("SELECT s.id,u.name AS membro,g.title AS material,s.amount,g.unit,s.status,s.note,s.admin_note,s.created_at,s.reviewed_at FROM submissions s JOIN users u ON u.id=s.user_id JOIN goals g ON g.id=s.goal_id ORDER BY s.created_at DESC", ['id','membro','material','amount','unit','status','note','admin_note','created_at','reviewed_at']),
+      'metas': ("SELECT g.id,u.name AS membro,c.title AS ciclo,g.title AS material,g.target,g.unit,g.closed FROM goals g LEFT JOIN users u ON u.id=g.user_id JOIN cycles c ON c.id=g.cycle_id ORDER BY g.id DESC", ['id','membro','ciclo','material','target','unit','closed']),
+      'vendas': ("SELECT * FROM trade_records ORDER BY record_date DESC,id DESC", None),
+    }
+    if kind not in queries: abort(404)
+    q, fields=queries[kind]
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(q); rows=cur.fetchall()
+    if fields is None: fields=list(rows[0].keys()) if rows else ['id']
+    out=StringIO(); w=csv.DictWriter(out,fieldnames=fields,extrasaction='ignore'); w.writeheader()
+    for row in rows: w.writerow({k: row.get(k) for k in fields})
+    data=('\ufeff'+out.getvalue()).encode('utf-8')
+    return send_file(BytesIO(data), mimetype='text/csv; charset=utf-8', as_attachment=True, download_name=f'veterani-{kind}-{date.today().isoformat()}.csv')
 
 @app.route("/calculadora")
 @login_required

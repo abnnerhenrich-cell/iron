@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Notificações · Veterani{% endblock %}
+{% block title %}Notificações · Veterani<script>document.querySelectorAll('[data-notification-filter]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-notification-filter]').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.notification-item').forEach(n=>n.hidden=!(b.dataset.notificationFilter==='all'||n.dataset.category===b.dataset.notificationFilter));}));</script>
+{% endblock %}
 {% block content %}
 <section class="hero notifications-hero">
   <div class="hero-copy">
@@ -15,11 +16,12 @@
   {% endif %}
 </section>
 
+<div class="v5-notification-filters"><button class="active" data-notification-filter="all">Todas</button><button data-notification-filter="new_goal">Nova meta</button><button data-notification-filter="approved">Aprovadas</button><button data-notification-filter="rejected">Recusadas</button><button data-notification-filter="goal_completed">Concluídas</button><button data-notification-filter="hierarchy">Hierarquia</button></div>
 <section class="panel notification-panel">
   <div class="notification-list">
     {% for n in notifications %}
-    <article class="notification-item {{ 'is-unread' if not n['read_at'] else '' }}">
-      <div class="notification-symbol">◇</div>
+    <article class="notification-item {{ 'is-unread' if not n['read_at'] else '' }}" data-category="{{ n['display_category'] }}">
+      <div class="notification-symbol">{% if n['display_category']=='new_goal' %}＋{% elif n['display_category']=='approved' %}✓{% elif n['display_category']=='rejected' %}×{% elif n['display_category']=='goal_completed' %}◆{% else %}◇{% endif %}</div>
       <div class="notification-copy">
         <div class="notification-title-row">
           <strong>{{ n['title'] }}</strong>
@@ -40,4 +42,5 @@
     {% endfor %}
   </div>
 </section>
+<script>document.querySelectorAll('[data-notification-filter]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-notification-filter]').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.notification-item').forEach(n=>n.hidden=!(b.dataset.notificationFilter==='all'||n.dataset.category===b.dataset.notificationFilter));}));</script>
 {% endblock %}

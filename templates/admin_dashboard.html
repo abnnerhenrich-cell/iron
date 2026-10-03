@@ -28,3 +28,13 @@
   </div>
 </section>
 {% endblock %}
+
+<section class="v5-insights-grid">
+  <article class="panel v5-rank-panel"><div class="panel-head"><div><span class="eyebrow">ATIVIDADE</span><h2>Membros mais ativos</h2><p>Ranking por entregas aprovadas.</p></div></div>
+    <div class="v5-rank-list">{% for m in active_members %}<a href="{{ url_for('admin_member_detail', user_id=m['id']) }}"><b>{{ loop.index }}</b><span><strong>{{ m['name'] }}</strong><small>{{ m['approved_deliveries'] }} entregas aprovadas</small></span><em>{{ m['approved_amount']|round|int }}</em></a>{% else %}<div class="empty-mini">Sem entregas aprovadas ainda.</div>{% endfor %}</div>
+  </article>
+  <article class="panel v5-rank-panel"><div class="panel-head"><div><span class="eyebrow">MATERIAIS</span><h2>Mais entregues</h2><p>Totais de entregas aprovadas.</p></div></div>
+    <div class="v5-rank-list">{% for m in top_materials %}<div><b>{{ loop.index }}</b><span><strong>{{ m['title'] }}</strong><small>{{ m['deliveries'] }} entregas</small></span><em>{{ m['total']|round|int }} {{ m['unit'] }}</em></div>{% else %}<div class="empty-mini">Sem materiais aprovados ainda.</div>{% endfor %}</div>
+  </article>
+</section>
+<section class="panel v5-admin-tools"><div class="panel-head"><div><span class="eyebrow">CONTROLE</span><h2>Auditoria e backup</h2><p>Consulte ações administrativas e exporte os dados operacionais.</p></div></div><div class="v5-tool-actions"><a class="btn ghost" href="{{ url_for('admin_audit') }}">Auditoria administrativa</a><a class="btn ghost" href="{{ url_for('admin_export', kind='membros') }}">Exportar membros</a><a class="btn ghost" href="{{ url_for('admin_export', kind='entregas') }}">Exportar entregas</a><a class="btn ghost" href="{{ url_for('admin_export', kind='metas') }}">Exportar metas</a><a class="btn ghost" href="{{ url_for('admin_export', kind='vendas') }}">Exportar compras/vendas</a></div></section>

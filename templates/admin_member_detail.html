@@ -1,5 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Admin · {{ member['name'] }}{% endblock %}
+{% block title %}Admin · {{ member['name'] }}
+<section class="panel"><div class="panel-head"><div><span class="eyebrow">HISTÓRICO RESUMIDO</span><h2>Atividade recente</h2></div><a class="btn ghost" href="{{ url_for('admin_member_history', user_id=member['id']) }}">Ver completo</a></div><div class="v5-history-list">{% for h in recent_member_history %}<div><span class="status {{ h['status'] }}">{{ h['status'] }}</span><strong>{{ h['goal_title'] }}</strong><small>{{ h['amount']|round|int }} {{ h['unit'] }} · {{ h['created_at']|dt }}</small></div>{% else %}<div class="empty-mini">Nenhuma entrega registrada.</div>{% endfor %}</div></section>
+{% endblock %}
 {% block content %}
 <section class="hero">
   <div>
@@ -25,6 +27,7 @@
   <a href="{{ url_for('admin_member_history', user_id=member['id']) }}">Histórico</a>
 </nav>
 
+<section class="v5-profile-facts"><div><span>Nível / cargo</span><strong>{{ 'Hierarquia' if member['role']=='admin' else ('Gerente' if member['role']=='manager' else 'Membro') }}</strong></div><div><span>Data de entrada</span><strong>{{ member['created_at'].strftime('%d/%m/%Y') if member['created_at'] else '—' }}</strong></div><div><span>Entregas aprovadas</span><strong>{{ submission_counts['approved_count'] or 0 }}</strong></div><div><span>Percentual geral</span><strong>{{ overall }}%</strong></div></section>
 <section class="member-summary">
   <div class="summary-card">
     <span>Progresso geral</span>
@@ -87,4 +90,6 @@
     <div><span>Recusadas</span><strong>{{ submission_counts['rejected_count'] or 0 }}</strong></div>
   </div>
 </section>
+
+<section class="panel"><div class="panel-head"><div><span class="eyebrow">HISTÓRICO RESUMIDO</span><h2>Atividade recente</h2></div><a class="btn ghost" href="{{ url_for('admin_member_history', user_id=member['id']) }}">Ver completo</a></div><div class="v5-history-list">{% for h in recent_member_history %}<div><span class="status {{ h['status'] }}">{{ h['status'] }}</span><strong>{{ h['goal_title'] }}</strong><small>{{ h['amount']|round|int }} {{ h['unit'] }} · {{ h['created_at']|dt }}</small></div>{% else %}<div class="empty-mini">Nenhuma entrega registrada.</div>{% endfor %}</div></section>
 {% endblock %}

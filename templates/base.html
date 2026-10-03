@@ -15,7 +15,7 @@
   <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v=10">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=10">
   <link rel="manifest" href="/manifest.webmanifest?v=9">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=veterani-1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=veterani-5">
 </head>
 {% set member_mode = request.endpoint in ['dashboard','submit','history','notifications','notification_mark_read','notifications_mark_all_read','member_home','calculator','calculator_app'] %}
 <body class="{{ 'is-auth' if current_user else 'is-guest' }} {{ 'is-member-mode' if member_mode else 'is-admin-mode' }}">
@@ -36,6 +36,7 @@
         <a class="{{ 'active' if request.endpoint in ['admin_calculator','admin_calculator_app'] }}" href="{{ url_for('admin_calculator') }}"><span class="nav-ico">⌗</span><span>Calculadora</span></a>
         <a class="{{ 'active' if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] }}" href="{{ url_for('admin_trades') }}"><span class="nav-ico">↕</span><span>Compras & Vendas</span></a>
         <a class="{{ 'active' if request.endpoint=='admin_permissions' }}" href="{{ url_for('admin_permissions') }}"><span class="nav-ico">⌘</span><span>Permissões</span></a>
+        <a class="{{ 'active' if request.endpoint=='admin_audit' }}" href="{{ url_for('admin_audit') }}"><span class="nav-ico">◷</span><span>Auditoria</span></a>
       {% elif current_user['role']=='manager' and not member_mode %}
         <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}"><span class="nav-ico">⌂</span><span>Início</span></a>
         <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}"><span class="nav-ico">＋</span><span>Cadastros</span></a>
@@ -441,5 +442,12 @@
   })();
   </script>
   {% endif %}
+
+  <div class="veterani-loader" id="veteraniLoader"><div class="veterani-loader-inner"><img src="{{ url_for('static', filename='veterani-logo.png') }}" alt=""><strong id="veteraniLoaderText">Processando...</strong></div></div>
+  <div class="v5-lightbox" id="proofLightbox"><button type="button" data-lb-close>×</button><button class="prev" type="button" data-lb-prev>‹</button><img alt="Comprovante ampliado"><button class="next" type="button" data-lb-next>›</button></div>
+<script>
+(()=>{const lb=document.getElementById('proofLightbox'),img=lb?.querySelector('img');let items=[],idx=0;function show(i){if(!items.length)return;idx=(i+items.length)%items.length;img.src=items[idx].href;lb.classList.add('open')}document.querySelectorAll('.proof,.member-proof').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();items=[...document.querySelectorAll('.proof,.member-proof')];show(items.indexOf(a))}));lb?.querySelector('[data-lb-close]')?.addEventListener('click',()=>lb.classList.remove('open'));lb?.querySelector('[data-lb-prev]')?.addEventListener('click',()=>show(idx-1));lb?.querySelector('[data-lb-next]')?.addEventListener('click',()=>show(idx+1));lb?.addEventListener('click',e=>{if(e.target===lb)lb.classList.remove('open')});
+const loader=document.getElementById('veteraniLoader');document.querySelectorAll('form').forEach(f=>f.addEventListener('submit',()=>{if(f.checkValidity()){loader?.classList.add('show');const t=document.getElementById('veteraniLoaderText');if(t)t.textContent=f.enctype==='multipart/form-data'?'Enviando...':'Processando...'}}));})();
+</script>
 </body>
 </html>
