@@ -1,0 +1,103 @@
+/* ===== VETERANI — REFINAMENTO (v7) =====
+   Camada carregada depois do style.css. Não define cores novas nem família de fonte:
+   só legibilidade (tamanhos), espaçamento, hierarquia, foco, tabelas, mobile e movimento. */
+
+:root{--r-sm:10px;--r-md:14px;--r-lg:20px;--gap:clamp(14px,1.6vw,22px)}
+html{-webkit-text-size-adjust:100%;scroll-padding-top:80px}
+body{line-height:1.55}
+img{max-width:100%}
+
+/* Acessibilidade: foco visível e link de pulo */
+:where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{outline:2px solid var(--veterani-burgundy-2);outline-offset:3px;border-radius:var(--r-sm)}
+.skip-link{position:fixed;left:12px;top:-60px;z-index:200;padding:10px 16px;border-radius:var(--r-sm);background:var(--surface-3);color:var(--text);border:1px solid var(--stroke-2);transition:top .2s}
+.skip-link:focus{top:12px}
+
+/* Layout geral */
+.page{padding-top:clamp(22px,3vw,38px)}
+.hero{border-radius:var(--r-lg);gap:var(--gap)}
+.hero h1{line-height:1.12;text-wrap:balance}
+.hero p{line-height:1.6;max-width:62ch}
+.panel,.goal-card,.quick-stat,.summary-card,.member-folder,.admin-area-card{border-radius:var(--r-md)}
+.panel{padding:clamp(16px,2vw,26px);margin-bottom:var(--gap)}
+.panel-head{margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--stroke)}
+.panel-head h2,.panel-head h3{margin:0;line-height:1.25}
+.stats,.quick-stats{gap:12px}
+p{text-wrap:pretty}
+
+/* Legibilidade: tamanhos mínimos mais confortáveis */
+.eyebrow{font-size:.72rem;line-height:1.3}
+.badge,.status{font-size:.68rem;line-height:1;padding:6px 10px}
+.btn{font-size:.82rem;min-height:46px;padding:10px 18px;border-radius:var(--r-sm);gap:8px}
+.btn:active{transform:translateY(1px)}
+.btn[disabled],.btn.is-loading{opacity:.6;cursor:not-allowed}
+.sidebar-nav a{font-size:.88rem;border-radius:var(--r-sm)}
+.sidebar-section-label{font-size:.7rem;letter-spacing:.14em;margin-bottom:8px}
+.sidebar-user small,.brand-copy small{font-size:.72rem;line-height:1.45}
+
+/* Cards: elevação só no hover/foco, sem animar tudo */
+.goal-card,.member-folder,.admin-area-card,.section-choice{transition:transform .22s var(--ease-out),border-color .22s,box-shadow .22s}
+@media (hover:hover){
+  .goal-card:hover,.member-folder:hover,.admin-area-card:hover,.section-choice:hover{transform:translateY(-3px)}
+}
+
+/* Formulários */
+label,.field-label{font-size:.8rem;margin-bottom:6px;line-height:1.35}
+input,select,textarea{min-height:46px;padding:11px 14px;border-radius:var(--r-sm);font-size:1rem}
+textarea{min-height:110px;line-height:1.5;resize:vertical}
+input[type=checkbox],input[type=radio]{width:auto;min-height:0;accent-color:var(--veterani-burgundy-2)}
+input[type=file]{padding:10px}
+.field-group{margin-bottom:16px}
+.stepper-btn{min-width:46px;min-height:46px}
+.stepper input{text-align:center}
+input[type=number]{-moz-appearance:textfield}
+input:disabled,select:disabled,textarea:disabled{opacity:.55;cursor:not-allowed}
+
+/* Tabelas: leitura melhor e rolagem suave no mobile */
+.table-wrap{border-radius:var(--r-md);-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;max-width:100%}
+th,td{font-size:.84rem;padding:14px 16px;line-height:1.4}
+th{font-size:.74rem;letter-spacing:.06em;white-space:nowrap;position:sticky;top:0;z-index:1}
+tbody tr:last-child td{border-bottom:0}
+
+/* Estados vazios e avisos */
+.empty{padding:clamp(22px,4vw,40px) 20px;text-align:center;line-height:1.6;border-radius:var(--r-md)}
+.flash{border-radius:var(--r-md);font-size:.9rem;line-height:1.45;animation:flash-in .35s var(--ease-out)}
+@keyframes flash-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+
+/* Barras de progresso suaves */
+.progress>*,.progress-approved,.progress-review,.progress-pending{transition:width .6s var(--ease-out)}
+
+/* Rolagem discreta (usa as cores do tema) */
+*{scrollbar-width:thin;scrollbar-color:var(--stroke-2) transparent}
+
+/* Entrada única da página (um só movimento, no conteúdo principal) */
+@media (prefers-reduced-motion:no-preference){
+  main>.hero,main>.panel:first-of-type{animation:page-in .5s var(--ease-out) both}
+  @keyframes page-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+
+/* Tablets */
+@media (max-width:1180px){.stats{grid-template-columns:repeat(2,1fr)}}
+
+/* Celular */
+@media (max-width:900px){
+  .mobile-topbar{backdrop-filter:blur(14px)}
+  .mobile-topbar a,.mobile-topbar button{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+}
+@media (max-width:680px){
+  .page{padding:14px 14px calc(96px + env(safe-area-inset-bottom))}
+  .hero{padding:22px 18px}
+  .hero h1{font-size:clamp(1.55rem,7vw,1.9rem)}
+  .panel{padding:16px}
+  .panel-head{flex-direction:column;gap:10px}
+  .row-actions,.panel-footer{flex-wrap:wrap}
+  .row-actions .btn,.panel-footer .btn{flex:1 1 auto}
+  .bottom-nav a{min-height:60px;font-size:.7rem;gap:2px}
+  .bottom-nav a.active{font-weight:700}
+  .flash-wrap{top:calc(10px + env(safe-area-inset-top));right:14px;left:14px;width:auto}
+}
+
+/* Impressão: sem navegação */
+@media print{.app-sidebar,.mobile-topbar,.bottom-nav,.flash-wrap,.install-sheet,.guest-install-app{display:none!important}.page{margin:0;width:100%;padding:0}}
