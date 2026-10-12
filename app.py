@@ -12,7 +12,7 @@ import csv
 
 from flask import (
     Flask, render_template, request, redirect, url_for, session,
-    flash, send_file, abort
+    flash, send_file, abort, g
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.exceptions import HTTPException
@@ -91,10 +91,13 @@ def get_conn():
     )
     # Neon pooled connections reject statement_timeout/lock_timeout in the
     # PostgreSQL startup packet. Configure them only after connecting.
+    # Uma ida ao Neon, mantendo os limites originais e a compatibilidade pooler.
     with conn.cursor() as cur:
-        cur.execute("SET statement_timeout = '20s'")
-        cur.execute("SET lock_timeout = '5s'")
-        cur.execute("SET idle_in_transaction_session_timeout = '30s'")
+        cur.execute("""
+            SELECT set_config('statement_timeout', '20s', false),
+                   set_config('lock_timeout', '5s', false),
+                   set_config('idle_in_transaction_session_timeout', '30s', false)
+        """)
     return conn
 
 def goal_credit_key(title):
@@ -818,9 +821,12 @@ def validate_csrf():
         abort(400, "Token CSRF inválido.")
 
 def get_current_user():
+    """Reutiliza o usuário apenas durante a requisição atual."""
     uid = session.get("uid")
     if not uid:
         return None
+    if getattr(g, "_veterani_user_id", None) == uid and hasattr(g, "_veterani_user"):
+        return g._veterani_user
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
@@ -828,7 +834,10 @@ def get_current_user():
                        (profile_image IS NOT NULL) AS has_profile_image
                 FROM users WHERE id=%s
             """, (uid,))
-            return cur.fetchone()
+            user = cur.fetchone()
+    g._veterani_user_id = uid
+    g._veterani_user = user
+    return user
 
 def _authorized_user(user):
     return bool(user and user["active"] and user["approved"])
