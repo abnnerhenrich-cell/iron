@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Investigativa · {{ folder['name'] }}{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <span class="eyebrow">INVESTIGATIVA</span>
+    <h1>{{ folder['name'] }}</h1>
+    <p>{{ items|length }} item(ns) nesta pasta.</p>
+  </div>
+  <div class="row-actions">
+    <a class="btn ghost" href="{{ url_for('admin_investigativa') }}">Voltar às pastas</a>
+    <form method="post" action="{{ url_for('admin_investigativa_folder_delete', folder_id=folder['id']) }}" onsubmit="return confirm('Excluir a pasta e todo o conteúdo dela? Esta ação não pode ser desfeita.')">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button class="btn danger" type="submit">Excluir pasta</button>
+    </form>
+  </div>
+</section>
+
+<div class="inv-two">
+  <section class="panel">
+    <div class="panel-head"><h2>Adicionar texto</h2></div>
+    <form method="post" action="{{ url_for('admin_investigativa_text', folder_id=folder['id']) }}">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <div class="field-group">
+        <label class="field-label" for="invTitle">Título (opcional)</label>
+        <input id="invTitle" type="text" name="title" maxlength="120">
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="invBody">Texto</label>
+        <textarea id="invBody" name="body" rows="6" maxlength="10000" required></textarea>
+      </div>
+      <button class="btn primary" type="submit">Salvar texto</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Adicionar imagens</h2></div>
+    <form method="post" enctype="multipart/form-data" action="{{ url_for('admin_investigativa_images', folder_id=folder['id']) }}">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <div class="field-group">
+        <label class="field-label" for="invCaption">Legenda (opcional)</label>
+        <input id="invCaption" type="text" name="title" maxlength="120">
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="invFiles">Imagens (até {{ max_images }} por vez)</label>
+        <input id="invFiles" type="file" name="images" accept="image/png,image/jpeg,image/webp,image/gif" multiple required>
+      </div>
+      <button class="btn primary" type="submit">Enviar imagens</button>
+    </form>
+  </section>
+</div>
+
+<section class="panel">
+  <div class="panel-head"><h2>Conteúdo da pasta</h2></div>
+  {% if items %}
+  <div class="inv-items">
+    {% for i in items %}
+    <article class="inv-item {{ 'is-image' if i['kind']=='image' else 'is-text' }}">
+      {% if i['kind']=='image' %}
+      <a href="{{ url_for('admin_investigativa_file', item_id=i['id']) }}" target="_blank" rel="noopener">
+        <img loading="lazy" src="{{ url_for('admin_investigativa_file', item_id=i['id']) }}" alt="{{ i['title'] or i['image_name'] or 'Imagem da pasta' }}">
+      </a>
+      {% endif %}
+      <div class="inv-item-body">
+        {% if i['title'] %}<strong>{{ i['title'] }}</strong>{% endif %}
+        {% if i['kind']=='text' %}<p class="inv-text">{{ i['body'] }}</p>{% endif %}
+        <small>{{ i['author'] or 'Usuário removido' }} · {{ i['created_at']|dt if i['created_at'] else '' }}</small>
+      </div>
+      <form method="post" action="{{ url_for('admin_investigativa_item_delete', item_id=i['id']) }}" onsubmit="return confirm('Remover este item da pasta?')">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button class="btn ghost danger" type="submit" aria-label="Remover item">Remover</button>
+      </form>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">
+    <h2>Pasta vazia</h2>
+    <p>Adicione textos ou imagens usando os formulários acima.</p>
+  </div>
+  {% endif %}
+</section>
+
+<script>
+(function(){
+  var inp=document.getElementById('invFiles'); if(!inp||!window.DataTransfer) return;
+  inp.addEventListener('change',async function(){
+    var out=new DataTransfer();
+    for(const f of inp.files){
+      if(f.type==='image/gif'||f.size<400000){out.items.add(f);continue;}
+      try{
+        const bmp=await createImageBitmap(f), k=Math.min(1,1600/Math.max(bmp.width,bmp.height));
+        const c=document.createElement('canvas'); c.width=Math.round(bmp.width*k); c.height=Math.round(bmp.height*k);
+        c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+        const b=await new Promise(function(r){c.toBlob(r,'image/jpeg',.82)});
+        out.items.add(new File([b],f.name.replace(/\.\w+$/,'')+'.jpg',{type:'image/jpeg'}));
+      }catch(e){out.items.add(f);}
+    }
+    inp.files=out.files;
+  });
+})();
+</script>
+{% endblock %}
