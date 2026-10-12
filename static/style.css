@@ -954,3 +954,16 @@ tr:hover td{background:#0a1831!important}
 .invest-danger-btn{display:inline-flex;align-items:center;justify-content:center;padding:9px 14px;background:#300a17;border:1px solid #7b273d;border-radius:10px;color:#f3b7c5;font-size:12px;font-weight:700;cursor:pointer}
 .invest-danger-btn:hover{background:#62152a;color:#fff}
 .invest-info-card>.invest-delete-folder,.invest-info-card>form{margin-top:16px}
+
+/* V11 - Investigativa responsive folder cards */
+.invest-cover-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:26px;align-items:start}
+.invest-folder-item{min-width:0;display:flex;flex-direction:column;gap:12px}
+.invest-folder-item .invest-cover-card{width:100%;display:block;overflow:hidden;border-radius:16px}
+.invest-folder-item .invest-cover-photo{aspect-ratio:4/3}
+.invest-folder-item .invest-cover-meta{padding:16px 15px 18px;background:#08152c;text-align:center}
+.invest-folder-item .invest-cover-meta strong{display:block;font-size:clamp(17px,1.45vw,23px);line-height:1.25;font-weight:800;color:#fff;overflow-wrap:anywhere;text-shadow:0 1px 2px #0009}
+.invest-folder-item .invest-cover-meta small{display:block;margin-top:7px;font-size:12px}
+.invest-cover-grid .invest-folder-item .invest-delete-folder{margin:0;display:flex;justify-content:center}
+.invest-folder-item .invest-danger-btn{background:#2a0b17;border:1px solid #7d2d44;color:#f4c1cb;padding:11px 22px;min-height:40px;border-radius:12px}
+.invest-folder-item .invest-danger-btn:hover{background:#65152b}
+@media(max-width:760px){.invest-cover-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 12px}.invest-folder-item{gap:10px}.invest-folder-item .invest-cover-meta{padding:11px 7px 13px}.invest-folder-item .invest-cover-meta strong{font-size:15px}.invest-folder-item .invest-danger-btn{width:100%;font-size:11px;padding:10px 5px}}
