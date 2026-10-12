@@ -4,14 +4,13 @@
 <a class="invest-back" href="{{ url_for('investigative_home') }}">← Voltar às pastas</a>
 <div class="invest-head"><div><div class="eyebrow">INVESTIGATIVA · PASTA #{{ folder.id }}</div><h1>{{ folder.title }}</h1><p>Informações e anexos desta investigação</p></div><button class="btn primary" type="button" onclick="document.getElementById('new-invest-entry').showModal()">+ Informação</button></div>
 <div class="invest-entry-list">{% for e in entries %}
-<article class="invest-info-card"><div class="invest-info-top"><h2>{{ e.title or 'Registro' }}</h2><small>{{ e.author_name or 'Usuário removido' }} · {{ e.created_at.strftime('%d/%m/%Y %H:%M') }}</small></div>
+<article class="invest-info-card"><div class="invest-info-top"><strong>Informação #{{ loop.revindex }}</strong><small>{{ e.author_name or 'Usuário removido' }} · {{ e.created_at.strftime('%d/%m/%Y %H:%M') }}</small></div>
 {% if e.body %}<p class="invest-info-body">{{ e.body }}</p>{% endif %}
 <div class="invest-attachments">{% if e.has_image %}<a href="{{ url_for('investigative_image',entry_id=e.id) }}" target="_blank" rel="noopener"><img loading="lazy" src="{{ url_for('investigative_image',entry_id=e.id) }}" alt="Anexo"></a>{% endif %}
-{% for aid in e.attachments %}<a href="{{ url_for('investigative_attachment',attachment_id=aid) }}" target="_blank" rel="noopener"><img loading="lazy" src="{{ url_for('investigative_attachment',attachment_id=aid) }}" alt="Anexo da informação"></a>{% endfor %}</div></article>
+{% for aid in e.attachments %}<a href="{{ url_for('investigative_attachment',attachment_id=aid) }}" target="_blank" rel="noopener"><img loading="lazy" src="{{ url_for('investigative_attachment',attachment_id=aid) }}" alt="Anexo da informação"></a>{% endfor %}</div><form method="post" action="{{ url_for('investigative_delete_entry',folder_id=folder.id,entry_id=e.id) }}" onsubmit="return confirm('Excluir esta informação e todos os seus anexos?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="invest-danger-btn">Excluir informação</button></form></article>
 {% else %}<div class="invest-empty">Nenhuma informação adicionada. Clique em <strong>+ Informação</strong>.</div>{% endfor %}</div>
 <dialog id="new-invest-entry" class="invest-dialog"><form method="post" enctype="multipart/form-data" class="invest-modal-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <div class="invest-dialog-head"><h2>Adicionar informação</h2><button type="button" onclick="document.getElementById('new-invest-entry').close()" aria-label="Fechar">✕</button></div>
-<label>Título<input name="title" maxlength="140" required placeholder="Título da informação"></label>
 <label>Texto<textarea name="body" rows="7" maxlength="20000" placeholder="Escreva as informações aqui..."></textarea></label>
 <label>Anexar imagens (opcional)<input type="file" name="images" accept="image/jpeg,image/png,image/webp,image/gif" multiple></label>
 <p class="invest-hint">Até 8 imagens, 3 MB por imagem. Informe texto ou anexe uma imagem.</p><button type="submit" class="btn primary">Salvar informação</button></form></dialog>

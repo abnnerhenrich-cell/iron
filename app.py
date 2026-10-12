@@ -903,7 +903,7 @@ def restrict_manager_access():
         "index",
         "logout",
 
-        "investigative_home", "investigative_folder", "investigative_image",
+        "investigative_home", "investigative_folder", "investigative_image", "investigative_cover", "investigative_attachment", "investigative_delete_folder", "investigative_delete_entry",
         # Painel normal de membro
         "member_home",
         "dashboard",
@@ -3662,18 +3662,17 @@ def investigative_folder(folder_id):
             folder=cur.fetchone()
             if not folder: abort(404)
             if request.method=="POST":
-                title=(request.form.get("title") or "").strip()[:140]
                 body=(request.form.get("body") or "").strip()[:20000]
                 uploads=[x for x in request.files.getlist("images") if x and x.filename]
                 try:
-                    if not title or (not body and not uploads):
-                        raise ValueError("Informe um título e um texto ou anexo.")
+                    if not body and not uploads:
+                        raise ValueError("Escreva um texto ou anexe uma imagem.")
                     if len(uploads)>8:
                         raise ValueError("Limite de 8 imagens por informação.")
                     attachments=[_invest_image(x) for x in uploads]
-                    cur.execute("""INSERT INTO investigative_entries(folder_id,author_id,title,body)
-                        VALUES (%s,%s,%s,%s) RETURNING id""",
-                        (folder_id,get_current_user()["id"],title,body or None))
+                    cur.execute("""INSERT INTO investigative_entries(folder_id,author_id,body)
+                        VALUES (%s,%s,%s) RETURNING id""",
+                        (folder_id,get_current_user()["id"],body or None))
                     entry_id=cur.fetchone()["id"]
                     for data,mime in attachments:
                         cur.execute("INSERT INTO investigative_attachments(entry_id,image_data,image_mime) VALUES (%s,%s,%s)",(entry_id,data,mime))
@@ -3692,6 +3691,30 @@ def investigative_folder(folder_id):
                 cur.execute("SELECT id FROM investigative_attachments WHERE entry_id=%s ORDER BY id",(entry["id"],))
                 entry["attachments"]=[x["id"] for x in cur.fetchall()]
     return render_template("investigative_folder.html",folder=folder,entries=entries)
+
+
+@app.route("/investigativa/<int:folder_id>/excluir", methods=["POST"])
+@staff_required
+def investigative_delete_folder(folder_id):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM investigative_folders WHERE id=%s RETURNING id", (folder_id,))
+            deleted=cur.fetchone()
+        conn.commit()
+    flash("Pasta e seus registros excluídos." if deleted else "Pasta não encontrada.", "success" if deleted else "error")
+    return redirect(url_for("investigative_home"))
+
+
+@app.route("/investigativa/<int:folder_id>/informacao/<int:entry_id>/excluir", methods=["POST"])
+@staff_required
+def investigative_delete_entry(folder_id, entry_id):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM investigative_entries WHERE id=%s AND folder_id=%s RETURNING id", (entry_id, folder_id))
+            deleted=cur.fetchone()
+        conn.commit()
+    flash("Informação excluída." if deleted else "Informação não encontrada.", "success" if deleted else "error")
+    return redirect(url_for("investigative_folder", folder_id=folder_id))
 
 
 @app.route("/investigativa/anexo/<int:attachment_id>")

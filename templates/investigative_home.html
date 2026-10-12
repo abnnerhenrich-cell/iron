@@ -6,6 +6,7 @@
 <a href="{{ url_for('investigative_folder',folder_id=f.id) }}" class="invest-cover-card">
 <div class="invest-cover-photo">{% if f.has_cover %}<img src="{{ url_for('investigative_cover',folder_id=f.id) }}" loading="lazy" alt="Capa da pasta {{ f.title }}">{% else %}<span>▣</span>{% endif %}</div>
 <div class="invest-cover-meta"><strong>{{ f.title }}</strong><small>{{ f.entry_count }} informações</small></div></a>
+<form class="invest-delete-folder" method="post" action="{{ url_for('investigative_delete_folder',folder_id=f.id) }}" onsubmit="return confirm('Excluir esta pasta e TODAS as informações e imagens? Esta ação não pode ser desfeita.')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="invest-danger-btn">Excluir pasta</button></form>
 {% else %}<div class="invest-empty">Nenhuma pasta criada. Clique em <strong>+ Nova pasta</strong> para começar.</div>{% endfor %}</div>
 <dialog id="new-invest-folder" class="invest-dialog"><form method="post" enctype="multipart/form-data" class="invest-modal-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <div class="invest-dialog-head"><h2>Criar pasta</h2><button type="button" onclick="document.getElementById('new-invest-folder').close()" aria-label="Fechar">✕</button></div>
