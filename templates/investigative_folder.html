@@ -14,6 +14,18 @@
 {% if e.danger_level %}<div class="invest-danger-level">Nível de perigo: <strong>{{ e.danger_level }}</strong></div>{% endif %}
 {% if e.vehicle_plate %}<div class="invest-vehicle-plate">Placa: <strong>{{ e.vehicle_plate }}</strong></div>{% endif %}
 {% if e.body %}<p class="invest-info-body">{{ e.body }}</p>{% endif %}
+<button type="button" class="btn invest-edit-btn" onclick="document.getElementById('invest-edit-{{ e.id }}').showModal()">Editar informação</button>
+<dialog id="invest-edit-{{ e.id }}" class="invest-dialog"><form method="post" enctype="multipart/form-data" class="invest-modal-form" action="{{ url_for('investigative_edit_entry',folder_id=folder.id,entry_id=e.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="section" value="{{ section }}">
+<div class="invest-dialog-head"><h2>Editar informação</h2><button type="button" onclick="document.getElementById('invest-edit-{{ e.id }}').close()" aria-label="Fechar">✕</button></div>
+{% if section == 'NIVEL DE PERIGO' %}<label>Classificação<select name="danger_level" required>{% for level in danger_levels %}<option value="{{ level }}" {% if e.danger_level == level %}selected{% endif %}>{{ level }}</option>{% endfor %}</select></label>{% endif %}
+{% if section == 'VEICULOS' %}<label>Placa do veículo<input name="vehicle_plate" maxlength="16" required value="{{ e.vehicle_plate or '' }}"></label>{% endif %}
+<label>Texto<textarea name="body" rows="7" maxlength="20000">{{ e.body or '' }}</textarea></label>
+{% if e.has_image %}<label class="invest-edit-image"><img src="{{ url_for('investigative_image',entry_id=e.id) }}" loading="lazy" alt="Imagem anterior"><span><input type="checkbox" name="remove_legacy_image" value="1"> Remover esta imagem</span></label>{% endif %}
+{% for aid in e.attachments %}<label class="invest-edit-image"><img src="{{ url_for('investigative_attachment',attachment_id=aid) }}" loading="lazy" alt="Anexo"><span><input type="checkbox" name="remove_attachment" value="{{ aid }}"> Remover esta imagem</span></label>{% endfor %}
+<label>Adicionar imagens<input type="file" name="images" accept="image/jpeg,image/png,image/webp,image/gif" multiple></label>
+<p class="invest-hint">Até 8 anexos, 3 MB por imagem. As imagens não marcadas serão mantidas.</p>
+<button type="submit" class="btn primary">Salvar alterações</button></form></dialog>
 <div class="invest-attachments">{% if e.has_image %}<a href="{{ url_for('investigative_image',entry_id=e.id) }}" target="_blank" rel="noopener"><img loading="lazy" src="{{ url_for('investigative_image',entry_id=e.id) }}" alt="Anexo"></a>{% endif %}
 {% for aid in e.attachments %}<a href="{{ url_for('investigative_attachment',attachment_id=aid) }}" target="_blank" rel="noopener"><img loading="lazy" src="{{ url_for('investigative_attachment',attachment_id=aid) }}" alt="Anexo da informação"></a>{% endfor %}</div><form method="post" action="{{ url_for('investigative_delete_entry',folder_id=folder.id,entry_id=e.id) }}" onsubmit="return confirm('Excluir esta informação e todos os seus anexos?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="section" value="{{ section }}"><button type="submit" class="invest-danger-btn">Excluir informação</button></form></article>
 {% else %}<div class="invest-empty">Nenhuma informação nesta aba.</div>{% endfor %}</div>

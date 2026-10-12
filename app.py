@@ -3739,6 +3739,60 @@ def investigative_folder(folder_id):
                            sections=INVEST_SECTIONS,section=section,danger_levels=INVEST_DANGER_LEVELS)
 
 
+@app.route("/investigativa/<int:folder_id>/informacao/<int:entry_id>/editar", methods=["POST"])
+@staff_required
+def investigative_edit_entry(folder_id, entry_id):
+    section = request.form.get("section", "HIERARQUIA")
+    if section not in {code for code, _ in INVEST_SECTIONS}:
+        abort(400)
+    body = (request.form.get("body") or "").strip()[:20000]
+    danger = (request.form.get("danger_level") or "").strip() if section == "NIVEL DE PERIGO" else None
+    plate = (request.form.get("vehicle_plate") or "").strip().upper()[:16] if section == "VEICULOS" else None
+    uploads = [x for x in request.files.getlist("images") if x and x.filename]
+    try:
+        remove_ids = {int(x) for x in request.form.getlist("remove_attachment")}
+    except (TypeError, ValueError):
+        abort(400)
+    try:
+        if danger and danger not in INVEST_DANGER_LEVELS:
+            raise ValueError("Classificação inválida.")
+        if section == "NIVEL DE PERIGO" and not danger:
+            raise ValueError("Selecione o nível de perigo.")
+        if section == "VEICULOS" and not plate:
+            raise ValueError("Informe a placa.")
+        if len(uploads) > 8:
+            raise ValueError("Limite de 8 novas imagens.")
+        images = [_invest_image(upload) for upload in uploads]
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id,(image_data IS NOT NULL) AS legacy_image FROM investigative_entries WHERE id=%s AND folder_id=%s AND section=%s FOR UPDATE",(entry_id,folder_id,section))
+                entry = cur.fetchone()
+                if not entry:
+                    abort(404)
+                cur.execute("SELECT id FROM investigative_attachments WHERE entry_id=%s",(entry_id,))
+                existing = {row["id"] for row in cur.fetchall()}
+                if not remove_ids.issubset(existing):
+                    abort(400)
+                remaining = len(existing-remove_ids)+len(images)
+                if remaining > 8:
+                    raise ValueError("Limite de 8 imagens. Remova imagens antes de adicionar outras.")
+                remove_legacy = request.form.get("remove_legacy_image") == "1"
+                if not body and not danger and not plate and remaining == 0 and (remove_legacy or not entry["legacy_image"]):
+                    raise ValueError("A informação precisa conter texto ou imagem.")
+                cur.execute("UPDATE investigative_entries SET body=%s,danger_level=%s,vehicle_plate=%s WHERE id=%s AND folder_id=%s",(body or None,danger,plate,entry_id,folder_id))
+                if remove_legacy:
+                    cur.execute("UPDATE investigative_entries SET image_data=NULL,image_mime=NULL WHERE id=%s",(entry_id,))
+                if remove_ids:
+                    cur.execute("DELETE FROM investigative_attachments WHERE entry_id=%s AND id=ANY(%s)",(entry_id,list(remove_ids)))
+                for data,mime in images:
+                    cur.execute("INSERT INTO investigative_attachments(entry_id,image_data,image_mime) VALUES (%s,%s,%s)",(entry_id,data,mime))
+            conn.commit()
+        flash("Informação atualizada.","success")
+    except ValueError as exc:
+        flash(str(exc),"error")
+    return redirect(url_for("investigative_folder",folder_id=folder_id,section=section))
+
+
 @app.route("/investigativa/<int:folder_id>/excluir", methods=["POST"])
 @staff_required
 def investigative_delete_folder(folder_id):

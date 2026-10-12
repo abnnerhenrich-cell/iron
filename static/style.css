@@ -993,3 +993,5 @@ tr:hover td{background:#0a1831!important}
 @media(max-width:760px){.invest-section-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.invest-section-tab{justify-content:center;text-align:center;padding:10px 6px;font-size:12px}}
 
 .invest-legacy-note{font-size:12px;color:#b9c6da;margin:8px 0}
+
+.invest-edit-btn{margin:12px 0 4px}.invest-edit-image{display:flex!important;align-items:center;gap:12px;margin:8px 0}.invest-edit-image img{width:88px;height:72px;object-fit:cover;border-radius:8px}.invest-edit-image span{font-size:13px}
