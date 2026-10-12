@@ -158,6 +158,17 @@ def init_db():
                 )
             """)
             cur.execute("CREATE INDEX IF NOT EXISTS ix_admin_audit_created ON admin_audit_log(created_at DESC)")
+            cur.execute("""CREATE TABLE IF NOT EXISTS investigative_folders (id BIGSERIAL PRIMARY KEY, title TEXT NOT NULL, created_by BIGINT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ DEFAULT NOW())""")
+            cur.execute("""CREATE TABLE IF NOT EXISTS investigative_entries (id BIGSERIAL PRIMARY KEY, folder_id BIGINT NOT NULL REFERENCES investigative_folders(id) ON DELETE CASCADE, author_id BIGINT REFERENCES users(id) ON DELETE SET NULL, body TEXT, image_data BYTEA, image_mime TEXT, created_at TIMESTAMPTZ DEFAULT NOW())""")
+            cur.execute("ALTER TABLE investigative_folders ADD COLUMN IF NOT EXISTS cover_data BYTEA")
+            cur.execute("ALTER TABLE investigative_folders ADD COLUMN IF NOT EXISTS cover_mime TEXT")
+            cur.execute("ALTER TABLE investigative_entries ADD COLUMN IF NOT EXISTS title TEXT")
+            cur.execute("""CREATE TABLE IF NOT EXISTS investigative_attachments (
+                id BIGSERIAL PRIMARY KEY,
+                entry_id BIGINT NOT NULL REFERENCES investigative_entries(id) ON DELETE CASCADE,
+                image_data BYTEA NOT NULL,
+                image_mime TEXT NOT NULL
+            )""")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS app_settings (
                     key TEXT PRIMARY KEY,
@@ -408,40 +419,6 @@ def init_db():
         conn.commit()
 
 init_db()
-
-def init_investigativa():
-    """Pastas da aba Investigativa (somente Gerente e Hierarquia)."""
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS investigation_folders (
-                    id BIGSERIAL PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
-                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-                )
-            """)
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS investigation_items (
-                    id BIGSERIAL PRIMARY KEY,
-                    folder_id BIGINT NOT NULL REFERENCES investigation_folders(id) ON DELETE CASCADE,
-                    kind TEXT NOT NULL CHECK(kind IN ('text','image')),
-                    title TEXT,
-                    body TEXT,
-                    image_data BYTEA,
-                    image_mime TEXT,
-                    image_name TEXT,
-                    created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
-                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-                )
-            """)
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_investigation_items_folder ON investigation_items(folder_id, created_at DESC)")
-        conn.commit()
-
-try:
-    init_investigativa()
-except Exception:
-    app.logger.exception("Falha ao preparar tabelas da Investigativa")
 
 @app.errorhandler(413)
 def request_too_large(_error):
@@ -926,6 +903,7 @@ def restrict_manager_access():
         "index",
         "logout",
 
+        "investigative_home", "investigative_folder", "investigative_image",
         # Painel normal de membro
         "member_home",
         "dashboard",
@@ -956,16 +934,6 @@ def restrict_manager_access():
         "admin_trade_save",
         "admin_trade_delete",
         "admin_trade_mark_delivered",
-
-        # Aba Investigativa
-        "admin_investigativa",
-        "admin_investigativa_create",
-        "admin_investigativa_folder",
-        "admin_investigativa_text",
-        "admin_investigativa_images",
-        "admin_investigativa_file",
-        "admin_investigativa_item_delete",
-        "admin_investigativa_folder_delete",
     }
 
     if request.endpoint not in allowed:
@@ -3303,176 +3271,6 @@ def veterani_admin_audit(response):
         app.logger.exception('Falha não crítica no log de auditoria')
     return response
 
-
-# ===== INVESTIGATIVA: pastas com textos e imagens (Gerente e Hierarquia) =====
-INV_MAX_IMAGES = 6
-INV_MAX_IMAGE_BYTES = 950_000
-INV_MAX_TOTAL_BYTES = 3_500_000
-
-def _inv_folder_or_404(cur, folder_id):
-    cur.execute("SELECT id, name, created_at FROM investigation_folders WHERE id=%s", (folder_id,))
-    folder = cur.fetchone()
-    if not folder:
-        abort(404)
-    return folder
-
-@app.route("/admin/investigativa")
-@staff_required
-def admin_investigativa():
-    q = (request.args.get("q") or "").strip()
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT f.id, f.name, f.created_at, u.name AS creator,
-                    (SELECT COUNT(*) FROM investigation_items i WHERE i.folder_id=f.id AND i.kind='text') AS texts,
-                    (SELECT COUNT(*) FROM investigation_items i WHERE i.folder_id=f.id AND i.kind='image') AS images
-                FROM investigation_folders f
-                LEFT JOIN users u ON u.id=f.created_by
-                WHERE (%s = '' OR f.name ILIKE %s)
-                ORDER BY f.created_at DESC
-            """, (q, f"%{q}%"))
-            folders = cur.fetchall()
-    return render_template("investigativa.html", folders=folders, q=q)
-
-@app.post("/admin/investigativa/pastas/nova")
-@staff_required
-def admin_investigativa_create():
-    validate_csrf()
-    user = get_current_user()
-    name = re.sub(r"\s+", " ", (request.form.get("name") or "")).strip()
-    if not name:
-        flash("Digite um nome para a pasta.", "danger")
-        return redirect(url_for("admin_investigativa"))
-    if len(name) > 80:
-        flash("O nome da pasta pode ter no máximo 80 caracteres.", "danger")
-        return redirect(url_for("admin_investigativa"))
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1 FROM investigation_folders WHERE LOWER(name)=LOWER(%s)", (name,))
-            if cur.fetchone():
-                flash("Já existe uma pasta com esse nome.", "danger")
-                return redirect(url_for("admin_investigativa"))
-            cur.execute("INSERT INTO investigation_folders(name, created_by) VALUES(%s,%s) RETURNING id", (name, user["id"]))
-            folder_id = cur.fetchone()["id"]
-        conn.commit()
-    flash("Pasta criada.", "success")
-    return redirect(url_for("admin_investigativa_folder", folder_id=folder_id))
-
-@app.route("/admin/investigativa/pastas/<int:folder_id>")
-@staff_required
-def admin_investigativa_folder(folder_id):
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            folder = _inv_folder_or_404(cur, folder_id)
-            cur.execute("""
-                SELECT i.id, i.kind, i.title, i.body, i.image_name, i.created_at, u.name AS author
-                FROM investigation_items i
-                LEFT JOIN users u ON u.id=i.created_by
-                WHERE i.folder_id=%s
-                ORDER BY i.created_at DESC, i.id DESC
-            """, (folder_id,))
-            items = cur.fetchall()
-    return render_template("investigativa_pasta.html", folder=folder, items=items, max_images=INV_MAX_IMAGES)
-
-@app.post("/admin/investigativa/pastas/<int:folder_id>/texto")
-@staff_required
-def admin_investigativa_text(folder_id):
-    validate_csrf()
-    user = get_current_user()
-    title = (request.form.get("title") or "").strip()[:120]
-    body = (request.form.get("body") or "").strip()
-    if not body:
-        flash("Escreva o texto antes de salvar.", "danger")
-        return redirect(url_for("admin_investigativa_folder", folder_id=folder_id))
-    if len(body) > 10000:
-        flash("O texto pode ter no máximo 10.000 caracteres.", "danger")
-        return redirect(url_for("admin_investigativa_folder", folder_id=folder_id))
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            _inv_folder_or_404(cur, folder_id)
-            cur.execute("""INSERT INTO investigation_items(folder_id, kind, title, body, created_by)
-                           VALUES(%s,'text',%s,%s,%s)""", (folder_id, title or None, body, user["id"]))
-        conn.commit()
-    flash("Texto adicionado à pasta.", "success")
-    return redirect(url_for("admin_investigativa_folder", folder_id=folder_id))
-
-@app.post("/admin/investigativa/pastas/<int:folder_id>/imagens")
-@staff_required
-def admin_investigativa_images(folder_id):
-    validate_csrf()
-    user = get_current_user()
-    back = redirect(url_for("admin_investigativa_folder", folder_id=folder_id))
-    caption = (request.form.get("title") or "").strip()[:120]
-    uploaded = [f for f in request.files.getlist("images") if f and f.filename]
-    if not uploaded:
-        flash("Escolha pelo menos uma imagem.", "danger")
-        return back
-    if len(uploaded) > INV_MAX_IMAGES:
-        flash(f"Envie no máximo {INV_MAX_IMAGES} imagens por vez.", "danger")
-        return back
-    images, total = [], 0
-    for f in uploaded:
-        if f.mimetype not in ALLOWED_MIMES:
-            flash("Formato não permitido. Use PNG, JPG, WEBP ou GIF.", "danger")
-            return back
-        data = f.read()
-        total += len(data)
-        if len(data) > INV_MAX_IMAGE_BYTES:
-            flash("Uma das imagens é grande demais. Escolha novamente para o Veterani compactar.", "danger")
-            return back
-        images.append((data, f.mimetype, f.filename[:180]))
-    if total > INV_MAX_TOTAL_BYTES:
-        flash("As imagens juntas ficaram grandes demais. Envie menos imagens por vez.", "danger")
-        return back
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            _inv_folder_or_404(cur, folder_id)
-            for data, mime, name in images:
-                cur.execute("""INSERT INTO investigation_items(folder_id, kind, title, image_data, image_mime, image_name, created_by)
-                               VALUES(%s,'image',%s,%s,%s,%s,%s)""", (folder_id, caption or None, data, mime, name, user["id"]))
-        conn.commit()
-    flash(f"{len(images)} imagem(ns) adicionada(s).", "success")
-    return back
-
-@app.get("/admin/investigativa/arquivo/<int:item_id>")
-@staff_required
-def admin_investigativa_file(item_id):
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT image_data, image_mime, image_name FROM investigation_items WHERE id=%s AND kind='image'", (item_id,))
-            item = cur.fetchone()
-    if not item or not item["image_data"]:
-        abort(404)
-    resp = send_file(BytesIO(bytes(item["image_data"])), mimetype=item["image_mime"] or "application/octet-stream",
-                     download_name=item["image_name"] or f"investigativa-{item_id}", as_attachment=False)
-    resp.headers["Cache-Control"] = "private, max-age=3600"
-    return resp
-
-@app.post("/admin/investigativa/itens/<int:item_id>/excluir")
-@staff_required
-def admin_investigativa_item_delete(item_id):
-    validate_csrf()
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM investigation_items WHERE id=%s RETURNING folder_id", (item_id,))
-            row = cur.fetchone()
-        conn.commit()
-    if not row:
-        abort(404)
-    flash("Item removido.", "success")
-    return redirect(url_for("admin_investigativa_folder", folder_id=row["folder_id"]))
-
-@app.post("/admin/investigativa/pastas/<int:folder_id>/excluir")
-@staff_required
-def admin_investigativa_folder_delete(folder_id):
-    validate_csrf()
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM investigation_folders WHERE id=%s", (folder_id,))
-        conn.commit()
-    flash("Pasta excluída com todo o conteúdo.", "success")
-    return redirect(url_for("admin_investigativa"))
-
 @app.route('/admin/auditoria')
 @admin_required
 def admin_audit():
@@ -3791,6 +3589,135 @@ def admin_trade_mark_delivered(record_id):
         conn.commit()
     flash("Venda marcada como entregue.", "success")
     return redirect(request.referrer or url_for("admin_trades", view="overview"))
+
+
+
+
+def _invest_image(upload):
+    if not upload or not upload.filename:
+        return None, None
+    mime = upload.mimetype
+    data = upload.read(3 * 1024 * 1024 + 1)
+    if len(data) > 3 * 1024 * 1024:
+        raise ValueError("Cada imagem deve ter até 3 MB.")
+    valid = {
+        "image/jpeg": data.startswith(bytes.fromhex("ffd8ff")),
+        "image/png": data.startswith(bytes.fromhex("89504e470d0a1a0a")),
+        "image/webp": data[:4] == b"RIFF" and data[8:12] == b"WEBP",
+        "image/gif": data[:6] in (b"GIF87a", b"GIF89a"),
+    }
+    if not valid.get(mime):
+        raise ValueError("Envie imagens válidas em JPG, PNG, WEBP ou GIF.")
+    return data, mime
+
+
+@app.route("/investigativa", methods=["GET", "POST"])
+@staff_required
+def investigative_home():
+    if request.method == "POST":
+        title = (request.form.get("title") or "").strip()[:140]
+        try:
+            cover, mime = _invest_image(request.files.get("cover"))
+            if not title or not cover:
+                raise ValueError("Informe o nome e a foto de capa da pasta.")
+            with get_conn() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("INSERT INTO investigative_folders(title,created_by,cover_data,cover_mime) VALUES (%s,%s,%s,%s)",
+                                (title,get_current_user()["id"],cover,mime))
+                conn.commit()
+            flash("Pasta criada.", "success")
+        except ValueError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("investigative_home"))
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""SELECT f.id,f.title,f.created_at,f.created_by,u.name AS creator_name,
+                (f.cover_data IS NOT NULL) AS has_cover,
+                (SELECT COUNT(*) FROM investigative_entries e WHERE e.folder_id=f.id) AS entry_count
+                FROM investigative_folders f LEFT JOIN users u ON u.id=f.created_by
+                ORDER BY f.created_at DESC""")
+            folders=cur.fetchall()
+    return render_template("investigative_home.html",folders=folders)
+
+
+@app.route("/investigativa/capa/<int:folder_id>")
+@staff_required
+def investigative_cover(folder_id):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT cover_data,cover_mime FROM investigative_folders WHERE id=%s",(folder_id,))
+            item=cur.fetchone()
+    if not item or not item["cover_data"]: abort(404)
+    response=send_file(BytesIO(bytes(item["cover_data"])),mimetype=item["cover_mime"])
+    response.headers["Cache-Control"]="private, no-store"
+    return response
+
+
+@app.route("/investigativa/<int:folder_id>",methods=["GET","POST"])
+@staff_required
+def investigative_folder(folder_id):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id,title,created_at,(cover_data IS NOT NULL) AS has_cover FROM investigative_folders WHERE id=%s",(folder_id,))
+            folder=cur.fetchone()
+            if not folder: abort(404)
+            if request.method=="POST":
+                title=(request.form.get("title") or "").strip()[:140]
+                body=(request.form.get("body") or "").strip()[:20000]
+                uploads=[x for x in request.files.getlist("images") if x and x.filename]
+                try:
+                    if not title or (not body and not uploads):
+                        raise ValueError("Informe um título e um texto ou anexo.")
+                    if len(uploads)>8:
+                        raise ValueError("Limite de 8 imagens por informação.")
+                    attachments=[_invest_image(x) for x in uploads]
+                    cur.execute("""INSERT INTO investigative_entries(folder_id,author_id,title,body)
+                        VALUES (%s,%s,%s,%s) RETURNING id""",
+                        (folder_id,get_current_user()["id"],title,body or None))
+                    entry_id=cur.fetchone()["id"]
+                    for data,mime in attachments:
+                        cur.execute("INSERT INTO investigative_attachments(entry_id,image_data,image_mime) VALUES (%s,%s,%s)",(entry_id,data,mime))
+                    conn.commit()
+                    flash("Informação adicionada.", "success")
+                except ValueError as exc:
+                    conn.rollback()
+                    flash(str(exc),"error")
+                return redirect(url_for("investigative_folder",folder_id=folder_id))
+            cur.execute("""SELECT e.id,e.title,e.body,e.created_at,u.name AS author_name,
+                (e.image_data IS NOT NULL) AS has_image
+                FROM investigative_entries e LEFT JOIN users u ON u.id=e.author_id
+                WHERE e.folder_id=%s ORDER BY e.created_at DESC""",(folder_id,))
+            entries=cur.fetchall()
+            for entry in entries:
+                cur.execute("SELECT id FROM investigative_attachments WHERE entry_id=%s ORDER BY id",(entry["id"],))
+                entry["attachments"]=[x["id"] for x in cur.fetchall()]
+    return render_template("investigative_folder.html",folder=folder,entries=entries)
+
+
+@app.route("/investigativa/anexo/<int:attachment_id>")
+@staff_required
+def investigative_attachment(attachment_id):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT image_data,image_mime FROM investigative_attachments WHERE id=%s",(attachment_id,))
+            item=cur.fetchone()
+    if not item: abort(404)
+    response=send_file(BytesIO(bytes(item["image_data"])),mimetype=item["image_mime"])
+    response.headers["Cache-Control"]="private, no-store"
+    return response
+
+
+@app.route("/investigativa/imagem/<int:entry_id>")
+@staff_required
+def investigative_image(entry_id):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT image_data,image_mime FROM investigative_entries WHERE id=%s",(entry_id,))
+            item=cur.fetchone()
+    if not item or not item["image_data"]: abort(404)
+    response=send_file(BytesIO(bytes(item["image_data"])),mimetype=item["image_mime"])
+    response.headers["Cache-Control"]="private, no-store"
+    return response
 
 
 @app.route("/admin/calculadora")

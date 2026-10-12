@@ -1,1 +1,15 @@
-{% extends "base.html" %}{% block title %}Investigativa · Veterani{% endblock %}{% block content %}<section class="hero"><div><h1>Investigativa</h1><p>Pastas compartilhadas entre Gerente e Hierarquia.</p></div></section><section class="panel"><h2>Criar pasta</h2><form method="post" class="invest-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input name="title" maxlength="140" required placeholder="Nome da investigação"><button class="btn primary">Criar pasta</button></form></section><section class="panel"><h2>Pastas</h2><div class="invest-grid">{% for f in folders %}<a class="invest-card" href="{{ url_for('investigative_folder',folder_id=f.id) }}"><strong>▣ {{ f.title }}</strong><small>{{ f.entry_count }} registros · {{ f.creator_name or 'Usuário removido' }} · {{ f.created_at.strftime('%d/%m/%Y') }}</small></a>{% else %}<p>Nenhuma pasta criada.</p>{% endfor %}</div></section>{% endblock %}
+{% extends "base.html" %}
+{% block title %}Investigativa · Veterani{% endblock %}
+{% block content %}
+<div class="invest-head"><div><div class="eyebrow">VETERANI · ACESSO RESTRITO</div><h1>Investigativa</h1><p>Pastas compartilhadas entre Gerente e Hierarquia</p></div><button class="btn primary" type="button" onclick="document.getElementById('new-invest-folder').showModal()">+ Nova pasta</button></div>
+<div class="invest-cover-grid">{% for f in folders %}
+<a href="{{ url_for('investigative_folder',folder_id=f.id) }}" class="invest-cover-card">
+<div class="invest-cover-photo">{% if f.has_cover %}<img src="{{ url_for('investigative_cover',folder_id=f.id) }}" loading="lazy" alt="Capa da pasta {{ f.title }}">{% else %}<span>▣</span>{% endif %}</div>
+<div class="invest-cover-meta"><strong>{{ f.title }}</strong><small>{{ f.entry_count }} informações</small></div></a>
+{% else %}<div class="invest-empty">Nenhuma pasta criada. Clique em <strong>+ Nova pasta</strong> para começar.</div>{% endfor %}</div>
+<dialog id="new-invest-folder" class="invest-dialog"><form method="post" enctype="multipart/form-data" class="invest-modal-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="invest-dialog-head"><h2>Criar pasta</h2><button type="button" onclick="document.getElementById('new-invest-folder').close()" aria-label="Fechar">✕</button></div>
+<label>Nome da pasta<input name="title" maxlength="140" required placeholder="Ex.: Investigação 001"></label>
+<label>Foto de capa<input type="file" name="cover" accept="image/jpeg,image/png,image/webp,image/gif" required></label>
+<p class="invest-hint">JPG, PNG, WEBP ou GIF · até 3 MB</p><button type="submit" class="btn primary">Criar pasta</button></form></dialog>
+{% endblock %}
