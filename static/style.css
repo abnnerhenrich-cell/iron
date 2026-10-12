@@ -995,3 +995,8 @@ tr:hover td{background:#0a1831!important}
 .invest-legacy-note{font-size:12px;color:#b9c6da;margin:8px 0}
 
 .invest-edit-btn{margin:12px 0 4px}.invest-edit-image{display:flex!important;align-items:center;gap:12px;margin:8px 0}.invest-edit-image img{width:88px;height:72px;object-fit:cover;border-radius:8px}.invest-edit-image span{font-size:13px}
+
+/* Ações de cada informação lado a lado, inclusive no celular. */
+.invest-info-actions{display:flex;flex-direction:row;align-items:center;flex-wrap:wrap;gap:10px;margin-top:14px}
+.invest-info-actions form{margin:0;padding:0;display:inline-flex;width:auto}
+.invest-info-actions .invest-edit-btn,.invest-info-actions .invest-danger-btn{margin:0;white-space:nowrap}
