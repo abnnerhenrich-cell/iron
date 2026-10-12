@@ -158,8 +158,6 @@ def init_db():
                 )
             """)
             cur.execute("CREATE INDEX IF NOT EXISTS ix_admin_audit_created ON admin_audit_log(created_at DESC)")
-            cur.execute("""CREATE TABLE IF NOT EXISTS investigative_folders (id BIGSERIAL PRIMARY KEY, title TEXT NOT NULL, created_by BIGINT REFERENCES users(id) ON DELETE SET NULL, created_at TIMESTAMPTZ DEFAULT NOW())""")
-            cur.execute("""CREATE TABLE IF NOT EXISTS investigative_entries (id BIGSERIAL PRIMARY KEY, folder_id BIGINT NOT NULL REFERENCES investigative_folders(id) ON DELETE CASCADE, author_id BIGINT REFERENCES users(id) ON DELETE SET NULL, body TEXT, image_data BYTEA, image_mime TEXT, created_at TIMESTAMPTZ DEFAULT NOW())""")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS app_settings (
                     key TEXT PRIMARY KEY,
@@ -894,7 +892,6 @@ def restrict_manager_access():
         "index",
         "logout",
 
-        "investigative_home", "investigative_folder", "investigative_image",
         # Painel normal de membro
         "member_home",
         "dashboard",
@@ -3581,68 +3578,6 @@ def admin_trade_mark_delivered(record_id):
     flash("Venda marcada como entregue.", "success")
     return redirect(request.referrer or url_for("admin_trades", view="overview"))
 
-
-
-@app.route('/investigativa', methods=['GET','POST'])
-@staff_required
-def investigative_home():
-    if request.method == 'POST':
-        title=(request.form.get('title') or '').strip()[:140]
-        if title:
-            with get_conn() as conn:
-                with conn.cursor() as cur:
-                    cur.execute('INSERT INTO investigative_folders(title,created_by) VALUES (%s,%s)',(title,get_current_user()['id']))
-                conn.commit()
-            flash('Pasta criada.','success')
-        else: flash('Informe o nome da pasta.','error')
-        return redirect(url_for('investigative_home'))
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT f.*,u.name creator_name,(SELECT COUNT(*) FROM investigative_entries e WHERE e.folder_id=f.id) entry_count FROM investigative_folders f LEFT JOIN users u ON u.id=f.created_by ORDER BY f.created_at DESC")
-            folders=cur.fetchall()
-    return render_template('investigative_home.html',folders=folders)
-
-@app.route('/investigativa/<int:folder_id>', methods=['GET','POST'])
-@staff_required
-def investigative_folder(folder_id):
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute('SELECT * FROM investigative_folders WHERE id=%s',(folder_id,))
-            folder=cur.fetchone()
-            if not folder: abort(404)
-            if request.method=='POST':
-                body=(request.form.get('body') or '').strip()[:20000]
-                image=request.files.get('image'); data=None; mime=None
-                if image and image.filename:
-                    mime=image.mimetype
-                    if mime not in ('image/jpeg','image/png','image/webp','image/gif'):
-                        flash('Formato de imagem não permitido.','error');return redirect(url_for('investigative_folder',folder_id=folder_id))
-                    data=image.read(3*1024*1024+1)
-                    if len(data)>3*1024*1024:
-                        flash('Imagem acima de 3 MB.','error');return redirect(url_for('investigative_folder',folder_id=folder_id))
-                    valid={'image/jpeg':data.startswith(bytes.fromhex('ffd8ff')),'image/png':data.startswith(bytes.fromhex('89504e470d0a1a0a')),'image/webp':data[:4]==b'RIFF' and data[8:12]==b'WEBP','image/gif':data[:6] in (b'GIF87a',b'GIF89a')}
-                    if not valid[mime]:
-                        flash('Imagem inválida.','error');return redirect(url_for('investigative_folder',folder_id=folder_id))
-                if body or data:
-                    cur.execute('INSERT INTO investigative_entries(folder_id,author_id,body,image_data,image_mime) VALUES (%s,%s,%s,%s,%s)',(folder_id,get_current_user()['id'],body or None,data,mime))
-                    conn.commit();flash('Registro adicionado.','success')
-                else: flash('Informe texto ou imagem.','error')
-                return redirect(url_for('investigative_folder',folder_id=folder_id))
-            cur.execute("SELECT e.id,e.body,e.created_at,u.name author_name,(e.image_data IS NOT NULL) has_image FROM investigative_entries e LEFT JOIN users u ON u.id=e.author_id WHERE e.folder_id=%s ORDER BY e.created_at DESC",(folder_id,))
-            entries=cur.fetchall()
-    return render_template('investigative_folder.html',folder=folder,entries=entries)
-
-@app.route('/investigativa/imagem/<int:entry_id>')
-@staff_required
-def investigative_image(entry_id):
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute('SELECT image_data,image_mime FROM investigative_entries WHERE id=%s',(entry_id,))
-            entry=cur.fetchone()
-    if not entry or not entry['image_data']: abort(404)
-    response=send_file(BytesIO(bytes(entry['image_data'])),mimetype=entry['image_mime'])
-    response.headers['Cache-Control']='private, no-store'
-    return response
 
 @app.route("/admin/calculadora")
 @staff_required
