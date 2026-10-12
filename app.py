@@ -3675,7 +3675,6 @@ INVEST_SECTIONS = (
     ("FACHADA", "Fachada"),
     ("O QUE VENDEM", "O que vendem"),
     ("NIVEL DE PERIGO", "Nível de Perigo"),
-    ("GERAL", "Anteriores"),
 )
 INVEST_DANGER_LEVELS = ("Baixo", "Médio", "Alto", "Crítico")
 
@@ -3696,8 +3695,6 @@ def investigative_folder(folder_id):
                 danger_level = (request.form.get("danger_level") or "").strip() if section == "NIVEL DE PERIGO" else None
                 plate = (request.form.get("vehicle_plate") or "").strip().upper()[:16] if section == "VEICULOS" else None
                 try:
-                    if section == "GERAL":
-                        raise ValueError("Selecione uma das abas para adicionar informações.")
                     if danger_level and danger_level not in INVEST_DANGER_LEVELS:
                         raise ValueError("Classificação de perigo inválida.")
                     if section == "NIVEL DE PERIGO" and not danger_level:
@@ -3722,10 +3719,13 @@ def investigative_folder(folder_id):
                     conn.rollback()
                     flash(str(exc), "error")
                 return redirect(url_for("investigative_folder",folder_id=folder_id,section=section))
+            # Consultas parametrizadas preservam os índices e não carregam bytes de imagens.
+            # Registros legados GERAL aparecem em Hierarquia sem migração ou perda de dados.
+            legacy_sections = ("HIERARQUIA", "GERAL") if section == "HIERARQUIA" else (section,)
             cur.execute("""SELECT e.id,e.title,e.body,e.created_at,e.danger_level,e.vehicle_plate,
-                u.name AS author_name,(e.image_data IS NOT NULL) AS has_image
+                e.section, u.name AS author_name,(e.image_data IS NOT NULL) AS has_image
                 FROM investigative_entries e LEFT JOIN users u ON u.id=e.author_id
-                WHERE e.folder_id=%s AND e.section=%s ORDER BY e.created_at DESC""", (folder_id,section))
+                WHERE e.folder_id=%s AND e.section=ANY(%s) ORDER BY e.created_at DESC""", (folder_id, list(legacy_sections)))
             entries = cur.fetchall()
             entry_ids = [e["id"] for e in entries]
             attachment_map = {}

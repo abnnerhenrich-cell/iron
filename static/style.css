@@ -991,3 +991,5 @@ tr:hover td{background:#0a1831!important}
 .invest-vehicle-plate strong{letter-spacing:1px}
 .invest-modal-form select,.invest-modal-form input[name="vehicle_plate"]{display:block;width:100%;padding:12px;border-radius:9px;border:1px solid #46516a;background:#09162c;color:white}
 @media(max-width:760px){.invest-section-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.invest-section-tab{justify-content:center;text-align:center;padding:10px 6px;font-size:12px}}
+
+.invest-legacy-note{font-size:12px;color:#b9c6da;margin:8px 0}

@@ -2,7 +2,7 @@
 {% block title %}{{ folder.title }} · Investigativa{% endblock %}
 {% block content %}
 <a class="invest-back" href="{{ url_for('investigative_home') }}">← Voltar às pastas</a>
-<div class="invest-head"><div><div class="eyebrow">INVESTIGATIVA · PASTA #{{ folder.id }}</div><h1>{{ folder.title }}</h1><p>Informações e anexos desta investigação</p></div><button class="btn primary" type="button" {% if section == "GERAL" %}disabled{% endif %} onclick="document.getElementById('new-invest-entry').showModal()">+ Informação</button></div>
+<div class="invest-head"><div><div class="eyebrow">INVESTIGATIVA · PASTA #{{ folder.id }}</div><h1>{{ folder.title }}</h1><p>Informações e anexos desta investigação</p></div><button class="btn primary" type="button" onclick="document.getElementById('new-invest-entry').showModal()">+ Informação</button></div>
 <nav class="invest-section-tabs" aria-label="Seções da pasta">
 {% for code,label in sections %}
 <a class="invest-section-tab {% if section == code %}active{% endif %}" href="{{ url_for('investigative_folder',folder_id=folder.id,section=code) }}">{{ label }}</a>
@@ -10,6 +10,7 @@
 </nav>
 <div class="invest-entry-list">{% for e in entries %}
 <article class="invest-info-card"><div class="invest-info-top"><strong>{% if section == "VEICULOS" %}Veículo{% elif section == "NIVEL DE PERIGO" %}Avaliação{% else %}Informação{% endif %} #{{ loop.revindex }}</strong><small>{{ e.author_name or 'Usuário removido' }} · {{ e.created_at.strftime('%d/%m/%Y %H:%M') }}</small></div>
+{% if e.section == "GERAL" %}<div class="invest-legacy-note">Registro anterior à organização das abas</div>{% endif %}
 {% if e.danger_level %}<div class="invest-danger-level">Nível de perigo: <strong>{{ e.danger_level }}</strong></div>{% endif %}
 {% if e.vehicle_plate %}<div class="invest-vehicle-plate">Placa: <strong>{{ e.vehicle_plate }}</strong></div>{% endif %}
 {% if e.body %}<p class="invest-info-body">{{ e.body }}</p>{% endif %}
