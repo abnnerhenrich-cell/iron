@@ -17,7 +17,7 @@
 {% if unread_notifications %}
 <a class="new-notification-banner" href="{{ url_for('notifications') }}">
   <span class="new-notification-banner-icon">◇</span>
-  <div><strong>Você tem {{ unread_notifications }} nova{{ 's' if unread_notifications != 1 else '' }} notificaç{{ 'ões' if unread_notifications != 1 else 'ão' }}</strong><small>Toque para ver avisos sobre suas metas.</small></div>
+  <div><strong>Você tem {{ unread_notifications }} nova{{ 's' if unread_notifications != 1 else '' }} notificação{{ 'ões' if unread_notifications != 1 else '' }}</strong><small>Toque para ver avisos sobre suas metas.</small></div>
   <b>→</b>
 </a>
 {% endif %}

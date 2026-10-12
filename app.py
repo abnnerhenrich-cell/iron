@@ -409,6 +409,40 @@ def init_db():
 
 init_db()
 
+def init_investigativa():
+    """Pastas da aba Investigativa (somente Gerente e Hierarquia)."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS investigation_folders (
+                    id BIGSERIAL PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS investigation_items (
+                    id BIGSERIAL PRIMARY KEY,
+                    folder_id BIGINT NOT NULL REFERENCES investigation_folders(id) ON DELETE CASCADE,
+                    kind TEXT NOT NULL CHECK(kind IN ('text','image')),
+                    title TEXT,
+                    body TEXT,
+                    image_data BYTEA,
+                    image_mime TEXT,
+                    image_name TEXT,
+                    created_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_investigation_items_folder ON investigation_items(folder_id, created_at DESC)")
+        conn.commit()
+
+try:
+    init_investigativa()
+except Exception:
+    app.logger.exception("Falha ao preparar tabelas da Investigativa")
+
 @app.errorhandler(413)
 def request_too_large(_error):
     flash(
@@ -922,6 +956,16 @@ def restrict_manager_access():
         "admin_trade_save",
         "admin_trade_delete",
         "admin_trade_mark_delivered",
+
+        # Aba Investigativa
+        "admin_investigativa",
+        "admin_investigativa_create",
+        "admin_investigativa_folder",
+        "admin_investigativa_text",
+        "admin_investigativa_images",
+        "admin_investigativa_file",
+        "admin_investigativa_item_delete",
+        "admin_investigativa_folder_delete",
     }
 
     if request.endpoint not in allowed:
@@ -3258,6 +3302,176 @@ def veterani_admin_audit(response):
     except Exception:
         app.logger.exception('Falha não crítica no log de auditoria')
     return response
+
+
+# ===== INVESTIGATIVA: pastas com textos e imagens (Gerente e Hierarquia) =====
+INV_MAX_IMAGES = 6
+INV_MAX_IMAGE_BYTES = 950_000
+INV_MAX_TOTAL_BYTES = 3_500_000
+
+def _inv_folder_or_404(cur, folder_id):
+    cur.execute("SELECT id, name, created_at FROM investigation_folders WHERE id=%s", (folder_id,))
+    folder = cur.fetchone()
+    if not folder:
+        abort(404)
+    return folder
+
+@app.route("/admin/investigativa")
+@staff_required
+def admin_investigativa():
+    q = (request.args.get("q") or "").strip()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT f.id, f.name, f.created_at, u.name AS creator,
+                    (SELECT COUNT(*) FROM investigation_items i WHERE i.folder_id=f.id AND i.kind='text') AS texts,
+                    (SELECT COUNT(*) FROM investigation_items i WHERE i.folder_id=f.id AND i.kind='image') AS images
+                FROM investigation_folders f
+                LEFT JOIN users u ON u.id=f.created_by
+                WHERE (%s = '' OR f.name ILIKE %s)
+                ORDER BY f.created_at DESC
+            """, (q, f"%{q}%"))
+            folders = cur.fetchall()
+    return render_template("investigativa.html", folders=folders, q=q)
+
+@app.post("/admin/investigativa/pastas/nova")
+@staff_required
+def admin_investigativa_create():
+    validate_csrf()
+    user = get_current_user()
+    name = re.sub(r"\s+", " ", (request.form.get("name") or "")).strip()
+    if not name:
+        flash("Digite um nome para a pasta.", "danger")
+        return redirect(url_for("admin_investigativa"))
+    if len(name) > 80:
+        flash("O nome da pasta pode ter no máximo 80 caracteres.", "danger")
+        return redirect(url_for("admin_investigativa"))
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM investigation_folders WHERE LOWER(name)=LOWER(%s)", (name,))
+            if cur.fetchone():
+                flash("Já existe uma pasta com esse nome.", "danger")
+                return redirect(url_for("admin_investigativa"))
+            cur.execute("INSERT INTO investigation_folders(name, created_by) VALUES(%s,%s) RETURNING id", (name, user["id"]))
+            folder_id = cur.fetchone()["id"]
+        conn.commit()
+    flash("Pasta criada.", "success")
+    return redirect(url_for("admin_investigativa_folder", folder_id=folder_id))
+
+@app.route("/admin/investigativa/pastas/<int:folder_id>")
+@staff_required
+def admin_investigativa_folder(folder_id):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            folder = _inv_folder_or_404(cur, folder_id)
+            cur.execute("""
+                SELECT i.id, i.kind, i.title, i.body, i.image_name, i.created_at, u.name AS author
+                FROM investigation_items i
+                LEFT JOIN users u ON u.id=i.created_by
+                WHERE i.folder_id=%s
+                ORDER BY i.created_at DESC, i.id DESC
+            """, (folder_id,))
+            items = cur.fetchall()
+    return render_template("investigativa_pasta.html", folder=folder, items=items, max_images=INV_MAX_IMAGES)
+
+@app.post("/admin/investigativa/pastas/<int:folder_id>/texto")
+@staff_required
+def admin_investigativa_text(folder_id):
+    validate_csrf()
+    user = get_current_user()
+    title = (request.form.get("title") or "").strip()[:120]
+    body = (request.form.get("body") or "").strip()
+    if not body:
+        flash("Escreva o texto antes de salvar.", "danger")
+        return redirect(url_for("admin_investigativa_folder", folder_id=folder_id))
+    if len(body) > 10000:
+        flash("O texto pode ter no máximo 10.000 caracteres.", "danger")
+        return redirect(url_for("admin_investigativa_folder", folder_id=folder_id))
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            _inv_folder_or_404(cur, folder_id)
+            cur.execute("""INSERT INTO investigation_items(folder_id, kind, title, body, created_by)
+                           VALUES(%s,'text',%s,%s,%s)""", (folder_id, title or None, body, user["id"]))
+        conn.commit()
+    flash("Texto adicionado à pasta.", "success")
+    return redirect(url_for("admin_investigativa_folder", folder_id=folder_id))
+
+@app.post("/admin/investigativa/pastas/<int:folder_id>/imagens")
+@staff_required
+def admin_investigativa_images(folder_id):
+    validate_csrf()
+    user = get_current_user()
+    back = redirect(url_for("admin_investigativa_folder", folder_id=folder_id))
+    caption = (request.form.get("title") or "").strip()[:120]
+    uploaded = [f for f in request.files.getlist("images") if f and f.filename]
+    if not uploaded:
+        flash("Escolha pelo menos uma imagem.", "danger")
+        return back
+    if len(uploaded) > INV_MAX_IMAGES:
+        flash(f"Envie no máximo {INV_MAX_IMAGES} imagens por vez.", "danger")
+        return back
+    images, total = [], 0
+    for f in uploaded:
+        if f.mimetype not in ALLOWED_MIMES:
+            flash("Formato não permitido. Use PNG, JPG, WEBP ou GIF.", "danger")
+            return back
+        data = f.read()
+        total += len(data)
+        if len(data) > INV_MAX_IMAGE_BYTES:
+            flash("Uma das imagens é grande demais. Escolha novamente para o Veterani compactar.", "danger")
+            return back
+        images.append((data, f.mimetype, f.filename[:180]))
+    if total > INV_MAX_TOTAL_BYTES:
+        flash("As imagens juntas ficaram grandes demais. Envie menos imagens por vez.", "danger")
+        return back
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            _inv_folder_or_404(cur, folder_id)
+            for data, mime, name in images:
+                cur.execute("""INSERT INTO investigation_items(folder_id, kind, title, image_data, image_mime, image_name, created_by)
+                               VALUES(%s,'image',%s,%s,%s,%s,%s)""", (folder_id, caption or None, data, mime, name, user["id"]))
+        conn.commit()
+    flash(f"{len(images)} imagem(ns) adicionada(s).", "success")
+    return back
+
+@app.get("/admin/investigativa/arquivo/<int:item_id>")
+@staff_required
+def admin_investigativa_file(item_id):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT image_data, image_mime, image_name FROM investigation_items WHERE id=%s AND kind='image'", (item_id,))
+            item = cur.fetchone()
+    if not item or not item["image_data"]:
+        abort(404)
+    resp = send_file(BytesIO(bytes(item["image_data"])), mimetype=item["image_mime"] or "application/octet-stream",
+                     download_name=item["image_name"] or f"investigativa-{item_id}", as_attachment=False)
+    resp.headers["Cache-Control"] = "private, max-age=3600"
+    return resp
+
+@app.post("/admin/investigativa/itens/<int:item_id>/excluir")
+@staff_required
+def admin_investigativa_item_delete(item_id):
+    validate_csrf()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM investigation_items WHERE id=%s RETURNING folder_id", (item_id,))
+            row = cur.fetchone()
+        conn.commit()
+    if not row:
+        abort(404)
+    flash("Item removido.", "success")
+    return redirect(url_for("admin_investigativa_folder", folder_id=row["folder_id"]))
+
+@app.post("/admin/investigativa/pastas/<int:folder_id>/excluir")
+@staff_required
+def admin_investigativa_folder_delete(folder_id):
+    validate_csrf()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM investigation_folders WHERE id=%s", (folder_id,))
+        conn.commit()
+    flash("Pasta excluída com todo o conteúdo.", "success")
+    return redirect(url_for("admin_investigativa"))
 
 @app.route('/admin/auditoria')
 @admin_required

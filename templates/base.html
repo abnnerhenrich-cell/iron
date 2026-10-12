@@ -16,13 +16,12 @@
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=10">
   <link rel="manifest" href="/manifest.webmanifest?v=9">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=veterani-5">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}?v=theme-1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='refine.css') }}?v=veterani-7">
+  <meta name="description" content="Veterani — metas, entregas e organização da equipe.">
 </head>
 {% set member_mode = request.endpoint in ['dashboard','submit','history','notifications','notification_mark_read','notifications_mark_all_read','member_home','calculator','calculator_app'] %}
 <body class="{{ 'is-auth' if current_user else 'is-guest' }} {{ 'is-member-mode' if member_mode else 'is-admin-mode' }}">
+  <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
   {% if current_user %}
   <aside class="app-sidebar">
     <a class="sidebar-brand" href="{{ url_for('admin_dashboard' if current_user['role'] in ['admin','manager'] and not member_mode else 'dashboard') }}">
@@ -33,25 +32,27 @@
     <div class="sidebar-section-label">NAVEGAÇÃO</div>
     <nav class="sidebar-nav">
       {% if current_user['role']=='admin' and not member_mode %}
-        <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}"><span class="nav-ico">⌂</span><span>Visão geral</span></a>
-        <a class="{{ 'active' if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] }}" href="{{ url_for('admin_members') }}"><span class="nav-ico">◉</span><span>Membros</span></a>
-        <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}"><span class="nav-ico">＋</span><span>Cadastros</span></a>
-        <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" href="{{ url_for('admin_cycles') }}"><span class="nav-ico">◇</span><span>Metas</span></a>
-        <a class="{{ 'active' if request.endpoint in ['admin_calculator','admin_calculator_app'] }}" href="{{ url_for('admin_calculator') }}"><span class="nav-ico">⌗</span><span>Calculadora</span></a>
-        <a class="{{ 'active' if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] }}" href="{{ url_for('admin_trades') }}"><span class="nav-ico">↕</span><span>Compras & Vendas</span></a>
-        <a class="{{ 'active' if request.endpoint=='admin_permissions' }}" href="{{ url_for('admin_permissions') }}"><span class="nav-ico">⌘</span><span>Permissões</span></a>
-        <a class="{{ 'active' if request.endpoint=='admin_audit' }}" href="{{ url_for('admin_audit') }}"><span class="nav-ico">◷</span><span>Auditoria</span></a>
+        <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" {% if request.endpoint=='admin_dashboard' %}aria-current="page"{% endif %} href="{{ url_for('admin_dashboard') }}"><span class="nav-ico">⌂</span><span>Visão geral</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] }}" {% if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] %}aria-current="page"{% endif %} href="{{ url_for('admin_members') }}"><span class="nav-ico">◉</span><span>Membros</span></a>
+        <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" {% if request.endpoint=='admin_registrations' %}aria-current="page"{% endif %} href="{{ url_for('admin_registrations') }}"><span class="nav-ico">＋</span><span>Cadastros</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" {% if request.endpoint in ['admin_cycles','admin_cycle_detail'] %}aria-current="page"{% endif %} href="{{ url_for('admin_cycles') }}"><span class="nav-ico">◇</span><span>Metas</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_calculator','admin_calculator_app'] }}" {% if request.endpoint in ['admin_calculator','admin_calculator_app'] %}aria-current="page"{% endif %} href="{{ url_for('admin_calculator') }}"><span class="nav-ico">⌗</span><span>Calculadora</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] }}" {% if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] %}aria-current="page"{% endif %} href="{{ url_for('admin_trades') }}"><span class="nav-ico">↕</span><span>Compras & Vendas</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_investigativa','admin_investigativa_create','admin_investigativa_folder','admin_investigativa_text','admin_investigativa_images','admin_investigativa_item_delete','admin_investigativa_folder_delete'] }}" {% if request.endpoint in ['admin_investigativa','admin_investigativa_create','admin_investigativa_folder','admin_investigativa_text','admin_investigativa_images','admin_investigativa_item_delete','admin_investigativa_folder_delete'] %}aria-current="page"{% endif %} href="{{ url_for('admin_investigativa') }}"><span class="nav-ico">◈</span><span>Investigativa</span></a>
+        <a class="{{ 'active' if request.endpoint=='admin_permissions' }}" {% if request.endpoint=='admin_permissions' %}aria-current="page"{% endif %} href="{{ url_for('admin_permissions') }}"><span class="nav-ico">⌘</span><span>Permissões</span></a>
+        <a class="{{ 'active' if request.endpoint=='admin_audit' }}" {% if request.endpoint=='admin_audit' %}aria-current="page"{% endif %} href="{{ url_for('admin_audit') }}"><span class="nav-ico">◷</span><span>Auditoria</span></a>
       {% elif current_user['role']=='manager' and not member_mode %}
-        <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}"><span class="nav-ico">⌂</span><span>Início</span></a>
-        <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}"><span class="nav-ico">＋</span><span>Cadastros</span></a>
-        <a class="{{ 'active' if request.endpoint in ['admin_calculator','admin_calculator_app'] }}" href="{{ url_for('admin_calculator') }}"><span class="nav-ico">⌗</span><span>Calculadora</span></a>
-        <a class="{{ 'active' if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] }}" href="{{ url_for('admin_trades') }}"><span class="nav-ico">↕</span><span>Compras & Vendas</span></a>
+        <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" {% if request.endpoint=='admin_dashboard' %}aria-current="page"{% endif %} href="{{ url_for('admin_dashboard') }}"><span class="nav-ico">⌂</span><span>Início</span></a>
+        <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" {% if request.endpoint=='admin_registrations' %}aria-current="page"{% endif %} href="{{ url_for('admin_registrations') }}"><span class="nav-ico">＋</span><span>Cadastros</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_calculator','admin_calculator_app'] }}" {% if request.endpoint in ['admin_calculator','admin_calculator_app'] %}aria-current="page"{% endif %} href="{{ url_for('admin_calculator') }}"><span class="nav-ico">⌗</span><span>Calculadora</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] }}" {% if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] %}aria-current="page"{% endif %} href="{{ url_for('admin_trades') }}"><span class="nav-ico">↕</span><span>Compras & Vendas</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_investigativa','admin_investigativa_create','admin_investigativa_folder','admin_investigativa_text','admin_investigativa_images','admin_investigativa_item_delete','admin_investigativa_folder_delete'] }}" {% if request.endpoint in ['admin_investigativa','admin_investigativa_create','admin_investigativa_folder','admin_investigativa_text','admin_investigativa_images','admin_investigativa_item_delete','admin_investigativa_folder_delete'] %}aria-current="page"{% endif %} href="{{ url_for('admin_investigativa') }}"><span class="nav-ico">◈</span><span>Investigativa</span></a>
       {% else %}
-        <a class="{{ 'active' if request.endpoint=='dashboard' }}" href="{{ url_for('dashboard') }}"><span class="nav-ico">⌂</span><span>Meu progresso</span></a>
-        <a class="{{ 'active' if request.endpoint=='submit' }}" href="{{ url_for('submit') }}"><span class="nav-ico">＋</span><span>Nova entrega</span></a>
-        <a class="{{ 'active' if request.endpoint=='history' }}" href="{{ url_for('history') }}"><span class="nav-ico">◔</span><span>Histórico</span></a>
-        <a class="{{ 'active' if request.endpoint in ['notifications','notification_mark_read','notifications_mark_all_read'] }}" href="{{ url_for('notifications') }}"><span class="nav-ico">♢</span><span>Notificações</span>{% if unread_notifications %}<b class="notification-badge">{{ unread_notifications if unread_notifications < 100 else '99+' }}</b>{% endif %}</a>
-        <a class="{{ 'active' if request.endpoint in ['calculator','calculator_app'] }}" href="{{ url_for('calculator') }}"><span class="nav-ico">⌗</span><span>Calculadora</span></a>
+        <a class="{{ 'active' if request.endpoint=='dashboard' }}" {% if request.endpoint=='dashboard' %}aria-current="page"{% endif %} href="{{ url_for('dashboard') }}"><span class="nav-ico">⌂</span><span>Meu progresso</span></a>
+        <a class="{{ 'active' if request.endpoint=='submit' }}" {% if request.endpoint=='submit' %}aria-current="page"{% endif %} href="{{ url_for('submit') }}"><span class="nav-ico">＋</span><span>Nova entrega</span></a>
+        <a class="{{ 'active' if request.endpoint=='history' }}" {% if request.endpoint=='history' %}aria-current="page"{% endif %} href="{{ url_for('history') }}"><span class="nav-ico">◔</span><span>Histórico</span></a>
+        <a class="{{ 'active' if request.endpoint in ['notifications','notification_mark_read','notifications_mark_all_read'] }}" {% if request.endpoint in ['notifications','notification_mark_read','notifications_mark_all_read'] %}aria-current="page"{% endif %} href="{{ url_for('notifications') }}"><span class="nav-ico">♢</span><span>Notificações</span>{% if unread_notifications %}<b class="notification-badge">{{ unread_notifications if unread_notifications < 100 else '99+' }}</b>{% endif %}</a>
+        <a class="{{ 'active' if request.endpoint in ['calculator','calculator_app'] }}" {% if request.endpoint in ['calculator','calculator_app'] %}aria-current="page"{% endif %} href="{{ url_for('calculator') }}"><span class="nav-ico">⌗</span><span>Calculadora</span></a>
       {% endif %}
     </nav>
 
@@ -87,7 +88,7 @@
   </header>
   {% endif %}
 
-  <main class="{% block mainclass %}page{% endblock %}">
+  <main id="conteudo" class="{% block mainclass %}page{% endblock %}">
     {% with msgs = get_flashed_messages(with_categories=true) %}
       {% if msgs %}
         <div class="flash-wrap" role="status" aria-live="polite">
@@ -116,22 +117,24 @@
   {% if current_user %}
   <nav class="bottom-nav" aria-label="Navegação principal">
     {% if current_user['role']=='admin' and not member_mode %}
-      <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}"><b>⌂</b><span>Início</span></a>
-      <a class="{{ 'active' if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] }}" href="{{ url_for('admin_members') }}"><b>◉</b><span>Membros</span></a>
-      <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}"><b>＋</b><span>Cadastros</span></a>
-      <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" href="{{ url_for('admin_cycles') }}"><b>◇</b><span>Metas</span></a>
-      <a class="{{ 'active' if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] }}" href="{{ url_for('admin_trades') }}"><b>↕</b><span>Negócios</span></a>
+      <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" {% if request.endpoint=='admin_dashboard' %}aria-current="page"{% endif %} href="{{ url_for('admin_dashboard') }}"><b>⌂</b><span>Início</span></a>
+      <a class="{{ 'active' if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] }}" {% if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] %}aria-current="page"{% endif %} href="{{ url_for('admin_members') }}"><b>◉</b><span>Membros</span></a>
+      <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" {% if request.endpoint=='admin_registrations' %}aria-current="page"{% endif %} href="{{ url_for('admin_registrations') }}"><b>＋</b><span>Cadastros</span></a>
+      <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" {% if request.endpoint in ['admin_cycles','admin_cycle_detail'] %}aria-current="page"{% endif %} href="{{ url_for('admin_cycles') }}"><b>◇</b><span>Metas</span></a>
+      <a class="{{ 'active' if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] }}" {% if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] %}aria-current="page"{% endif %} href="{{ url_for('admin_trades') }}"><b>↕</b><span>Negócios</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_investigativa','admin_investigativa_create','admin_investigativa_folder','admin_investigativa_text','admin_investigativa_images','admin_investigativa_item_delete','admin_investigativa_folder_delete'] }}" {% if request.endpoint in ['admin_investigativa','admin_investigativa_create','admin_investigativa_folder','admin_investigativa_text','admin_investigativa_images','admin_investigativa_item_delete','admin_investigativa_folder_delete'] %}aria-current="page"{% endif %} href="{{ url_for('admin_investigativa') }}"><b>◈</b><span>Investig.</span></a>
     {% elif current_user['role']=='manager' and not member_mode %}
-      <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}"><b>⌂</b><span>Início</span></a>
-      <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}"><b>＋</b><span>Cadastros</span></a>
-      <a class="{{ 'active' if request.endpoint in ['admin_calculator','admin_calculator_app'] }}" href="{{ url_for('admin_calculator') }}"><b>⌗</b><span>Calcular</span></a>
-      <a class="{{ 'active' if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] }}" href="{{ url_for('admin_trades') }}"><b>↕</b><span>Negócios</span></a>
+      <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" {% if request.endpoint=='admin_dashboard' %}aria-current="page"{% endif %} href="{{ url_for('admin_dashboard') }}"><b>⌂</b><span>Início</span></a>
+      <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" {% if request.endpoint=='admin_registrations' %}aria-current="page"{% endif %} href="{{ url_for('admin_registrations') }}"><b>＋</b><span>Cadastros</span></a>
+      <a class="{{ 'active' if request.endpoint in ['admin_calculator','admin_calculator_app'] }}" {% if request.endpoint in ['admin_calculator','admin_calculator_app'] %}aria-current="page"{% endif %} href="{{ url_for('admin_calculator') }}"><b>⌗</b><span>Calcular</span></a>
+      <a class="{{ 'active' if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] }}" {% if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] %}aria-current="page"{% endif %} href="{{ url_for('admin_trades') }}"><b>↕</b><span>Negócios</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_investigativa','admin_investigativa_create','admin_investigativa_folder','admin_investigativa_text','admin_investigativa_images','admin_investigativa_item_delete','admin_investigativa_folder_delete'] }}" {% if request.endpoint in ['admin_investigativa','admin_investigativa_create','admin_investigativa_folder','admin_investigativa_text','admin_investigativa_images','admin_investigativa_item_delete','admin_investigativa_folder_delete'] %}aria-current="page"{% endif %} href="{{ url_for('admin_investigativa') }}"><b>◈</b><span>Investig.</span></a>
     {% else %}
-      <a class="{{ 'active' if request.endpoint=='dashboard' }}" href="{{ url_for('dashboard') }}"><b>⌂</b><span>Início</span></a>
-      <a class="{{ 'active' if request.endpoint=='submit' }}" href="{{ url_for('submit') }}"><b>＋</b><span>Entregar</span></a>
-      <a class="{{ 'active' if request.endpoint=='history' }}" href="{{ url_for('history') }}"><b>◔</b><span>Histórico</span></a>
-      <a class="{{ 'active' if request.endpoint in ['notifications','notification_mark_read','notifications_mark_all_read'] }}" href="{{ url_for('notifications') }}"><b class="bottom-notification-icon">♢{% if unread_notifications %}<i>{{ unread_notifications if unread_notifications < 100 else '99+' }}</i>{% endif %}</b><span>Avisos</span></a>
-      <a class="{{ 'active' if request.endpoint in ['calculator','calculator_app'] }}" href="{{ url_for('calculator') }}"><b>⌗</b><span>Calcular</span></a>
+      <a class="{{ 'active' if request.endpoint=='dashboard' }}" {% if request.endpoint=='dashboard' %}aria-current="page"{% endif %} href="{{ url_for('dashboard') }}"><b>⌂</b><span>Início</span></a>
+      <a class="{{ 'active' if request.endpoint=='submit' }}" {% if request.endpoint=='submit' %}aria-current="page"{% endif %} href="{{ url_for('submit') }}"><b>＋</b><span>Entregar</span></a>
+      <a class="{{ 'active' if request.endpoint=='history' }}" {% if request.endpoint=='history' %}aria-current="page"{% endif %} href="{{ url_for('history') }}"><b>◔</b><span>Histórico</span></a>
+      <a class="{{ 'active' if request.endpoint in ['notifications','notification_mark_read','notifications_mark_all_read'] }}" {% if request.endpoint in ['notifications','notification_mark_read','notifications_mark_all_read'] %}aria-current="page"{% endif %} href="{{ url_for('notifications') }}"><b class="bottom-notification-icon">♢{% if unread_notifications %}<i>{{ unread_notifications if unread_notifications < 100 else '99+' }}</i>{% endif %}</b><span>Avisos</span></a>
+      <a class="{{ 'active' if request.endpoint in ['calculator','calculator_app'] }}" {% if request.endpoint in ['calculator','calculator_app'] %}aria-current="page"{% endif %} href="{{ url_for('calculator') }}"><b>⌗</b><span>Calcular</span></a>
     {% endif %}
   </nav>
   {% endif %}

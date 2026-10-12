@@ -124,3 +124,28 @@ tbody tr:last-child td{border-bottom:0}
   .inv-item img{width:100%;height:auto;max-height:260px}
   .inv-form-row .btn{width:100%}
 }
+
+/* ===== Login em duas colunas (só a página de login; cores e fonte vêm do tema) ===== */
+.login-page .login-card.login-split{width:min(100%,780px);padding:0;display:grid;grid-template-columns:1fr 1fr;overflow:hidden;border-radius:22px}
+.login-page .login-card.login-split{position:relative}
+.login-page .login-card.login-split::before{position:absolute;right:-12px;top:-12px;pointer-events:none}
+.login-split .login-brand,.login-split .login-form-side{padding:44px;display:flex;flex-direction:column;justify-content:center;min-width:0}
+.login-split .login-form-side{border-left:1px solid var(--stroke)}
+.login-page .login-split .logo-box-art{height:auto;justify-content:flex-start;margin:0 0 22px}
+.login-page .login-split .logo-box-art img{max-width:190px;max-height:170px}
+.login-page .login-split h1{margin-bottom:8px}
+.login-page .login-split .muted{margin-bottom:26px}
+.login-page .login-split .feature-list{gap:0;margin:0}
+.login-page .login-split .feature-list>div{min-height:42px;padding:0;gap:16px;border-radius:0;border:0;border-top:1px solid var(--stroke);background:none;box-shadow:none}
+.login-page .login-split .feature-list .dot{width:6px;height:6px;border-radius:50%;background:var(--veterani-burgundy-2);flex:none}
+.login-page .login-split .remember-device{padding:0;border:0;background:none;box-shadow:none}
+.login-page .login-split .tiny{text-align:left}
+@media (max-width:760px){
+  .login-page .login-card.login-split{grid-template-columns:1fr;width:min(100%,460px)}
+  .login-split .login-brand{padding:30px 24px 24px;align-items:center;text-align:center;border-bottom:1px solid var(--stroke)}
+  .login-split .login-form-side{padding:26px 24px 28px;border-left:0}
+  .login-page .login-split .logo-box-art{justify-content:center;margin-bottom:14px}
+  .login-page .login-split .logo-box-art img{max-width:170px;max-height:150px}
+  .login-page .login-split .muted{margin-bottom:0}
+  .login-page .login-split .feature-list{display:none}
+}
