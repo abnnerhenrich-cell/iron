@@ -981,3 +981,13 @@ tr:hover td{background:#0a1831!important}
 .invest-folder-item .invest-danger-btn{border:1px solid #853047!important;background:#290b19!important;color:#f1b2c2!important;border-radius:10px!important;padding:10px 18px!important;min-height:42px;font-weight:700;cursor:pointer}
 .invest-folder-item .invest-danger-btn:hover{background:#5e000e!important;color:#fff!important}
 @media(max-width:760px){.invest-cover-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}.invest-folder-item .invest-cover-meta{padding:10px 8px 6px!important}.invest-folder-item .invest-cover-meta strong{font-size:16px!important}.invest-cover-grid .invest-folder-item .invest-delete-folder{padding:8px 6px 12px}.invest-folder-item .invest-danger-btn{font-size:11px!important;padding:9px 5px!important;width:100%}}
+
+/* Investigativa: navegação por seções, preservando o restante do site. */
+.invest-section-tabs{display:flex;flex-wrap:wrap;gap:9px;margin:16px 0 22px}
+.invest-section-tab{display:inline-flex;align-items:center;padding:10px 14px;border:1px solid #35445c;border-radius:10px;background:#0b1930;color:#d8e1f0;text-decoration:none;font-weight:700;font-size:13px}
+.invest-section-tab:hover{border-color:#985267;color:#fff}
+.invest-section-tab.active{background:#5e000e;border-color:#a34a62;color:white}
+.invest-danger-level,.invest-vehicle-plate{margin:12px 0;font-size:15px;color:#dce4f1}
+.invest-vehicle-plate strong{letter-spacing:1px}
+.invest-modal-form select,.invest-modal-form input[name="vehicle_plate"]{display:block;width:100%;padding:12px;border-radius:9px;border:1px solid #46516a;background:#09162c;color:white}
+@media(max-width:760px){.invest-section-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.invest-section-tab{justify-content:center;text-align:center;padding:10px 6px;font-size:12px}}

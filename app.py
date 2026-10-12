@@ -166,6 +166,11 @@ def init_db():
             cur.execute("ALTER TABLE investigative_folders ADD COLUMN IF NOT EXISTS cover_data BYTEA")
             cur.execute("ALTER TABLE investigative_folders ADD COLUMN IF NOT EXISTS cover_mime TEXT")
             cur.execute("ALTER TABLE investigative_entries ADD COLUMN IF NOT EXISTS title TEXT")
+            cur.execute("ALTER TABLE investigative_entries ADD COLUMN IF NOT EXISTS section TEXT NOT NULL DEFAULT 'GERAL'")
+            cur.execute("ALTER TABLE investigative_entries ADD COLUMN IF NOT EXISTS danger_level TEXT")
+            cur.execute("ALTER TABLE investigative_entries ADD COLUMN IF NOT EXISTS vehicle_plate TEXT")
+            cur.execute("CREATE INDEX IF NOT EXISTS ix_invest_entries_folder_section_date ON investigative_entries(folder_id,section,created_at DESC)")
+
             cur.execute("""CREATE TABLE IF NOT EXISTS investigative_attachments (
                 id BIGSERIAL PRIMARY KEY,
                 entry_id BIGINT NOT NULL REFERENCES investigative_entries(id) ON DELETE CASCADE,
@@ -3662,44 +3667,76 @@ def investigative_cover(folder_id):
     return response
 
 
+INVEST_SECTIONS = (
+    ("HIERARQUIA", "Hierarquia"),
+    ("MEMBROS", "Membros"),
+    ("LOCAL BASE", "Local Base"),
+    ("VEICULOS", "Veículos"),
+    ("FACHADA", "Fachada"),
+    ("O QUE VENDEM", "O que vendem"),
+    ("NIVEL DE PERIGO", "Nível de Perigo"),
+    ("GERAL", "Anteriores"),
+)
+INVEST_DANGER_LEVELS = ("Baixo", "Médio", "Alto", "Crítico")
+
 @app.route("/investigativa/<int:folder_id>",methods=["GET","POST"])
 @staff_required
 def investigative_folder(folder_id):
+    allowed = {code for code, _ in INVEST_SECTIONS}
+    requested = request.form.get("section") if request.method == "POST" else request.args.get("section")
+    section = requested if requested in allowed else "HIERARQUIA"
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id,title,created_at,(cover_data IS NOT NULL) AS has_cover FROM investigative_folders WHERE id=%s",(folder_id,))
-            folder=cur.fetchone()
+            cur.execute("SELECT id,title,created_at,(cover_data IS NOT NULL) AS has_cover FROM investigative_folders WHERE id=%s", (folder_id,))
+            folder = cur.fetchone()
             if not folder: abort(404)
-            if request.method=="POST":
-                body=(request.form.get("body") or "").strip()[:20000]
-                uploads=[x for x in request.files.getlist("images") if x and x.filename]
+            if request.method == "POST":
+                body = (request.form.get("body") or "").strip()[:20000]
+                uploads = [x for x in request.files.getlist("images") if x and x.filename]
+                danger_level = (request.form.get("danger_level") or "").strip() if section == "NIVEL DE PERIGO" else None
+                plate = (request.form.get("vehicle_plate") or "").strip().upper()[:16] if section == "VEICULOS" else None
                 try:
-                    if not body and not uploads:
+                    if section == "GERAL":
+                        raise ValueError("Selecione uma das abas para adicionar informações.")
+                    if danger_level and danger_level not in INVEST_DANGER_LEVELS:
+                        raise ValueError("Classificação de perigo inválida.")
+                    if section == "NIVEL DE PERIGO" and not danger_level:
+                        raise ValueError("Selecione o nível de perigo.")
+                    if section == "VEICULOS" and not plate:
+                        raise ValueError("Informe a placa do veículo.")
+                    if not body and not uploads and not danger_level and not plate:
                         raise ValueError("Escreva um texto ou anexe uma imagem.")
-                    if len(uploads)>8:
+                    if len(uploads) > 8:
                         raise ValueError("Limite de 8 imagens por informação.")
-                    attachments=[_invest_image(x) for x in uploads]
-                    cur.execute("""INSERT INTO investigative_entries(folder_id,author_id,body)
-                        VALUES (%s,%s,%s) RETURNING id""",
-                        (folder_id,get_current_user()["id"],body or None))
-                    entry_id=cur.fetchone()["id"]
+                    attachments = [_invest_image(x) for x in uploads]
+                    cur.execute("""INSERT INTO investigative_entries
+                        (folder_id,author_id,body,section,danger_level,vehicle_plate)
+                        VALUES (%s,%s,%s,%s,%s,%s) RETURNING id""",
+                        (folder_id,get_current_user()["id"],body or None,section,danger_level,plate))
+                    entry_id = cur.fetchone()["id"]
                     for data,mime in attachments:
                         cur.execute("INSERT INTO investigative_attachments(entry_id,image_data,image_mime) VALUES (%s,%s,%s)",(entry_id,data,mime))
                     conn.commit()
                     flash("Informação adicionada.", "success")
                 except ValueError as exc:
                     conn.rollback()
-                    flash(str(exc),"error")
-                return redirect(url_for("investigative_folder",folder_id=folder_id))
-            cur.execute("""SELECT e.id,e.title,e.body,e.created_at,u.name AS author_name,
-                (e.image_data IS NOT NULL) AS has_image
+                    flash(str(exc), "error")
+                return redirect(url_for("investigative_folder",folder_id=folder_id,section=section))
+            cur.execute("""SELECT e.id,e.title,e.body,e.created_at,e.danger_level,e.vehicle_plate,
+                u.name AS author_name,(e.image_data IS NOT NULL) AS has_image
                 FROM investigative_entries e LEFT JOIN users u ON u.id=e.author_id
-                WHERE e.folder_id=%s ORDER BY e.created_at DESC""",(folder_id,))
-            entries=cur.fetchall()
+                WHERE e.folder_id=%s AND e.section=%s ORDER BY e.created_at DESC""", (folder_id,section))
+            entries = cur.fetchall()
+            entry_ids = [e["id"] for e in entries]
+            attachment_map = {}
+            if entry_ids:
+                cur.execute("SELECT entry_id,id FROM investigative_attachments WHERE entry_id=ANY(%s) ORDER BY id",(entry_ids,))
+                for att in cur.fetchall():
+                    attachment_map.setdefault(att["entry_id"], []).append(att["id"])
             for entry in entries:
-                cur.execute("SELECT id FROM investigative_attachments WHERE entry_id=%s ORDER BY id",(entry["id"],))
-                entry["attachments"]=[x["id"] for x in cur.fetchall()]
-    return render_template("investigative_folder.html",folder=folder,entries=entries)
+                entry["attachments"] = attachment_map.get(entry["id"], [])
+    return render_template("investigative_folder.html",folder=folder,entries=entries,
+                           sections=INVEST_SECTIONS,section=section,danger_levels=INVEST_DANGER_LEVELS)
 
 
 @app.route("/investigativa/<int:folder_id>/excluir", methods=["POST"])
@@ -3723,7 +3760,7 @@ def investigative_delete_entry(folder_id, entry_id):
             deleted=cur.fetchone()
         conn.commit()
     flash("Informação excluída." if deleted else "Informação não encontrada.", "success" if deleted else "error")
-    return redirect(url_for("investigative_folder", folder_id=folder_id))
+    return redirect(url_for("investigative_folder", folder_id=folder_id, section=request.form.get("section", "HIERARQUIA")))
 
 
 @app.route("/investigativa/anexo/<int:attachment_id>")
