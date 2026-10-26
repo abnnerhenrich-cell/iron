@@ -9,6 +9,10 @@ from datetime import date, timedelta
 from functools import wraps
 from io import BytesIO, StringIO
 import csv
+import urllib.request
+import urllib.parse
+import urllib.error
+import time
 
 from flask import (
     Flask, render_template, request, redirect, url_for, session,
@@ -123,6 +127,9 @@ def init_db():
                 ALTER TABLE users
                 ADD COLUMN IF NOT EXISTS approved BOOLEAN NOT NULL DEFAULT FALSE
             """)
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS discord_user_id TEXT")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS discord_channel_id TEXT")
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_users_discord_id ON users(discord_user_id) WHERE discord_user_id IS NOT NULL")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS member_notifications (
                     id BIGSERIAL PRIMARY KEY,
@@ -1719,6 +1726,9 @@ def submit():
             )
             return render_template("submit.html", cycle=cycle, goals=goals), 503
 
+        goal_names = {goal["id"]: goal["title"] for goal in goals}
+        details = [f"• {goal_names.get(gid, 'Material')}: {amount:g}" for gid, amount in selected]
+        discord_send_member(user["id"], "**Entrega registrada — aguardando análise**\n" + "\n".join(details))
         flash(f"{len(selected)} item(ns) enviado(s) para análise.", "success")
         return redirect(url_for("dashboard"))
 
@@ -2569,6 +2579,10 @@ def admin_member_goals(user_id):
                     except Exception:
                         app.logger.exception("Metas criadas, mas falhou push para user_id=%s", user_id)
 
+                if created:
+                    lines = [f"**Novas metas — {cycle['title']}**", f"Prazo: {cycle['end_date']}"]
+                    lines += [f"• {material['title']}: {target:g} {material['unit']}" for material, target in selected_materials]
+                    discord_send_member(user_id, "\n".join(lines))
                 flash(f"{len(created)} meta(s) criada(s): " + ", ".join(created) + ".", "success")
                 return redirect(url_for("admin_member_goals", user_id=user_id))
 
@@ -3161,6 +3175,11 @@ def admin_user_approve(user_id):
                 WHERE id=%s
             """, (user_id,))
         conn.commit()
+    if os.getenv("DISCORD_BOT_TOKEN"):
+        try:
+            discord_ensure_channel(user_id)
+        except Exception:
+            app.logger.exception("Discord: falha ao criar canal do novo membro %s", user_id)
     flash("Membro aprovado e liberado para acessar o painel.", "success")
     return redirect(request.referrer or url_for("admin_registrations"))
 
@@ -3572,6 +3591,8 @@ def admin_trade_save():
             flash(f"Não foi possível salvar o registro ({type(exc).__name__}).", "danger")
             return redirect(url_for("admin_trades", view=record_type))
 
+    if record_type == "sale" and not record_id:
+        discord_send_sale(f"**Nova venda registrada no Veterani**\nProduto: {product}\nQuantidade: {quantity}\nValor total: R$ {total}\nVendedor: {seller}\nComprador: {buyer}\nResponsável: {responsible}\nData: {record_date}")
     flash("Venda salva com sucesso." if record_type == "sale" else "Compra salva com sucesso.", "success")
     return redirect(url_for("admin_trades", view="history"))
 
@@ -3900,3 +3921,146 @@ def service_worker():
     response.headers["Service-Worker-Allowed"] = "/"
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     return response
+
+# Discord REST integration: no gateway process or persistent hosting required.
+DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "1564340327249223720")
+DISCORD_GUILD_ID = os.getenv("DISCORD_GUILD_ID", "1319723201743552677")
+DISCORD_MANAGEMENT_ROLE_ID = os.getenv("DISCORD_MANAGEMENT_ROLE_ID", "1564336547950493746")
+DISCORD_META_CATEGORY_ID = os.getenv("DISCORD_META_CATEGORY_ID", "1486815221619232839")
+DISCORD_SALES_CHANNEL_ID = os.getenv("DISCORD_SALES_CHANNEL_ID", "1556355351102628032")
+DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "https://veterani.vercel.app/discord/callback")
+
+
+def discord_request(method, path, payload=None, *, bot=True, token=None, form=False):
+    credential = os.getenv("DISCORD_BOT_TOKEN", "") if bot else token
+    if not credential and not (form and path == "/oauth2/token"):
+        raise RuntimeError("Credencial Discord não configurada")
+    body = None
+    headers = {"User-Agent": "VeteraniIntegration/1.0"}
+    if credential:
+        headers["Authorization"] = ("Bot " if bot else "Bearer ") + credential
+    if payload is not None:
+        if form:
+            body = urllib.parse.urlencode(payload).encode("utf-8")
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+        else:
+            body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+            headers["Content-Type"] = "application/json"
+    req = urllib.request.Request("https://discord.com/api/v10" + path, data=body, headers=headers, method=method)
+    with urllib.request.urlopen(req, timeout=5) as response:
+        content = response.read()
+        return json.loads(content) if content else {}
+
+
+def discord_ensure_channel(user_id):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id,name,discord_user_id,discord_channel_id,active,approved FROM users WHERE id=%s", (user_id,))
+            member = cur.fetchone()
+    if not member or not member["discord_user_id"] or not member["active"] or not member["approved"]:
+        return None
+    if member["discord_channel_id"]:
+        return member["discord_channel_id"]
+    discord_id = str(member["discord_user_id"])
+    # The member must already be in the configured server; never create a public channel.
+    discord_request("GET", f"/guilds/{DISCORD_GUILD_ID}/members/{discord_id}")
+    clean_name = re.sub(r"[^a-z0-9-]", "-", member["name"].lower())[:50].strip("-") or "membro"
+    bot_id = str(discord_request("GET", "/users/@me")["id"])
+    channel = discord_request("POST", f"/guilds/{DISCORD_GUILD_ID}/channels", {
+        "name": f"meta-{clean_name}-{user_id}", "type": 0,
+        "parent_id": DISCORD_META_CATEGORY_ID,
+        "permission_overwrites": [
+            {"id": DISCORD_GUILD_ID, "type": 0, "deny": "1024", "allow": "0"},
+            {"id": DISCORD_MANAGEMENT_ROLE_ID, "type": 0, "allow": "68608", "deny": "0"},
+            {"id": discord_id, "type": 1, "allow": "68608", "deny": "0"},
+            {"id": bot_id, "type": 1, "allow": "68608", "deny": "0"},
+        ]
+    })
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE users SET discord_channel_id=%s WHERE id=%s AND discord_user_id=%s AND discord_channel_id IS NULL", (channel["id"], user_id, discord_id))
+        conn.commit()
+    return channel["id"]
+
+
+def discord_send_member(user_id, message):
+    if not os.getenv("DISCORD_BOT_TOKEN"):
+        return
+    try:
+        channel_id = discord_ensure_channel(user_id)
+        if channel_id:
+            discord_request("POST", f"/channels/{channel_id}/messages", {"content": message[:1900], "allowed_mentions": {"parse": []}})
+    except Exception:
+        app.logger.exception("Discord: falha de notificação ao membro %s", user_id)
+
+
+def discord_send_sale(message):
+    if not os.getenv("DISCORD_BOT_TOKEN"):
+        return
+    try:
+        discord_request("POST", f"/channels/{DISCORD_SALES_CHANNEL_ID}/messages", {"content": message[:1900], "allowed_mentions": {"parse": []}})
+    except Exception:
+        app.logger.exception("Discord: falha ao publicar venda")
+
+
+@app.route("/discord/connect")
+@login_required
+def discord_connect():
+    if not os.getenv("DISCORD_CLIENT_SECRET") or not os.getenv("DISCORD_BOT_TOKEN"):
+        flash("Integração Discord ainda não configurada pela administração.", "danger")
+        return redirect(url_for("dashboard"))
+    state = secrets.token_urlsafe(32)
+    session["discord_oauth_state"] = state
+    session["discord_oauth_uid"] = get_current_user()["id"]
+    params = {"client_id": DISCORD_CLIENT_ID, "redirect_uri": DISCORD_REDIRECT_URI,
+              "response_type": "code", "scope": "identify", "state": state, "prompt": "consent"}
+    return redirect("https://discord.com/oauth2/authorize?" + urllib.parse.urlencode(params))
+
+
+@app.route("/discord/callback")
+@login_required
+def discord_callback():
+    state = session.pop("discord_oauth_state", None)
+    uid = session.pop("discord_oauth_uid", None)
+    user = get_current_user()
+    if not state or not secrets.compare_digest(state, request.args.get("state", "")) or uid != user["id"]:
+        abort(400)
+    if request.args.get("error"):
+        flash("Autorização do Discord cancelada.", "danger")
+        return redirect(url_for("dashboard"))
+    code = request.args.get("code")
+    if not code:
+        abort(400)
+    try:
+        token = discord_request("POST", "/oauth2/token", {
+            "client_id": DISCORD_CLIENT_ID, "client_secret": os.environ["DISCORD_CLIENT_SECRET"],
+            "grant_type": "authorization_code", "code": code,
+            "redirect_uri": DISCORD_REDIRECT_URI}, bot=False, token="", form=True)
+        discord_user = discord_request("GET", "/users/@me", bot=False, token=token["access_token"])
+        discord_id = str(discord_user["id"])
+        discord_request("GET", f"/guilds/{DISCORD_GUILD_ID}/members/{discord_id}")
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id FROM users WHERE discord_user_id=%s AND id<>%s", (discord_id, uid))
+                if cur.fetchone():
+                    flash("Esta conta Discord já está vinculada a outro cadastro.", "danger")
+                    return redirect(url_for("dashboard"))
+                cur.execute("SELECT discord_channel_id FROM users WHERE id=%s", (uid,))
+                previous = cur.fetchone()
+                if previous and previous["discord_channel_id"]:
+                    # Avoid leaving a channel accessible to the previous Discord account.
+                    flash("Conta já vinculada. Contate a Hierarquia para trocar a conta Discord.", "danger")
+                    return redirect(url_for("dashboard"))
+                cur.execute("UPDATE users SET discord_user_id=%s WHERE id=%s", (discord_id, uid))
+            conn.commit()
+        channel = discord_ensure_channel(uid)
+        if channel:
+            flash("Discord conectado e canal privado criado!", "success")
+        else:
+            flash("Discord vinculado. O canal será criado quando seu cadastro estiver aprovado.", "success")
+    except Exception:
+        app.logger.exception("Falha na vinculação OAuth2 Discord")
+        flash("Não foi possível concluir a conexão. Verifique sua presença no servidor e tente novamente.", "danger")
+    return redirect(url_for("dashboard"))
+
+
