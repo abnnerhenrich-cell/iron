@@ -1000,3 +1000,10 @@ tr:hover td{background:#0a1831!important}
 .invest-info-actions{display:flex;flex-direction:row;align-items:center;flex-wrap:wrap;gap:10px;margin-top:14px}
 .invest-info-actions form{margin:0;padding:0;display:inline-flex;width:auto}
 .invest-info-actions .invest-edit-btn,.invest-info-actions .invest-danger-btn{margin:0;white-space:nowrap}
+
+/* Discord: status persistente e atalho na barra superior mobile. */
+.discord-linked{cursor:default;text-decoration:none;}
+.discord-linked>span{color:#b2e3bf;}
+.mobile-discord-connect,.mobile-discord-status{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:34px;padding:4px 8px;border:1px solid #334461;border-radius:9px;background:#09172c;color:#e7ecf6;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;}
+.mobile-discord-status{color:#b2e3bf;border-color:#345744;}
+@media(max-width:420px){.mobile-discord-connect,.mobile-discord-status{padding:5px 7px;font-size:12px}.mobile-discord-connect span,.mobile-discord-status span{display:none}}

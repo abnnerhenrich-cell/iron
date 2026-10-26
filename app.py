@@ -843,7 +843,8 @@ def get_current_user():
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT id, name, email, role, active, approved, created_at,
-                       (profile_image IS NOT NULL) AS has_profile_image
+                       (profile_image IS NOT NULL) AS has_profile_image,
+                       discord_user_id, discord_channel_id
                 FROM users WHERE id=%s
             """, (uid,))
             user = cur.fetchone()

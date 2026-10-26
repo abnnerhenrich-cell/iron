@@ -15,7 +15,7 @@
   <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v=10">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=10">
   <link rel="manifest" href="/manifest.webmanifest?v=9">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=veterani-12">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=veterani-discord-status-2">
 </head>
 {% set member_mode = request.endpoint in ['dashboard','submit','history','notifications','notification_mark_read','notifications_mark_all_read','member_home','calculator','calculator_app'] %}
 <body class="{{ 'is-auth' if current_user else 'is-guest' }} {{ 'is-member-mode' if member_mode else 'is-admin-mode' }}">
@@ -53,7 +53,11 @@
       {% endif %}
     </nav>
 
+    {% if current_user['discord_user_id'] %}
+    <div class="context-switch discord-linked" role="status"><span>✓</span><div><strong>Discord conectado</strong><small>{{ 'Conta vinculada e canal privado ativo' if current_user['discord_channel_id'] else 'Conta vinculada · canal pendente' }}</small></div></div>
+    {% else %}
     <a class="context-switch" href="{{ url_for('discord_connect') }}"><span>◎</span><div><strong>Conectar com Discord</strong><small>Vincular conta e canal de metas</small></div></a>
+    {% endif %}
     <div class="sidebar-spacer"></div>
     <button class="install-app-sidebar js-install-app" type="button">
       <span class="install-app-icon">↓</span>
@@ -78,6 +82,11 @@
   <header class="mobile-topbar">
     <a class="mobile-brand" href="{{ url_for('admin_dashboard' if current_user['role'] in ['admin','manager'] and not member_mode else 'dashboard') }}"><img class="brand-logo" src="{{ url_for('static', filename='veterani-logo.png') }}?v=9" alt="Veterani"><strong>Veterani</strong></a>
     <div class="mobile-top-actions">
+      {% if current_user['discord_user_id'] %}
+      <span class="mobile-discord-status" role="status" title="Discord conectado{{ ' · canal pendente' if not current_user['discord_channel_id'] else '' }}" aria-label="Discord conectado">✓ <span>Discord</span></span>
+      {% else %}
+      <a class="mobile-discord-connect" href="{{ url_for('discord_connect') }}" title="Conectar com Discord" aria-label="Conectar com Discord">◎ <span>Discord</span></a>
+      {% endif %}
       {% if member_mode %}<a class="mobile-notification-link" href="{{ url_for('notifications') }}" aria-label="Notificações" title="Notificações">♢{% if unread_notifications %}<b>{{ unread_notifications if unread_notifications < 100 else '99+' }}</b>{% endif %}</a>{% endif %}
       <button class="mobile-install js-install-app" type="button" aria-label="Instalar Veterani" title="Instalar Veterani">↓</button>
       {% if current_user['role'] in ['admin','manager'] %}<a href="{{ url_for('admin_dashboard' if member_mode else 'dashboard') }}">⇄</a>{% endif %}
