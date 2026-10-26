@@ -924,6 +924,8 @@ def restrict_manager_access():
         # Navegação geral
         "index",
         "logout",
+        # Vinculação Discord permitida a qualquer membro autenticado, inclusive Gerente
+        "discord_connect", "discord_callback",
 
         "investigative_home", "investigative_folder", "investigative_image", "investigative_cover", "investigative_attachment", "investigative_delete_folder", "investigative_delete_entry",
         # Painel normal de membro
