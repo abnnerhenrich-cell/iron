@@ -3611,7 +3611,7 @@ def admin_trade_save():
             return redirect(url_for("admin_trades", view=record_type))
 
     if record_type == "sale" and not record_id:
-        discord_send_sale({"product": product, "quantity": quantity, "total": total, "seller": seller, "buyer": buyer, "responsible": responsible, "date": record_date})
+        discord_send_sale({"product": product, "quantity": quantity, "total": total, "seller": seller, "buyer": buyer, "responsible": responsible, "date": record_date, "markup_percent": markup_percent, "markup_amount": unit_price * quantity * markup_percent / 100.0})
     flash("Venda salva com sucesso." if record_type == "sale" else "Compra salva com sucesso.", "success")
     return redirect(url_for("admin_trades", view="history"))
 
@@ -4117,6 +4117,7 @@ def discord_send_sale(sale):
                     {"name": "📦 Produto", "value": str(sale.get("product") or "—")[:1024], "inline": True},
                     {"name": "🔢 Quantidade", "value": discord_number(sale.get("quantity")), "inline": True},
                     {"name": "💰 Valor total", "value": "R$ " + discord_number(sale.get("total")), "inline": False},
+                    {"name": "📈 Acréscimo", "value": ("Sim — " + discord_number(sale.get("markup_percent")) + "% (R$ " + discord_number(sale.get("markup_amount")) + ")") if float(sale.get("markup_percent") or 0) > 0 else "Não (0%)", "inline": False},
                     {"name": "👤 Vendedor", "value": str(sale.get("seller") or "—")[:1024], "inline": True},
                     {"name": "🤝 Comprador", "value": str(sale.get("buyer") or "—")[:1024], "inline": True},
                     {"name": "📋 Responsável", "value": str(sale.get("responsible") or "—")[:1024], "inline": False},
