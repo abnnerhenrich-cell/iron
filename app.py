@@ -3611,7 +3611,7 @@ def admin_trade_save():
             return redirect(url_for("admin_trades", view=record_type))
 
     if record_type == "sale" and not record_id:
-        discord_send_sale(f"**Nova venda registrada no Veterani**\nProduto: {product}\nQuantidade: {quantity}\nValor total: R$ {total}\nVendedor: {seller}\nComprador: {buyer}\nResponsável: {responsible}\nData: {record_date}")
+        discord_send_sale({"product": product, "quantity": quantity, "total": total, "seller": seller, "buyer": buyer, "responsible": responsible, "date": record_date})
     flash("Venda salva com sucesso." if record_type == "sale" else "Compra salva com sucesso.", "success")
     return redirect(url_for("admin_trades", view="history"))
 
@@ -4051,7 +4051,7 @@ def discord_send_goal_panel(user_id, cycle_id):
             "embeds": [{
                 "title": "👤 META INDIVIDUAL · PROGRESSO",
                 "description": f"**{member['name']}**\n**{cycle['title']}**\nPeríodo: {discord_br_date(cycle['start_date'])} → {discord_br_date(cycle['end_date'])}",
-                "color": 13936936,
+                "color": 0x5E000E,
                 "fields": fields,
                 "footer": {"text": "Veterani · Painel individual · " + datetime.now(ZoneInfo('America/Sao_Paulo')).strftime('%d/%m/%Y às %H:%M')},
             }],
@@ -4103,11 +4103,29 @@ def discord_send_member(user_id, message):
         app.logger.exception("Discord: falha de notificação ao membro %s", user_id)
 
 
-def discord_send_sale(message):
+def discord_send_sale(sale):
+    """Publica novas vendas como embed bordô, no padrão dos painéis de metas."""
     if not os.getenv("DISCORD_BOT_TOKEN"):
         return
     try:
-        discord_request("POST", f"/channels/{DISCORD_SALES_CHANNEL_ID}/messages", {"content": message[:1900], "allowed_mentions": {"parse": []}})
+        payload = {
+            "allowed_mentions": {"parse": []},
+            "embeds": [{
+                "title": "🛍️ NOVA VENDA REGISTRADA",
+                "color": 0x5E000E,
+                "fields": [
+                    {"name": "📦 Produto", "value": str(sale.get("product") or "—")[:1024], "inline": True},
+                    {"name": "🔢 Quantidade", "value": discord_number(sale.get("quantity")), "inline": True},
+                    {"name": "💰 Valor total", "value": "R$ " + discord_number(sale.get("total")), "inline": False},
+                    {"name": "👤 Vendedor", "value": str(sale.get("seller") or "—")[:1024], "inline": True},
+                    {"name": "🤝 Comprador", "value": str(sale.get("buyer") or "—")[:1024], "inline": True},
+                    {"name": "📋 Responsável", "value": str(sale.get("responsible") or "—")[:1024], "inline": False},
+                    {"name": "📅 Data da venda", "value": discord_br_date(sale.get("date")), "inline": False},
+                ],
+                "footer": {"text": "Veterani · Registro de vendas · " + datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%d/%m/%Y às %H:%M")},
+            }],
+        }
+        discord_request("POST", f"/channels/{DISCORD_SALES_CHANNEL_ID}/messages", payload)
     except Exception:
         app.logger.exception("Discord: falha ao publicar venda")
 
