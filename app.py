@@ -5,7 +5,9 @@ import json
 import base64
 import hashlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
+from zoneinfo import ZoneInfo
+import unicodedata
 from functools import wraps
 from io import BytesIO, StringIO
 import csv
@@ -2599,9 +2601,7 @@ def admin_member_goals(user_id):
                         app.logger.exception("Metas criadas, mas falhou push para user_id=%s", user_id)
 
                 if created:
-                    lines = [f"**Novas metas — {cycle['title']}**", f"Prazo: {cycle['end_date']}"]
-                    lines += [f"• {material['title']}: {target:g} {material['unit']}" for material, target in selected_materials]
-                    discord_send_member(user_id, "\n".join(lines))
+                    discord_send_goal_panel(user_id, cycle["id"])
                 flash(f"{len(created)} meta(s) criada(s): " + ", ".join(created) + ".", "success")
                 return redirect(url_for("admin_member_goals", user_id=user_id))
 
@@ -3971,6 +3971,96 @@ def discord_request(method, path, payload=None, *, bot=True, token=None, form=Fa
         return json.loads(content) if content else {}
 
 
+def discord_channel_name(full_name):
+    # Apenas primeiro e segundo nomes, com separador solicitado.
+    parts = str(full_name or "").split()[:2]
+    normalized = []
+    for part in parts:
+        part = unicodedata.normalize("NFKD", part)
+        part = "".join(ch for ch in part if not unicodedata.combining(ch))
+        part = re.sub(r"[^a-z0-9-]", "", part.lower())
+        if part:
+            normalized.append(part[:35])
+    return "・".join(normalized) or "membro"
+
+
+def discord_br_date(value):
+    if not value:
+        return "—"
+    if isinstance(value, str):
+        try:
+            value = date.fromisoformat(value[:10])
+        except ValueError:
+            return value
+    return value.strftime("%d/%m/%Y")
+
+
+def discord_number(value):
+    number = float(value or 0)
+    return (f"{number:,.2f}" if number % 1 else f"{number:,.0f}").replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def discord_send_goal_panel(user_id, cycle_id):
+    """Envia um painel individual e menciona somente o destinatário da meta."""
+    if not os.getenv("DISCORD_BOT_TOKEN"):
+        return
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT name, discord_user_id FROM users WHERE id=%s", (user_id,))
+                member = cur.fetchone()
+                cur.execute("SELECT title, start_date, end_date FROM cycles WHERE id=%s", (cycle_id,))
+                cycle = cur.fetchone()
+                cur.execute("""
+                    SELECT g.title, g.target, g.unit, g.credit_applied,
+                        COALESCE(SUM(CASE WHEN s.status='approved' THEN s.amount ELSE 0 END), 0) AS approved,
+                        COALESCE(SUM(CASE WHEN s.status='pending' THEN 1 ELSE 0 END), 0) AS pending_count,
+                        COALESCE(SUM(CASE WHEN s.status='approved' THEN 1 ELSE 0 END), 0) AS approved_count,
+                        COALESCE(SUM(CASE WHEN s.status='rejected' THEN 1 ELSE 0 END), 0) AS rejected_count
+                    FROM goals g
+                    LEFT JOIN submissions s ON s.goal_id=g.id AND s.user_id=%s
+                    WHERE g.user_id=%s AND g.cycle_id=%s AND g.closed=FALSE
+                    GROUP BY g.id ORDER BY g.sort_order, g.id
+                """, (user_id, user_id, cycle_id))
+                goals = cur.fetchall()
+        if not member or not member['discord_user_id'] or not cycle or not goals:
+            return
+        total_target = sum(float(g['target'] or 0) for g in goals)
+        total_done = sum(float(g['approved'] or 0) + float(g['credit_applied'] or 0) for g in goals)
+        progress = min(100, round(100 * total_done / total_target)) if total_target else 0
+        lines = []
+        for g in goals:
+            done = float(g['approved'] or 0) + float(g['credit_applied'] or 0)
+            target = float(g['target'] or 0)
+            pct = min(100, round(100 * done / target)) if target else 0
+            lines.append(f"• **{g['title']}** — {discord_number(done)} / {discord_number(target)} {g['unit']} · {pct}%")
+            if float(g['credit_applied'] or 0):
+                lines.append(f"  ↳ Crédito anterior: +{discord_number(g['credit_applied'])} {g['unit']}")
+        fields = [
+            {"name": "📊 Progresso geral", "value": f"**{progress}%**", "inline": False},
+            {"name": "📦 Materiais", "value": "\n".join(lines)[:1024] or "Sem materiais", "inline": False},
+            {"name": "📑 Envios", "value": f"Em análise: {sum(int(g['pending_count']) for g in goals)} · Aprovados: {sum(int(g['approved_count']) for g in goals)} · Rejeitados: {sum(int(g['rejected_count']) for g in goals)}", "inline": False},
+        ]
+        channel_id = discord_ensure_channel(user_id)
+        if not channel_id:
+            return
+        discord_id = str(member['discord_user_id'])
+        payload = {
+            "content": f"<@{discord_id}> Você recebeu uma nova meta!",
+            "allowed_mentions": {"users": [discord_id], "parse": []},
+            "embeds": [{
+                "title": "👤 META INDIVIDUAL · PROGRESSO",
+                "description": f"**{member['name']}**\n**{cycle['title']}**\nPeríodo: {discord_br_date(cycle['start_date'])} → {discord_br_date(cycle['end_date'])}",
+                "color": 13936936,
+                "fields": fields,
+                "footer": {"text": "Veterani · Painel individual · " + datetime.now(ZoneInfo('America/Sao_Paulo')).strftime('%d/%m/%Y às %H:%M')},
+            }],
+        }
+        discord_request("POST", f"/channels/{channel_id}/messages", payload)
+    except Exception:
+        app.logger.exception("Discord: falha ao publicar painel de meta do membro %s", user_id)
+
+
 def discord_ensure_channel(user_id):
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -3983,10 +4073,10 @@ def discord_ensure_channel(user_id):
     discord_id = str(member["discord_user_id"])
     # The member must already be in the configured server; never create a public channel.
     discord_request("GET", f"/guilds/{DISCORD_GUILD_ID}/members/{discord_id}")
-    clean_name = re.sub(r"[^a-z0-9-]", "-", member["name"].lower())[:50].strip("-") or "membro"
+    clean_name = discord_channel_name(member["name"])
     bot_id = str(discord_request("GET", "/users/@me")["id"])
     channel = discord_request("POST", f"/guilds/{DISCORD_GUILD_ID}/channels", {
-        "name": f"meta-{clean_name}-{user_id}", "type": 0,
+        "name": clean_name, "type": 0,
         "parent_id": DISCORD_META_CATEGORY_ID,
         "permission_overwrites": [
             {"id": DISCORD_GUILD_ID, "type": 0, "deny": "1024", "allow": "0"},
