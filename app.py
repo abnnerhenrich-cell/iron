@@ -135,6 +135,7 @@ def init_db():
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS discord_channel_id TEXT")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS discord_linked_at TIMESTAMPTZ")
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_users_discord_id ON users(discord_user_id) WHERE discord_user_id IS NOT NULL")
+
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS member_notifications (
                     id BIGSERIAL PRIMARY KEY,
@@ -248,6 +249,17 @@ def init_db():
                     end_date DATE NOT NULL,
                     active BOOLEAN NOT NULL DEFAULT FALSE,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """)
+            # Uma mensagem persistente por membro e ciclo; permite editar o embed no Discord.
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS discord_goal_panels (
+                    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    cycle_id BIGINT NOT NULL REFERENCES cycles(id) ON DELETE CASCADE,
+                    channel_id TEXT NOT NULL,
+                    message_id TEXT NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    PRIMARY KEY (user_id, cycle_id)
                 )
             """)
             cur.execute("""
@@ -1747,9 +1759,8 @@ def submit():
             )
             return render_template("submit.html", cycle=cycle, goals=goals), 503
 
-        goal_names = {goal["id"]: goal["title"] for goal in goals}
-        details = [f"• {goal_names.get(gid, 'Material')}: {amount:g}" for gid, amount in selected]
-        discord_send_member(user["id"], "**Entrega registrada — aguardando análise**\n" + "\n".join(details))
+        # Atualiza a mensagem original da meta, sem publicar outra notificação.
+        discord_send_goal_panel(user["id"], cycle["id"])
         flash(f"{len(selected)} item(ns) enviado(s) para análise.", "success")
         return redirect(url_for("dashboard"))
 
@@ -2226,6 +2237,21 @@ def admin_review(submission_id):
                 """, (decision, admin_note, admin["id"], submission_id))
                 reviewed_count = cur.rowcount
         conn.commit()
+
+    # Após a revisão, atualiza o mesmo embed da meta afetada.
+    try:
+        with get_conn() as discord_conn:
+            with discord_conn.cursor() as discord_cur:
+                discord_cur.execute("""
+                    SELECT DISTINCT g.cycle_id
+                    FROM submissions s JOIN goals g ON g.id=s.goal_id
+                    WHERE s.id=%s OR (s.batch_id IS NOT NULL AND s.batch_id=(SELECT batch_id FROM submissions WHERE id=%s))
+                """, (submission_id, submission_id))
+                affected_cycles = [row["cycle_id"] for row in discord_cur.fetchall()]
+        for affected_cycle_id in affected_cycles:
+            discord_send_goal_panel(submission["user_id"], affected_cycle_id)
+    except Exception:
+        app.logger.exception("Discord: falha ao atualizar painel após revisão")
 
     if decision == "rejected":
         flash(
@@ -4001,7 +4027,7 @@ def discord_number(value):
 
 
 def discord_send_goal_panel(user_id, cycle_id):
-    """Envia um painel individual e menciona somente o destinatário da meta."""
+    """Cria o painel uma vez; nas próximas mudanças edita a mesma mensagem."""
     if not os.getenv("DISCORD_BOT_TOKEN"):
         return
     try:
@@ -4045,18 +4071,45 @@ def discord_send_goal_panel(user_id, cycle_id):
         if not channel_id:
             return
         discord_id = str(member['discord_user_id'])
-        payload = {
-            "content": f"<@{discord_id}> Você recebeu uma nova meta!",
-            "allowed_mentions": {"users": [discord_id], "parse": []},
-            "embeds": [{
-                "title": "👤 META INDIVIDUAL · PROGRESSO",
-                "description": f"**{member['name']}**\n**{cycle['title']}**\nPeríodo: {discord_br_date(cycle['start_date'])} → {discord_br_date(cycle['end_date'])}",
-                "color": 0x5E000E,
-                "fields": fields,
-                "footer": {"text": "Veterani · Painel individual · " + datetime.now(ZoneInfo('America/Sao_Paulo')).strftime('%d/%m/%Y às %H:%M')},
-            }],
+        embed = {
+            "title": "👤 META INDIVIDUAL · PROGRESSO",
+            "description": f"**{member['name']}**\n**{cycle['title']}**\nPeríodo: {discord_br_date(cycle['start_date'])} → {discord_br_date(cycle['end_date'])}",
+            "color": 0x5E000E,
+            "fields": fields,
+            "footer": {"text": "Veterani · Painel individual · " + datetime.now(ZoneInfo('America/Sao_Paulo')).strftime('%d/%m/%Y às %H:%M')},
         }
-        discord_request("POST", f"/channels/{channel_id}/messages", payload)
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                # Serializa envios simultâneos da mesma meta (Vercel pode ter múltiplas instâncias).
+                cur.execute("SELECT pg_advisory_xact_lock(%s, %s)", (int(user_id), int(cycle_id)))
+                cur.execute("SELECT channel_id, message_id FROM discord_goal_panels WHERE user_id=%s AND cycle_id=%s FOR UPDATE", (user_id, cycle_id))
+                existing = cur.fetchone()
+                if existing and str(existing['channel_id']) == str(channel_id):
+                    try:
+                        discord_request("PATCH", f"/channels/{channel_id}/messages/{existing['message_id']}", {
+                            "embeds": [embed],
+                            # A menção inicial não é repetida nas edições.
+                            "allowed_mentions": {"parse": []},
+                        })
+                        conn.commit()
+                        return
+                    except urllib.error.HTTPError as exc:
+                        if exc.code not in (404,):
+                            raise
+                        # A mensagem foi apagada no Discord: recria o painel.
+                payload = {
+                    "content": f"<@{discord_id}> Você recebeu uma nova meta!" if not existing else "Painel de meta atualizado",
+                    "allowed_mentions": {"users": [discord_id], "parse": []} if not existing else {"parse": []},
+                    "embeds": [embed],
+                }
+                message = discord_request("POST", f"/channels/{channel_id}/messages", payload)
+                cur.execute("""
+                    INSERT INTO discord_goal_panels (user_id, cycle_id, channel_id, message_id)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (user_id, cycle_id) DO UPDATE
+                    SET channel_id=EXCLUDED.channel_id, message_id=EXCLUDED.message_id
+                """, (user_id, cycle_id, str(channel_id), str(message['id'])))
+            conn.commit()
     except Exception:
         app.logger.exception("Discord: falha ao publicar painel de meta do membro %s", user_id)
 
