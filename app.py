@@ -916,6 +916,8 @@ def restrict_manager_access():
         "web_manifest",
         "service_worker",
         "discord_webhook_events",
+        "privacy_policy",
+        "terms_of_service",
     }
     if request.endpoint in public_endpoints:
         return None
@@ -1059,6 +1061,16 @@ def active_cycle_with_goals(user_id=None, open_only=False):
                     item["effective_target"] = max(target - credit, 0)
                     goals.append(item)
     return cycle, goals
+
+@app.route("/privacidade", methods=["GET"])
+def privacy_policy():
+    return render_template("privacy_policy.html")
+
+
+@app.route("/termos", methods=["GET"])
+def terms_of_service():
+    return render_template("terms_of_service.html")
+
 
 @app.route("/")
 def index():

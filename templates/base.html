@@ -463,5 +463,12 @@
 (()=>{const lb=document.getElementById('proofLightbox'),img=lb?.querySelector('img');let items=[],idx=0;function show(i){if(!items.length)return;idx=(i+items.length)%items.length;img.src=items[idx].href;lb.classList.add('open')}document.querySelectorAll('.proof,.member-proof').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();items=[...document.querySelectorAll('.proof,.member-proof')];show(items.indexOf(a))}));lb?.querySelector('[data-lb-close]')?.addEventListener('click',()=>lb.classList.remove('open'));lb?.querySelector('[data-lb-prev]')?.addEventListener('click',()=>show(idx-1));lb?.querySelector('[data-lb-next]')?.addEventListener('click',()=>show(idx+1));lb?.addEventListener('click',e=>{if(e.target===lb)lb.classList.remove('open')});
 const loader=document.getElementById('veteraniLoader');document.querySelectorAll('form').forEach(f=>f.addEventListener('submit',()=>{if(f.checkValidity()){loader?.classList.add('show');const t=document.getElementById('veteraniLoaderText');if(t)t.textContent=f.enctype==='multipart/form-data'?'Enviando...':'Processando...'}}));})();
 </script>
+<footer style="text-align:center;padding:20px 12px 30px;font-size:12px;color:#a9b4c9;">
+  <a href="{{ url_for('privacy_policy') }}" style="color:#c6d7f4;">Política de Privacidade</a>
+  <span aria-hidden="true"> · </span>
+  <a href="{{ url_for('terms_of_service') }}" style="color:#c6d7f4;">Termos de Serviço</a>
+  <span aria-hidden="true"> · </span>
+  <a href="mailto:abnner014@gmail.com" style="color:#c6d7f4;">Contato</a>
+</footer>
 </body>
 </html>
