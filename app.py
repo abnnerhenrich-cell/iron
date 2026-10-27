@@ -23,6 +23,8 @@ from werkzeug.exceptions import HTTPException
 from pywebpush import webpush, WebPushException
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from cryptography.exceptions import InvalidSignature
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 import psycopg
@@ -129,6 +131,7 @@ def init_db():
             """)
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS discord_user_id TEXT")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS discord_channel_id TEXT")
+            cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS discord_linked_at TIMESTAMPTZ")
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_users_discord_id ON users(discord_user_id) WHERE discord_user_id IS NOT NULL")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS member_notifications (
@@ -912,6 +915,7 @@ def restrict_manager_access():
         "logout",
         "web_manifest",
         "service_worker",
+        "discord_webhook_events",
     }
     if request.endpoint in public_endpoints:
         return None
@@ -4054,7 +4058,7 @@ def discord_callback():
                     # Avoid leaving a channel accessible to the previous Discord account.
                     flash("Conta já vinculada. Contate a Hierarquia para trocar a conta Discord.", "danger")
                     return redirect(url_for("dashboard"))
-                cur.execute("UPDATE users SET discord_user_id=%s WHERE id=%s", (discord_id, uid))
+                cur.execute("UPDATE users SET discord_user_id=%s, discord_linked_at=NOW() WHERE id=%s", (discord_id, uid))
             conn.commit()
         channel = discord_ensure_channel(uid)
         if channel:
@@ -4067,3 +4071,65 @@ def discord_callback():
     return redirect(url_for("dashboard"))
 
 
+
+
+@app.route("/discord/webhook/events", methods=["POST"])
+def discord_webhook_events():
+    """Signed Discord webhook events, including user OAuth authorization revocation."""
+    public_key_hex = os.getenv("DISCORD_PUBLIC_KEY", "").strip()
+    signature_hex = request.headers.get("X-Signature-Ed25519", "")
+    timestamp = request.headers.get("X-Signature-Timestamp", "")
+    raw = request.get_data(cache=False)
+    if not public_key_hex or not signature_hex or not timestamp:
+        return "Unauthorized", 401
+    try:
+        key = Ed25519PublicKey.from_public_bytes(bytes.fromhex(public_key_hex))
+        key.verify(bytes.fromhex(signature_hex), timestamp.encode("utf-8") + raw)
+    except (ValueError, InvalidSignature):
+        return "Unauthorized", 401
+    try:
+        payload = json.loads(raw)
+    except (ValueError, UnicodeDecodeError):
+        return "Invalid payload", 400
+    if str(payload.get("application_id")) != str(DISCORD_CLIENT_ID):
+        return "Unauthorized", 401
+    if payload.get("type") == 0:
+        return "", 204
+    if payload.get("type") != 1:
+        return "", 204
+    event = payload.get("event") or {}
+    if event.get("type") != "APPLICATION_DEAUTHORIZED":
+        return "", 204
+    discord_id = str(((event.get("data") or {}).get("user") or {}).get("id") or "")
+    if not discord_id.isdecimal():
+        return "", 204
+    event_time = event.get("timestamp")
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                # Ignore late deauthorization events from a previous authorization.
+                cur.execute("""
+                    SELECT discord_channel_id FROM users
+                    WHERE discord_user_id=%s
+                      AND (discord_linked_at IS NULL OR
+                           (NULLIF(%s, '')::timestamptz >= discord_linked_at))
+                    FOR UPDATE
+                """, (discord_id, event_time or ""))
+                previous = cur.fetchone()
+                channel_id = previous["discord_channel_id"] if previous else None
+                if previous:
+                    cur.execute("""
+                        UPDATE users SET discord_user_id=NULL, discord_channel_id=NULL,
+                                         discord_linked_at=NULL
+                        WHERE discord_user_id=%s
+                    """, (discord_id,))
+            conn.commit()
+        if channel_id and os.getenv("DISCORD_BOT_TOKEN"):
+            try:
+                discord_request("DELETE", f"/channels/{channel_id}")
+            except Exception:
+                app.logger.exception("Discord: canal privado antigo %s não foi excluído", channel_id)
+    except Exception:
+        app.logger.exception("Discord: falha ao processar revogação de autorização")
+        return "Temporary failure", 503
+    return "", 204

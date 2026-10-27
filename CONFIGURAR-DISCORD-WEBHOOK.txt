@@ -1,0 +1,32 @@
+VETERANI — Desvinculação automática do Discord
+
+1. Faça deploy deste ZIP no GitHub/Vercel.
+2. Discord Developer Portal > Applications > Veterani Bot > General Information:
+   copie a PUBLIC KEY (chave pública; NÃO é o Client Secret nem Bot Token).
+3. Vercel > projeto > Settings > Environment Variables (Production):
+   DISCORD_PUBLIC_KEY = valor da Public Key do Discord.
+   Faça um novo deploy depois de adicionar a variável.
+4. Discord Developer Portal > sua aplicação > Webhooks:
+   Endpoint URL: https://veterani.vercel.app/discord/webhook/events
+   Habilite Events e selecione APPLICATION_DEAUTHORIZED.
+   Salve. O Discord verificará a assinatura e enviará um PING.
+5. Teste: no Discord, Configurações do usuário > Aplicativos autorizados,
+   revogue o Veterani. Reabra/atualize o painel Veterani.
+   O vínculo deve desaparecer e o botão Conectar com Discord deve reaparecer.
+
+Comportamento:
+- Recebe eventos assinados com Ed25519 (assinaturas inválidas retornam 401).
+- Ignora eventos que não pertencem a esta aplicação.
+- Ao receber APPLICATION_DEAUTHORIZED, limpa o vínculo no Neon.
+- Tenta excluir o canal privado antigo; se a API do Discord falhar, registra erro
+  nos logs da Vercel, mas o vínculo é removido do site.
+- Eventos anteriores à última vinculação são ignorados quando existe data de vínculo.
+- NÃO altera o vínculo apenas porque o membro saiu do servidor Discord.
+- Não exige bot 24h ou serviço adicional.
+
+IMPORTANTE: A versão anterior não guardava tokens OAuth2 nem datas de vínculo.
+Para contas vinculadas antes desta atualização, a data da vinculação não está
+registrada; eventos de revogação recebidos depois do deploy são processados.
+Se a revogação ocorreu antes de configurar o webhook, não haverá evento retroativo.
+
+Segurança: não compartilhe DISCORD_BOT_TOKEN ou DISCORD_CLIENT_SECRET.
