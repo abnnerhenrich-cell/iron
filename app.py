@@ -1646,7 +1646,7 @@ def dashboard():
     )
 
 def analyze_delivery_images(batch_id, images, declared, available_goals=None):
-    """Gemini identifica itens e estima contagens visiveis; sem aprovar entregas."""
+    """Gemini identifica materiais e contagens visiveis para aprovacao automatica segura."""
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY nao configurada na Vercel")
@@ -1849,6 +1849,10 @@ def submit():
             return render_template("submit.html", cycle=cycle, goals=goals)
 
         selected = list(selected_map.items())
+        # A aprovacao automatica so considera itens individualmente contaveis,
+        # reconhecidos pela IA e vinculados a uma meta ativa. O status da
+        # entrega registra a decisao; reviewed_by fica NULL para indicar IA.
+        automatic_review_note = "Aprovado automaticamente após conferência visual Gemini."
         # Fotos armazenadas uma unica vez; cada material referencia o lote.
         try:
             with get_conn() as conn:
@@ -1868,9 +1872,12 @@ def submit():
                     batch_id = cur.fetchone()["id"]
                     for goal_id, amount in selected:
                         cur.execute("""
-                            INSERT INTO submissions (user_id, goal_id, amount, note, batch_id, status)
-                            VALUES (%s,%s,%s,%s,%s,'pending')
-                        """, (user["id"], goal_id, amount, note, batch_id))
+                            INSERT INTO submissions
+                                (user_id, goal_id, amount, note, batch_id, status,
+                                 admin_note, reviewed_at, reviewed_by)
+                            VALUES (%s,%s,%s,%s,%s,'approved',%s,NOW(),NULL)
+                        """, (user["id"], goal_id, amount, note, batch_id,
+                              automatic_review_note))
                 conn.commit()
         except Exception:
             app.logger.exception("Falha ao salvar entrega automatica user_id=%s", user["id"])
@@ -1879,7 +1886,7 @@ def submit():
 
         # Atualiza a mensagem original da meta, sem publicar outra notificação.
         discord_send_goal_panel(user["id"], cycle["id"])
-        flash(f"Foto enviada. {len(selected)} material(is) identificado(s) e aguardando revisão administrativa.", "success")
+        flash(f"Entrega aprovada automaticamente após análise das fotos. {len(selected)} material(is) identificado(s).", "success")
         return redirect(url_for("dashboard"))
 
     return render_template("submit.html", cycle=cycle, goals=goals)
