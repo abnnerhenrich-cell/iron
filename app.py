@@ -1685,13 +1685,64 @@ def analyze_delivery_images(batch_id, images, declared, available_goals=None):
         "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 1800},
     }
     try:
-        req = urllib.request.Request(
-            "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
-            method="POST")
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            response = json.load(resp)
+        # Um 404 normalmente indica modelo indisponivel para esta chave/API.
+        # Consulte o catalogo da propria chave antes de escolher um substituto.
+        def call_model(model_name):
+            req = urllib.request.Request(
+                "https://generativelanguage.googleapis.com/v1beta/models/"
+                + model_name + ":generateContent",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+                method="POST")
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return json.load(resp)
+
+        try:
+            response = call_model(model)
+        except urllib.error.HTTPError as first_error:
+            if first_error.code != 404:
+                detail = first_error.read(1200).decode("utf-8", "replace")
+                app.logger.error("Gemini HTTP %s: %s", first_error.code, detail)
+                raise
+            app.logger.warning("Modelo Gemini %s retornou 404; consultando modelos disponiveis", model)
+            catalog_req = urllib.request.Request(
+                "https://generativelanguage.googleapis.com/v1beta/models?pageSize=100",
+                headers={"x-goog-api-key": api_key})
+            try:
+                with urllib.request.urlopen(catalog_req, timeout=15) as catalog_resp:
+                    catalog = json.load(catalog_resp)
+            except urllib.error.HTTPError as catalog_error:
+                detail = catalog_error.read(1200).decode("utf-8", "replace")
+                app.logger.error("Falha ao listar modelos Gemini HTTP %s: %s", catalog_error.code, detail)
+                raise
+            supported = [item.get("name", "").removeprefix("models/")
+                         for item in catalog.get("models", [])
+                         if "generateContent" in item.get("supportedGenerationMethods", [])
+                         and item.get("name", "").startswith("models/gemini-")]
+            # Priorize modelos Flash para manter o custo/latencia baixos.
+            supported.sort(key=lambda name: (
+                0 if name == "gemini-2.5-flash" else
+                1 if "flash-lite" in name else
+                2 if "flash" in name else 3,
+                name))
+            if not supported:
+                raise RuntimeError("Nenhum modelo Gemini com generateContent disponivel para esta chave") from first_error
+            response = None
+            for fallback_model in supported[:8]:
+                if fallback_model == model:
+                    continue
+                try:
+                    response = call_model(fallback_model)
+                    app.logger.info("Gemini: modelo alternativo ativo: %s", fallback_model)
+                    break
+                except urllib.error.HTTPError as fallback_error:
+                    if fallback_error.code == 404:
+                        continue
+                    detail = fallback_error.read(1200).decode("utf-8", "replace")
+                    app.logger.error("Gemini %s HTTP %s: %s", fallback_model, fallback_error.code, detail)
+                    raise
+            if response is None:
+                raise RuntimeError("Nenhum modelo Gemini alternativo aceitou a analise") from first_error
         candidates = response.get("candidates") or []
         if not candidates:
             raise ValueError("Gemini nao retornou candidatos")
