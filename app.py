@@ -15,6 +15,7 @@ import urllib.request
 import urllib.parse
 import urllib.error
 import time
+import logging
 
 from flask import (
     Flask, render_template, request, redirect, url_for, session,
@@ -371,6 +372,10 @@ def init_db():
                 )
             """)
             cur.execute("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS batch_id BIGINT REFERENCES delivery_batches(id) ON DELETE SET NULL")
+            # Analise de IA por lote: uma analise atende a todos os materiais do envio.
+            cur.execute("ALTER TABLE delivery_batches ADD COLUMN IF NOT EXISTS ai_status TEXT DEFAULT 'not_analyzed'")
+            cur.execute("ALTER TABLE delivery_batches ADD COLUMN IF NOT EXISTS ai_result JSONB")
+            cur.execute("ALTER TABLE delivery_batches ADD COLUMN IF NOT EXISTS ai_analyzed_at TIMESTAMPTZ")
 
             # Compras & Vendas — módulo administrativo nativo.
             cur.execute("""
@@ -1640,6 +1645,76 @@ def dashboard():
         counts=counts
     )
 
+def analyze_delivery_images(batch_id, images, declared):
+    """Analise visual consultiva com Gemini; nunca aprova ou recusa entregas."""
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        return  # Opcional: entrega continua normalmente sem chave.
+
+    allowed = {"image/jpeg", "image/png", "image/webp"}
+    prompt = (
+        "Analise as fotos como evidencia visual, sem presumir materiais nao visiveis. "
+        "Catalogo possivel: Plastico, Borracha, Vidro, Cobre, Aluminio, "
+        "Chapa de Metal, Placa de Transito, Lona, Dinheiro Sujo ou Limpo. "
+        "Materiais declarados neste envio (nome e quantidade): "
+        + json.dumps(declared, ensure_ascii=False) + ". "
+        "Retorne SOMENTE JSON com: identificados (lista de nomes), "
+        "conferencias (lista de objetos {material, resultado, justificativa}, "
+        "resultado deve ser compativel, divergente ou inconclusivo), "
+        "resumo (texto curto). Nao confirme quantidade, autenticidade ou composicao "
+        "quando a foto nao permitir. Nao invente itens ocultos. "
+        "Se houver ambiguidade use inconclusivo."
+    )
+    parts = [{"text": prompt}]
+    for data, mime, _ in images:
+        if data and mime in allowed:
+            parts.append({"inline_data": {"mime_type": mime,
+                                          "data": base64.b64encode(data).decode("ascii")}})
+    if len(parts) == 1:
+        return
+
+    model = os.environ.get("GEMINI_VISION_MODEL", "gemini-2.5-flash-lite").strip()
+    # Evita URL arbitraria na configuracao do modelo.
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", model):
+        model = "gemini-2.5-flash-lite"
+    payload = {
+        "contents": [{"role": "user", "parts": parts}],
+        "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 1200},
+    }
+    result = None
+    status = "error"
+    try:
+        req = urllib.request.Request(
+            "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+            method="POST")
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            response = json.load(resp)
+        candidates = response.get("candidates") or []
+        if not candidates:
+            raise ValueError("Gemini nao retornou candidatos")
+        text_parts = candidates[0].get("content", {}).get("parts", [])
+        response_text = "".join(part.get("text", "") for part in text_parts)
+        result = json.loads(response_text)
+        if not isinstance(result, dict) or not isinstance(result.get("conferencias"), list):
+            raise ValueError("Formato de analise invalido")
+        result = {"identificados": result.get("identificados", [])[:12],
+                  "conferencias": result["conferencias"][:20],
+                  "resumo": str(result.get("resumo", ""))[:1200]}
+        status = "complete"
+    except Exception:
+        app.logger.exception("Falha na analise Gemini do lote %s", batch_id)
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("UPDATE delivery_batches SET ai_status=%s, ai_result=%s::jsonb, ai_analyzed_at=NOW() WHERE id=%s",
+                            (status, json.dumps(result, ensure_ascii=False) if result else None, batch_id))
+            conn.commit()
+    except Exception:
+        app.logger.exception("Falha ao salvar analise Gemini do lote %s", batch_id)
+
+
 @app.route("/submit", methods=["GET", "POST"])
 @login_required
 def submit():
@@ -1758,6 +1833,14 @@ def submit():
                 "danger"
             )
             return render_template("submit.html", cycle=cycle, goals=goals), 503
+
+        # A IA é consultiva e roda apos o commit: falha da API nao cancela a entrega.
+        try:
+            declared = [{"material": valid_ids[goal_id]["title"], "quantidade": amount}
+                        for goal_id, amount in selected]
+            analyze_delivery_images(batch_id, images, declared)
+        except Exception:
+            app.logger.exception("Analise de IA indisponivel; entrega mantida")
 
         # Atualiza a mensagem original da meta, sem publicar outra notificação.
         discord_send_goal_panel(user["id"], cycle["id"])
@@ -2143,6 +2226,7 @@ def admin_submissions():
     sql = """
         SELECT s.id, s.user_id, s.amount, s.note, s.status, s.admin_note,
                s.created_at, s.reviewed_at,
+               b.ai_status, b.ai_result,
                ((b.image_data IS NOT NULL) OR (s.image_data IS NOT NULL)) AS has_image,
                ((b.image2_data IS NOT NULL) OR (s.image2_data IS NOT NULL)) AS has_image2,
                ((b.image3_data IS NOT NULL) OR (s.image3_data IS NOT NULL)) AS has_image3,
