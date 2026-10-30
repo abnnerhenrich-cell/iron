@@ -407,6 +407,15 @@ def init_db():
             cur.execute("ALTER TABLE trade_records ADD COLUMN IF NOT EXISTS price_type TEXT")
             cur.execute("ALTER TABLE trade_records ADD COLUMN IF NOT EXISTS unit_price NUMERIC(14,2)")
             cur.execute("ALTER TABLE trade_records ADD COLUMN IF NOT EXISTS markup_percent NUMERIC(5,2) NOT NULL DEFAULT 0")
+            # Bau: receitas por produto e consumo efetivo por venda.
+            cur.execute("""CREATE TABLE IF NOT EXISTS chest_recipes (
+                product TEXT NOT NULL, material TEXT NOT NULL,
+                per_unit NUMERIC(14,2) NOT NULL CHECK(per_unit >= 0),
+                PRIMARY KEY(product, material))""")
+            cur.execute("""CREATE TABLE IF NOT EXISTS chest_sale_items (
+                trade_id BIGINT NOT NULL REFERENCES trade_records(id) ON DELETE CASCADE,
+                material TEXT NOT NULL, amount NUMERIC(14,2) NOT NULL CHECK(amount >= 0),
+                PRIMARY KEY(trade_id, material))""")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_trade_records_date ON trade_records(record_date DESC)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_trade_records_type ON trade_records(record_type)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_trade_records_delivery ON trade_records(delivery_status, delivery_date)")
@@ -2267,7 +2276,7 @@ def admin_submissions():
         status = "pending"
     sql = """
         SELECT s.id, s.user_id, s.amount, s.note, s.status, s.admin_note,
-               s.created_at, s.reviewed_at,
+               s.created_at, s.reviewed_at, s.reviewed_by,
                b.ai_status, b.ai_result,
                ((b.image_data IS NOT NULL) OR (s.image_data IS NOT NULL)) AS has_image,
                ((b.image2_data IS NOT NULL) OR (s.image2_data IS NOT NULL)) AS has_image2,
@@ -2291,6 +2300,61 @@ def admin_submissions():
             cur.execute(sql, params)
             rows = cur.fetchall()
     return render_template("admin_submissions.html", rows=rows, status=status)
+
+@app.post("/admin/submissions/<int:submission_id>/revoke-ai")
+@admin_required
+def admin_revoke_ai(submission_id):
+    """Hierarquia revoga apenas aprovações automáticas; nunca altera decisões humanas."""
+    validate_csrf()
+    actor = get_current_user()
+    reason = (request.form.get("reason") or "").strip()[:500]
+    if len(reason) < 5:
+        flash("Informe o motivo da desaprovação (mínimo de 5 caracteres).", "danger")
+        return redirect(url_for("admin_submissions", status="approved"))
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT s.id, s.user_id, s.status, s.reviewed_by, s.admin_note,
+                       s.batch_id, g.cycle_id, b.ai_status
+                FROM submissions s
+                JOIN goals g ON g.id=s.goal_id
+                LEFT JOIN delivery_batches b ON b.id=s.batch_id
+                WHERE s.id=%s FOR UPDATE OF s
+            """, (submission_id,))
+            item = cur.fetchone()
+            if not item:
+                abort(404)
+            # A marca da aprovação automática é reviewed_by NULL + nota específica.
+            # Não revoga entregas antigas ou aprovadas manualmente.
+            if not (item["status"] == "approved"
+                    and item["reviewed_by"] is None
+                    and (item["admin_note"] or "").startswith("Aprovado automaticamente")
+                    and item["ai_status"] == "complete"):
+                conn.rollback()
+                flash("Esta entrega não possui aprovação automática ativa da IA.", "danger")
+                return redirect(url_for("admin_submissions", status="approved"))
+
+            note = f"Aprovação da IA revogada pela Hierarquia: {reason}"
+            cur.execute("""
+                UPDATE submissions
+                SET status='rejected', admin_note=%s, reviewed_at=NOW(), reviewed_by=%s
+                WHERE id=%s AND status='approved' AND reviewed_by IS NULL
+            """, (note, actor["id"], submission_id))
+            cur.execute("""
+                INSERT INTO admin_audit_log(actor_id, actor_name, action, method, path, details)
+                VALUES (%s,%s,%s,%s,%s,%s)
+            """, (actor["id"], actor["name"], "revoke_ai_approval", "POST",
+                  request.path, f"Entrega #{submission_id}; membro #{item['user_id']}; motivo: {reason}"))
+        conn.commit()
+
+    try:
+        discord_send_goal_panel(item["user_id"], item["cycle_id"])
+    except Exception:
+        app.logger.exception("Discord: falha ao atualizar meta após revogação IA")
+    flash("Aprovação automática desfeita. A entrega não conta mais no progresso da meta.", "success")
+    return redirect(url_for("admin_submissions", status="approved"))
+
 
 @app.post("/admin/submissions/<int:submission_id>/review")
 @admin_required
@@ -3541,6 +3605,61 @@ def parse_trade_number(raw):
         return 0.0
 
 
+# O saldo e calculado das aprovacoes ATUAIS e dos consumos registrados.
+# Assim, uma revogacao, exclusao ou edicao estorna sem movimentacoes duplicadas.
+CHEST_MATERIALS = ["Plástico", "Borracha", "Vidro", "Cobre", "Alumínio", "Chapa de Metal", "Placa de Trânsito", "Lona", "Dinheiro Sujo", "Dinheiro Limpo"]
+
+def chest_balances(cur):
+    cur.execute("""SELECT g.title AS material, COALESCE(SUM(s.amount),0) AS amount
+        FROM submissions s JOIN goals g ON g.id=s.goal_id
+        WHERE s.status='approved' AND g.unit <> 'R$' GROUP BY g.title""")
+    incoming = {r['material']: float(r['amount']) for r in cur.fetchall()}
+    cur.execute("SELECT material, COALESCE(SUM(amount),0) AS amount FROM chest_sale_items GROUP BY material")
+    outgoing = {r['material']: float(r['amount']) for r in cur.fetchall()}
+    names = list(dict.fromkeys(CHEST_MATERIALS + list(incoming) + list(outgoing)))
+    return [{'material': name, 'entries': incoming.get(name, 0), 'exits': outgoing.get(name, 0),
+             'balance': incoming.get(name, 0)-outgoing.get(name, 0)} for name in names]
+
+@app.get('/admin/bau')
+@staff_required
+def admin_chest():
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            balances = chest_balances(cur)
+            cur.execute('SELECT product, material, per_unit FROM chest_recipes ORDER BY product, material')
+            recipes = cur.fetchall()
+            cur.execute("""SELECT s.id, s.created_at AS happened_at, g.title AS material, s.amount AS amount,
+                           'Entrada aprovada' AS event, u.name AS person
+                           FROM submissions s JOIN goals g ON g.id=s.goal_id JOIN users u ON u.id=s.user_id
+                           WHERE s.status='approved' AND g.unit <> 'R$'
+                           UNION ALL
+                           SELECT t.id, t.created_at, i.material, -i.amount, 'Venda: ' || t.product, COALESCE(t.responsible,'')
+                           FROM chest_sale_items i JOIN trade_records t ON t.id=i.trade_id
+                           ORDER BY happened_at DESC LIMIT 150""")
+            movements = cur.fetchall()
+    return render_template('admin_chest.html', balances=balances, recipes=recipes,
+                           movements=movements, products=list(TRADE_PRODUCTS), materials=CHEST_MATERIALS)
+
+@app.post('/admin/bau/receita')
+@admin_required
+def admin_chest_recipe():
+    validate_csrf()
+    product = (request.form.get('product') or '').strip()
+    material = (request.form.get('material') or '').strip()
+    amount = parse_trade_number(request.form.get('per_unit'))
+    if product not in TRADE_PRODUCTS or material not in CHEST_MATERIALS or amount < 0 or amount > 1000000:
+        flash('Produto, material ou quantidade inválidos.', 'danger')
+        return redirect(url_for('admin_chest'))
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            if amount == 0:
+                cur.execute('DELETE FROM chest_recipes WHERE product=%s AND material=%s', (product,material))
+            else:
+                cur.execute("INSERT INTO chest_recipes(product, material, per_unit) VALUES (%s,%s,%s) ON CONFLICT(product,material) DO UPDATE SET per_unit=EXCLUDED.per_unit", (product,material,amount))
+        conn.commit()
+    flash('Receita do produto atualizada.', 'success')
+    return redirect(url_for('admin_chest'))
+
 @app.route("/admin/compras-vendas")
 @staff_required
 def admin_trades():
@@ -3630,6 +3749,17 @@ def admin_trades():
                 cur.execute("SELECT * FROM trade_records WHERE id=%s", (edit_id,))
                 edit_record = cur.fetchone()
 
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute('SELECT product, material, per_unit FROM chest_recipes')
+            recipe_rows = cur.fetchall()
+            edit_consumption = {}
+            if edit_record and edit_record['record_type'] == 'sale':
+                cur.execute('SELECT material, amount FROM chest_sale_items WHERE trade_id=%s', (edit_record['id'],))
+                edit_consumption = {r['material']: float(r['amount']) for r in cur.fetchall()}
+    recipe_map = {}
+    for r in recipe_rows:
+        recipe_map.setdefault(r['product'], {})[r['material']] = float(r['per_unit'])
     return render_template(
         "admin_trades.html",
         view=view,
@@ -3642,6 +3772,7 @@ def admin_trades():
         date_from=date_from,
         date_to=date_to,
         trade_products=TRADE_PRODUCTS,
+        chest_recipes=recipe_map, chest_materials=CHEST_MATERIALS, edit_consumption=edit_consumption,
     )
 
 
@@ -3717,6 +3848,19 @@ def admin_trade_save():
         flash("Informe o fornecedor.", "danger")
         return redirect(url_for("admin_trades", view="purchase", edit=record_id) if record_id else url_for("admin_trades", view="purchase"))
 
+    chest_items = {}
+    if record_type == 'sale':
+        for material in CHEST_MATERIALS:
+            raw = request.form.get('chest_' + material)
+            if raw is None:
+                continue
+            amount = parse_trade_number(raw)
+            if amount < 0 or amount > 100000000:
+                flash('Quantidade inválida no Baú.', 'danger')
+                return redirect(url_for('admin_trades', view='sale', edit=record_id))
+            if amount > 0:
+                chest_items[material] = amount
+
     with get_conn() as conn:
         try:
             with conn.cursor() as cur:
@@ -3755,6 +3899,18 @@ def admin_trade_save():
                         unit_price, markup_percent, quantity, total, record_date, delivery_status,
                         delivery_date, notes, admin["id"]
                     ))
+                # Ajustes da venda sao gravados na mesma transacao do registro.
+                # Nao ha bloqueio por saldo negativo.
+                if not record_id:
+                    cur.execute("SELECT currval(pg_get_serial_sequence('trade_records','id')) AS id")
+                    saved_trade_id = cur.fetchone()['id']
+                else:
+                    saved_trade_id = record_id
+                cur.execute('DELETE FROM chest_sale_items WHERE trade_id=%s', (saved_trade_id,))
+                if record_type == 'sale':
+                    for material, amount in chest_items.items():
+                        cur.execute('INSERT INTO chest_sale_items(trade_id,material,amount) VALUES (%s,%s,%s)',
+                                    (saved_trade_id, material, amount))
             conn.commit()
         except Exception as exc:
             conn.rollback()

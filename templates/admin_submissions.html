@@ -2,7 +2,7 @@
 {% block title %}Admin · Entregas{% endblock %}
 {% block content %}
 <section class="hero">
-  <div><span class="eyebrow">REVISÃO</span><h1>Entregas dos usuários</h1><p>Aprove ou reprove cada envio.</p></div>
+  <div><span class="eyebrow">REVISÃO</span><h1>Entregas dos usuários</h1><p>Confira as entregas e, se necessário, desfaça aprovações automáticas da IA.</p></div>
 </section>
 <div class="filters">
   {% for x, label in [('pending','Pendentes'),('approved','Aprovadas'),('rejected','Reprovadas'),('all','Todas')] %}
@@ -64,6 +64,13 @@
     <p class="muted">Análise de IA indisponível. Faça a conferência manual das fotos.</p>
     {% elif s['ai_status'] == 'not_analyzed' %}
     <p class="muted">Sem análise de IA. Conferência manual disponível.</p>
+    {% endif %}
+    {% if s['status']=='approved' and s['reviewed_by'] is none and s['ai_status']=='complete' and (s['admin_note'] or '').startswith('Aprovado automaticamente') %}
+    <form method="post" action="{{ url_for('admin_revoke_ai', submission_id=s['id']) }}" class="review-actions" onsubmit="return confirm('Desaprovar esta entrega aprovada pela IA? A quantidade será retirada do progresso da meta.');">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input name="reason" required minlength="5" maxlength="500" placeholder="Motivo da desaprovação (obrigatório)" aria-label="Motivo da desaprovação">
+      <button class="btn danger" type="submit">✕ Desaprovar aprovação da IA</button>
+    </form>
     {% endif %}
     {% if s['status']=='pending' %}
     <form method="post" action="{{ url_for('admin_review', submission_id=s['id']) }}" class="review-actions">

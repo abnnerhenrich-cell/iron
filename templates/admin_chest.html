@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Baú de Materiais · Veterani{% endblock %}
+{% block content %}
+<section class="hero"><div><span class="eyebrow">ESTOQUE GERAL</span><h1>Baú de Materiais</h1><p>Entradas pelas entregas aprovadas, saídas pelas vendas. Saldos negativos são permitidos.</p></div></section>
+<section class="panel" style="padding:20px;margin-bottom:20px"><h2>Saldo atual</h2>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
+{% for item in balances %}<article style="border:1px solid #604357;border-radius:12px;padding:14px"><small>{{ item.material }}</small><h2 style="color:{{ '#ff6575' if item.balance < 0 else '#d9e7fa' }}">{{ '%g'|format(item.balance) }}</h2><small>Entradas: {{ '%g'|format(item.entries) }} · Saídas: {{ '%g'|format(item.exits) }}</small></article>{% endfor %}
+</div></section>
+{% if current_user['role']=='admin' %}
+<section class="panel" style="padding:20px;margin-bottom:20px"><h2>Receitas automáticas dos produtos</h2><p>Cadastre quanto material cada unidade vendida consome. Valor zero remove a receita. As vendas já registradas não são alteradas.</p>
+<form method="post" action="{{ url_for('admin_chest_recipe') }}" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+<input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+<label>Produto<select name="product" required>{% for p in products %}<option value="{{ p }}">{{ p }}</option>{% endfor %}</select></label>
+<label>Material<select name="material" required>{% for m in materials %}<option value="{{ m }}">{{ m }}</option>{% endfor %}</select></label>
+<label>Quantidade por unidade<input name="per_unit" type="number" min="0" step="0.01" required></label>
+<button class="btn" type="submit">Salvar receita</button></form>
+<div style="overflow-x:auto;margin-top:14px"><table style="width:100%"><thead><tr><th>Produto</th><th>Material</th><th>Por unidade</th></tr></thead><tbody>
+{% for r in recipes %}<tr><td>{{ r.product }}</td><td>{{ r.material }}</td><td>{{ '%g'|format(r.per_unit|float) }}</td></tr>{% else %}<tr><td colspan="3">Nenhuma receita configurada ainda.</td></tr>{% endfor %}
+</tbody></table></div></section>{% endif %}
+<section class="panel" style="padding:20px"><h2>Movimentações</h2><p>Histórico de entradas atualmente aprovadas e consumos de vendas existentes.</p>
+<div style="overflow-x:auto"><table style="width:100%"><thead><tr><th>Data</th><th>Movimento</th><th>Material</th><th>Quantidade</th><th>Responsável</th></tr></thead><tbody>
+{% for r in movements %}<tr><td>{{ r.happened_at.strftime('%d/%m/%Y %H:%M') }}</td><td>{{ r.event }}</td><td>{{ r.material }}</td><td style="color:{{ '#ff6575' if r.amount < 0 else '#71d4a0' }}">{{ '%+g'|format(r.amount|float) }}</td><td>{{ r.person }}</td></tr>{% else %}<tr><td colspan="5">Sem movimentações.</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}
