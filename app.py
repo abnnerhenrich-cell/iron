@@ -1645,25 +1645,29 @@ def dashboard():
         counts=counts
     )
 
-def analyze_delivery_images(batch_id, images, declared):
-    """Analise visual consultiva com Gemini; nunca aprova ou recusa entregas."""
+def analyze_delivery_images(batch_id, images, declared, available_goals=None):
+    """Gemini identifica itens e estima contagens visiveis; sem aprovar entregas."""
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
-        return  # Opcional: entrega continua normalmente sem chave.
+        raise RuntimeError("GEMINI_API_KEY nao configurada na Vercel")
 
     allowed = {"image/jpeg", "image/png", "image/webp"}
+    goals = available_goals or []
     prompt = (
-        "Analise as fotos como evidencia visual, sem presumir materiais nao visiveis. "
-        "Catalogo possivel: Plastico, Borracha, Vidro, Cobre, Aluminio, "
-        "Chapa de Metal, Placa de Transito, Lona, Dinheiro Sujo ou Limpo. "
-        "Materiais declarados neste envio (nome e quantidade): "
-        + json.dumps(declared, ensure_ascii=False) + ". "
-        "Retorne SOMENTE JSON com: identificados (lista de nomes), "
-        "conferencias (lista de objetos {material, resultado, justificativa}, "
-        "resultado deve ser compativel, divergente ou inconclusivo), "
-        "resumo (texto curto). Nao confirme quantidade, autenticidade ou composicao "
-        "quando a foto nao permitir. Nao invente itens ocultos. "
-        "Se houver ambiguidade use inconclusivo."
+        "Voce e um conferente visual de entregas. Analise SOMENTE o que aparece nas fotos. "
+        "Materiais validos da meta atual (escolha exclusivamente destes): "
+        + json.dumps(goals, ensure_ascii=False) + ". "
+        "Retorne JSON com 'itens' (lista de objetos com 'material', 'quantidade', "
+        "'justificativa'), 'identificados' (lista de nomes), 'conferencias' (lista "
+        "de objetos com 'material', 'resultado', 'justificativa') e 'resumo'. "
+        "Em 'itens' inclua SOMENTE materiais reconhecidos com seguranca e unidades "
+        "INDIVIDUALMENTE CONTAVEIS na imagem; quantidade deve ser numero inteiro positivo. "
+        "Nao conte objetos encobertos, nao estime peso, volume, dinheiro, ou itens "
+        "que nao podem ser distinguidos. Se nao for possivel contar com confianca, "
+        "nao inclua em 'itens'; explique em 'resumo'. Nao invente valores. "
+        "Nao trate fotos repetidas como unidades adicionais. "
+        "Para 'resultado' use compativel ou inconclusivo. "
+        "Materiais declarados: " + json.dumps(declared, ensure_ascii=False)
     )
     parts = [{"text": prompt}]
     for data, mime, _ in images:
@@ -1671,48 +1675,40 @@ def analyze_delivery_images(batch_id, images, declared):
             parts.append({"inline_data": {"mime_type": mime,
                                           "data": base64.b64encode(data).decode("ascii")}})
     if len(parts) == 1:
-        return
+        raise ValueError("Nenhuma imagem suportada para analise")
 
     model = os.environ.get("GEMINI_VISION_MODEL", "gemini-2.5-flash-lite").strip()
-    # Evita URL arbitraria na configuracao do modelo.
     if not re.fullmatch(r"[A-Za-z0-9._-]+", model):
         model = "gemini-2.5-flash-lite"
     payload = {
         "contents": [{"role": "user", "parts": parts}],
-        "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 1200},
+        "generationConfig": {"responseMimeType": "application/json", "maxOutputTokens": 1800},
     }
-    result = None
-    status = "error"
     try:
         req = urllib.request.Request(
             "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent",
             data=json.dumps(payload).encode("utf-8"),
             headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
             method="POST")
-        with urllib.request.urlopen(req, timeout=25) as resp:
+        with urllib.request.urlopen(req, timeout=30) as resp:
             response = json.load(resp)
         candidates = response.get("candidates") or []
         if not candidates:
             raise ValueError("Gemini nao retornou candidatos")
-        text_parts = candidates[0].get("content", {}).get("parts", [])
-        response_text = "".join(part.get("text", "") for part in text_parts)
+        response_text = "".join(part.get("text", "") for part in candidates[0].get("content", {}).get("parts", []))
         result = json.loads(response_text)
-        if not isinstance(result, dict) or not isinstance(result.get("conferencias"), list):
-            raise ValueError("Formato de analise invalido")
-        result = {"identificados": result.get("identificados", [])[:12],
-                  "conferencias": result["conferencias"][:20],
-                  "resumo": str(result.get("resumo", ""))[:1200]}
-        status = "complete"
+        if not isinstance(result, dict) or not isinstance(result.get("itens"), list):
+            raise ValueError("Formato de resposta Gemini invalido")
+        result = {
+            "itens": result["itens"][:20],
+            "identificados": (result.get("identificados") or [])[:12],
+            "conferencias": (result.get("conferencias") or [])[:20],
+            "resumo": str(result.get("resumo", ""))[:1200],
+        }
+        return result
     except Exception:
         app.logger.exception("Falha na analise Gemini do lote %s", batch_id)
-    try:
-        with get_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute("UPDATE delivery_batches SET ai_status=%s, ai_result=%s::jsonb, ai_analyzed_at=NOW() WHERE id=%s",
-                            (status, json.dumps(result, ensure_ascii=False) if result else None, batch_id))
-            conn.commit()
-    except Exception:
-        app.logger.exception("Falha ao salvar analise Gemini do lote %s", batch_id)
+        raise
 
 
 @app.route("/submit", methods=["GET", "POST"])
@@ -1728,27 +1724,9 @@ def submit():
         validate_csrf()
         note = (request.form.get("note") or "").strip()
 
-        selected = []
+        # A entrega agora e feita apenas com fotos; materiais e quantidades
+        # sao propostos pela analise visual, sem campos preenchidos pelo membro.
         valid_ids = {int(g["id"]): g for g in goals}
-
-        for key, raw_value in request.form.items():
-            if not key.startswith("amount_"):
-                continue
-            try:
-                goal_id = int(key.split("_", 1)[1])
-                amount = float(raw_value or 0)
-            except (ValueError, TypeError):
-                continue
-
-            if goal_id in valid_ids and amount > 0:
-                goal = valid_ids[goal_id]
-                # Excedentes são permitidos. O que ultrapassar a necessidade da meta
-                # só vira crédito após o fechamento feito pela Hierarquia.
-                selected.append((goal_id, amount))
-
-        if not selected:
-            flash("Informe pelo menos uma quantidade antes de enviar.", "danger")
-            return render_template("submit.html", cycle=cycle, goals=goals)
 
         uploaded = [img for img in request.files.getlist("images") if img and img.filename]
 
@@ -1786,8 +1764,41 @@ def submit():
 
         (img1, mime1, name1), (img2, mime2, name2), (img3, mime3, name3) = images
 
-        # As imagens são gravadas UMA única vez no lote da entrega.
-        # Cada item da meta apenas referencia esse lote.
+        # Analisa ANTES de gravar: nunca gera entrega com quantidade inventada.
+        try:
+            result = analyze_delivery_images(None, images, [],
+                [{"material": g["title"], "unidade": g["unit"]} for g in goals])
+        except Exception:
+            flash("Não foi possível analisar a foto agora. Verifique a configuração do Gemini ou tente novamente mais tarde.", "danger")
+            return render_template("submit.html", cycle=cycle, goals=goals), 503
+
+        def normalize_material(value):
+            return unicodedata.normalize("NFKD", str(value).casefold()).encode("ascii", "ignore").decode("ascii").strip()
+
+        by_title = {normalize_material(g["title"]): g for g in goals}
+        selected_map = {}
+        for item in result.get("itens", []):
+            if not isinstance(item, dict):
+                continue
+            goal = by_title.get(normalize_material(item.get("material", "")))
+            if not goal or goal["unit"] == "R$":
+                continue
+            raw = item.get("quantidade")
+            try:
+                quantity = float(raw)
+            except (TypeError, ValueError):
+                continue
+            if not quantity.is_integer() or not 1 <= quantity <= 10000:
+                continue
+            # Nao soma contagens de fotos diferentes do mesmo objeto.
+            selected_map[int(goal["id"])] = max(selected_map.get(int(goal["id"]), 0), int(quantity))
+
+        if not selected_map:
+            flash("Não foi possível identificar e contar os materiais com segurança. Envie uma foto mais nítida, mostrando os itens separadamente.", "danger")
+            return render_template("submit.html", cycle=cycle, goals=goals)
+
+        selected = list(selected_map.items())
+        # Fotos armazenadas uma unica vez; cada material referencia o lote.
         try:
             with get_conn() as conn:
                 with conn.cursor() as cur:
@@ -1796,55 +1807,28 @@ def submit():
                             user_id, cycle_id, note,
                             image_data, image_mime, image_name,
                             image2_data, image2_mime, image2_name,
-                            image3_data, image3_mime, image3_name
-                        )
-                        VALUES (
-                            %s,%s,%s,
-                            %s,%s,%s,
-                            %s,%s,%s,
-                            %s,%s,%s
-                        )
+                            image3_data, image3_mime, image3_name,
+                            ai_status, ai_result, ai_analyzed_at
+                        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'complete',%s::jsonb,NOW())
                         RETURNING id
-                    """, (
-                        user["id"], cycle["id"], note,
-                        img1, mime1, name1,
-                        img2, mime2, name2,
-                        img3, mime3, name3
-                    ))
+                    """, (user["id"], cycle["id"], note,
+                          img1, mime1, name1, img2, mime2, name2,
+                          img3, mime3, name3, json.dumps(result, ensure_ascii=False)))
                     batch_id = cur.fetchone()["id"]
-
                     for goal_id, amount in selected:
                         cur.execute("""
-                            INSERT INTO submissions (
-                                user_id, goal_id, amount, note, batch_id, status
-                            )
+                            INSERT INTO submissions (user_id, goal_id, amount, note, batch_id, status)
                             VALUES (%s,%s,%s,%s,%s,'pending')
-                        """, (
-                            user["id"], goal_id, amount, note, batch_id
-                        ))
+                        """, (user["id"], goal_id, amount, note, batch_id))
                 conn.commit()
-        except Exception as exc:
-            app.logger.exception(
-                "Falha ao salvar entrega com imagens: user_id=%s cycle_id=%s",
-                user["id"], cycle["id"]
-            )
-            flash(
-                "Não foi possível concluir o envio. Sua conexão pode ter oscilado. Nenhuma entrega parcial foi salva; tente novamente.",
-                "danger"
-            )
-            return render_template("submit.html", cycle=cycle, goals=goals), 503
-
-        # A IA é consultiva e roda apos o commit: falha da API nao cancela a entrega.
-        try:
-            declared = [{"material": valid_ids[goal_id]["title"], "quantidade": amount}
-                        for goal_id, amount in selected]
-            analyze_delivery_images(batch_id, images, declared)
         except Exception:
-            app.logger.exception("Analise de IA indisponivel; entrega mantida")
+            app.logger.exception("Falha ao salvar entrega automatica user_id=%s", user["id"])
+            flash("Não foi possível salvar a entrega. Tente novamente.", "danger")
+            return render_template("submit.html", cycle=cycle, goals=goals), 503
 
         # Atualiza a mensagem original da meta, sem publicar outra notificação.
         discord_send_goal_panel(user["id"], cycle["id"])
-        flash(f"{len(selected)} item(ns) enviado(s) para análise.", "success")
+        flash(f"Foto enviada. {len(selected)} material(is) identificado(s) e aguardando revisão administrativa.", "success")
         return redirect(url_for("dashboard"))
 
     return render_template("submit.html", cycle=cycle, goals=goals)
