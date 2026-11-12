@@ -60,7 +60,6 @@
     <div>
       <span class="eyebrow">{{ 'VENDA' if is_sale else 'COMPRA' }}</span>
       <h2>{{ ('Editar venda' if edit_record else 'Registrar nova venda') if is_sale else ('Editar compra' if edit_record else 'Registrar nova compra') }}</h2>
-      <p>Os dados ficam salvos no banco do Veterani e podem ser acessados em qualquer dispositivo.</p>
     </div>
     {% if edit_record %}<a class="btn ghost" href="{{ url_for('admin_trades', view=view) }}">Cancelar edição</a>{% endif %}
   </div>
@@ -118,16 +117,10 @@
       </label>
 
       {% if is_sale %}
-      <p style="grid-column:1/-1;opacity:.78;font-size:.9em;margin:4px 0">Baú automático: ao salvar a venda, o consumo cadastrado para este produto será descontado automaticamente. Estoque negativo permitido.</p>
-      {% endif %}
-
       <label>Valor unitário
-        {% if is_sale %}
         <input id="tradeUnitPrice" type="text" readonly value="" placeholder="R$ 0,00">
-        {% else %}
-        <input name="unit_price" id="tradeUnitPrice" inputmode="decimal" value="{{ ('%.2f'|format(edit_record['unit_price'])) if edit_record and edit_record['unit_price'] is not none else '' }}" placeholder="R$ 0,00">
-        {% endif %}
       </label>
+      {% endif %}
 
       <label>Quantidade
         <input name="quantity" id="tradeQuantity" type="number" min="0.01" step="0.01" inputmode="decimal" required value="{{ edit_record['quantity'] if edit_record else '' }}" placeholder="0">
@@ -171,9 +164,11 @@
       </label>
       {% endif %}
 
+      {% if is_sale %}
       <label class="trade-notes">Observação
         <textarea name="notes" rows="3" placeholder="Informação opcional...">{{ edit_record['notes'] if edit_record and edit_record['notes'] else '' }}</textarea>
       </label>
+      {% endif %}
     </div>
 
     <div class="trade-form-actions">
@@ -223,7 +218,7 @@
         {% endif %}
         <div><span>Responsável</span><strong>{{ r['responsible'] }}</strong></div>
         <div><span>Comprador</span><strong>{{ r['buyer'] }}</strong></div>
-        <div><span>Valor unitário</span><strong>{{ money(r['unit_price']) if r['unit_price'] is not none else '—' }}</strong></div>
+        {% if r['record_type'] == 'sale' %}<div><span>Valor unitário</span><strong>{{ money(r['unit_price']) if r['unit_price'] is not none else '—' }}</strong></div>{% endif %}
         <div><span>Acréscimo</span><strong>+{{ r['markup_percent']|round|int }}%</strong></div>
         <div><span>Quantidade</span><strong>{{ r['quantity']|round|int }}</strong></div>
         {% if r['record_type']=='sale' %}

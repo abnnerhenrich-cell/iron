@@ -3810,15 +3810,12 @@ def admin_trade_save():
             return redirect(url_for("admin_trades", view=record_type, edit=record_id) if record_id else url_for("admin_trades", view=record_type))
         total = unit_price * quantity * (1 + markup_percent / 100.0)
     else:
-        # Compra é totalmente livre: produto, documento/tipo, valor unitário,
-        # acréscimo e total podem ser informados manualmente.
+        # Compra: o valor total é informado diretamente, sem valor unitário.
         document_type = (request.form.get("document_type") or "").strip() or None
         price_type = document_type
-        unit_price = parse_trade_number(request.form.get("unit_price"))
+        unit_price = 0.0  # mantido para compatibilidade com o banco
         markup_percent = parse_trade_number(request.form.get("markup_percent"))
         total = parse_trade_number(request.form.get("total"))
-        if total <= 0 and unit_price > 0 and quantity > 0:
-            total = unit_price * quantity * (1 + markup_percent / 100.0)
 
     seller = (request.form.get("seller") or "").strip() or None
     supplier = (request.form.get("supplier") or "").strip() or None
@@ -4261,8 +4258,10 @@ def service_worker():
 DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "1564340327249223720")
 DISCORD_GUILD_ID = os.getenv("DISCORD_GUILD_ID", "1319723201743552677")
 DISCORD_MANAGEMENT_ROLE_ID = os.getenv("DISCORD_MANAGEMENT_ROLE_ID", "1564336547950493746")
+DISCORD_VETERANO_ROLE_ID = "1319723201961394250"
 DISCORD_META_CATEGORY_ID = os.getenv("DISCORD_META_CATEGORY_ID", "1486815221619232839")
 DISCORD_SALES_CHANNEL_ID = os.getenv("DISCORD_SALES_CHANNEL_ID", "1556355351102628032")
+DISCORD_PURCHASES_CHANNEL_ID = "1556355365627502723"
 DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "https://veterani.vercel.app/discord/callback")
 
 
@@ -4424,6 +4423,9 @@ def discord_ensure_channel(user_id):
         "permission_overwrites": [
             {"id": DISCORD_GUILD_ID, "type": 0, "deny": "1024", "allow": "0"},
             {"id": DISCORD_MANAGEMENT_ROLE_ID, "type": 0, "allow": "68608", "deny": "0"},
+            # Impede que o cargo VETERANO herde acesso da categoria.
+            # O dono da sala continua com acesso pela permissão individual.
+            {"id": DISCORD_VETERANO_ROLE_ID, "type": 0, "allow": "0", "deny": "1024"},
             {"id": discord_id, "type": 1, "allow": "68608", "deny": "0"},
             {"id": bot_id, "type": 1, "allow": "68608", "deny": "0"},
         ]
@@ -4475,14 +4477,13 @@ def discord_send_sale(sale):
 
 
 def discord_send_purchase(purchase):
-    """Publica compras novas no mesmo canal de registros das vendas."""
+    """Publica compras no canal exclusivo de compras."""
     if not os.getenv("DISCORD_BOT_TOKEN"):
         return
     try:
         fields = [
             {"name": "📦 Produto", "value": str(purchase.get("product") or "—")[:1024], "inline": True},
             {"name": "🔢 Quantidade", "value": discord_number(purchase.get("quantity")), "inline": True},
-            {"name": "💰 Valor unitário", "value": "R$ " + discord_number(purchase.get("unit_price")), "inline": True},
             {"name": "💵 Valor total", "value": "R$ " + discord_number(purchase.get("total")), "inline": True},
             {"name": "🏭 Fornecedor", "value": str(purchase.get("supplier") or "—")[:1024], "inline": True},
             {"name": "🤝 Comprador", "value": str(purchase.get("buyer") or "—")[:1024], "inline": True},
@@ -4502,7 +4503,7 @@ def discord_send_purchase(purchase):
                 "footer": {"text": "Veterani · Registro de compras · " + datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%d/%m/%Y às %H:%M")},
             }],
         }
-        discord_request("POST", f"/channels/{DISCORD_SALES_CHANNEL_ID}/messages", payload)
+        discord_request("POST", f"/channels/{DISCORD_PURCHASES_CHANNEL_ID}/messages", payload)
     except Exception:
         app.logger.exception("Discord: falha ao publicar compra")
 
