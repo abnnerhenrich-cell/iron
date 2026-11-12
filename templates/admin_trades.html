@@ -118,11 +118,11 @@
       </label>
 
       {% if is_sale %}
-      <div class="chest-editor" style="grid-column:1/-1;border:1px solid #7b405b;border-radius:12px;padding:14px;margin:8px 0">
-        <strong>Baú · Materiais consumidos nesta venda</strong>
-        <p style="opacity:.8;font-size:.9em">Sugestões automáticas por produto e quantidade. Ajuste livremente antes de registrar; não há aprovação adicional nem bloqueio de estoque negativo.</p>
+      <details class="chest-editor" style="grid-column:1/-1;border:1px solid #7b405b;border-radius:12px;padding:14px;margin:8px 0">
+        <summary style="cursor:pointer;font-weight:700">Baú · Ver ou corrigir materiais desta venda (opcional)</summary>
+        <p style="opacity:.8;font-size:.9em">O consumo configurado é aplicado automaticamente. Abra somente se precisar corrigir as quantidades. Estoque negativo é permitido.</p>
         <div id="chestMaterialInputs" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px"></div>
-      </div>
+      </details>
       <script id="chestRecipeData" type="application/json">{{ chest_recipes|tojson }}</script>
       <script id="chestExistingData" type="application/json">{{ edit_consumption|tojson }}</script>
       <script id="chestMaterialsData" type="application/json">{{ chest_materials|tojson }}</script>

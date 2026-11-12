@@ -3861,6 +3861,17 @@ def admin_trade_save():
             if amount > 0:
                 chest_items[material] = amount
 
+    # A venda consome automaticamente a receita cadastrada mesmo sem JavaScript.
+    # Campos de ajuste explicitos prevalecem sobre a receita.
+    if record_type == 'sale':
+        with get_conn() as recipe_conn:
+            with recipe_conn.cursor() as recipe_cur:
+                recipe_cur.execute('SELECT material, per_unit FROM chest_recipes WHERE product=%s', (product,))
+                for recipe in recipe_cur.fetchall():
+                    material = recipe['material']
+                    if request.form.get('chest_' + material) is None:
+                        chest_items[material] = round(float(recipe['per_unit']) * quantity, 2)
+
     with get_conn() as conn:
         try:
             with conn.cursor() as cur:
