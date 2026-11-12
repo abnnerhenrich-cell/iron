@@ -3848,29 +3848,17 @@ def admin_trade_save():
         flash("Informe o fornecedor.", "danger")
         return redirect(url_for("admin_trades", view="purchase", edit=record_id) if record_id else url_for("admin_trades", view="purchase"))
 
+    # Consumo automatico por produto: calculado no servidor em toda venda.
+    # Nenhuma selecao manual nem aprovacao adicional e necessaria.
     chest_items = {}
-    if record_type == 'sale':
-        for material in CHEST_MATERIALS:
-            raw = request.form.get('chest_' + material)
-            if raw is None:
-                continue
-            amount = parse_trade_number(raw)
-            if amount < 0 or amount > 100000000:
-                flash('Quantidade inválida no Baú.', 'danger')
-                return redirect(url_for('admin_trades', view='sale', edit=record_id))
-            if amount > 0:
-                chest_items[material] = amount
-
-    # A venda consome automaticamente a receita cadastrada mesmo sem JavaScript.
-    # Campos de ajuste explicitos prevalecem sobre a receita.
     if record_type == 'sale':
         with get_conn() as recipe_conn:
             with recipe_conn.cursor() as recipe_cur:
                 recipe_cur.execute('SELECT material, per_unit FROM chest_recipes WHERE product=%s', (product,))
                 for recipe in recipe_cur.fetchall():
-                    material = recipe['material']
-                    if request.form.get('chest_' + material) is None:
-                        chest_items[material] = round(float(recipe['per_unit']) * quantity, 2)
+                    amount = round(float(recipe['per_unit']) * quantity, 2)
+                    if amount > 0:
+                        chest_items[recipe['material']] = amount
 
     with get_conn() as conn:
         try:
