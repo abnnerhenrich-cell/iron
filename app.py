@@ -3917,8 +3917,17 @@ def admin_trade_save():
             flash(f"Não foi possível salvar o registro ({type(exc).__name__}).", "danger")
             return redirect(url_for("admin_trades", view=record_type))
 
-    if record_type == "sale" and not record_id:
-        discord_send_sale({"product": product, "quantity": quantity, "total": total, "seller": seller, "buyer": buyer, "responsible": responsible, "date": record_date, "markup_percent": markup_percent, "markup_amount": unit_price * quantity * markup_percent / 100.0})
+    if not record_id:
+        trade_notice = {"product": product, "quantity": quantity, "total": total,
+                        "seller": seller, "supplier": supplier, "buyer": buyer,
+                        "responsible": responsible, "date": record_date,
+                        "unit_price": unit_price, "document_type": document_type,
+                        "contact": contact, "markup_percent": markup_percent,
+                        "markup_amount": unit_price * quantity * markup_percent / 100.0}
+        if record_type == "sale":
+            discord_send_sale(trade_notice)
+        else:
+            discord_send_purchase(trade_notice)
     flash("Venda salva com sucesso." if record_type == "sale" else "Compra salva com sucesso.", "success")
     return redirect(url_for("admin_trades", view="history"))
 
@@ -4463,6 +4472,39 @@ def discord_send_sale(sale):
         discord_request("POST", f"/channels/{DISCORD_SALES_CHANNEL_ID}/messages", payload)
     except Exception:
         app.logger.exception("Discord: falha ao publicar venda")
+
+
+def discord_send_purchase(purchase):
+    """Publica compras novas no mesmo canal de registros das vendas."""
+    if not os.getenv("DISCORD_BOT_TOKEN"):
+        return
+    try:
+        fields = [
+            {"name": "📦 Produto", "value": str(purchase.get("product") or "—")[:1024], "inline": True},
+            {"name": "🔢 Quantidade", "value": discord_number(purchase.get("quantity")), "inline": True},
+            {"name": "💰 Valor unitário", "value": "R$ " + discord_number(purchase.get("unit_price")), "inline": True},
+            {"name": "💵 Valor total", "value": "R$ " + discord_number(purchase.get("total")), "inline": True},
+            {"name": "🏭 Fornecedor", "value": str(purchase.get("supplier") or "—")[:1024], "inline": True},
+            {"name": "🤝 Comprador", "value": str(purchase.get("buyer") or "—")[:1024], "inline": True},
+            {"name": "📋 Responsável", "value": str(purchase.get("responsible") or "—")[:1024], "inline": False},
+            {"name": "📅 Data da compra", "value": discord_br_date(purchase.get("date")), "inline": False},
+        ]
+        if purchase.get("document_type"):
+            fields.append({"name": "📄 Documento/tipo", "value": str(purchase["document_type"])[:1024], "inline": True})
+        if purchase.get("contact"):
+            fields.append({"name": "📞 Contato", "value": str(purchase["contact"])[:1024], "inline": True})
+        payload = {
+            "allowed_mentions": {"parse": []},
+            "embeds": [{
+                "title": "🛒 NOVA COMPRA REGISTRADA",
+                "color": 0x234B78,
+                "fields": fields,
+                "footer": {"text": "Veterani · Registro de compras · " + datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%d/%m/%Y às %H:%M")},
+            }],
+        }
+        discord_request("POST", f"/channels/{DISCORD_SALES_CHANNEL_ID}/messages", payload)
+    except Exception:
+        app.logger.exception("Discord: falha ao publicar compra")
 
 
 @app.route("/discord/connect")
