@@ -22,17 +22,4 @@
 {% for r in movements %}<tr><td>{{ r.happened_at.strftime('%d/%m/%Y %H:%M') }}</td><td>{{ r.event }}</td><td>{{ r.material }}</td><td style="color:{{ '#ff7180' if r.amount < 0 else '#71d4a0' }}">{{ '%+g'|format(r.amount|float) }}</td><td>{{ r.person }}</td></tr>{% else %}<tr><td colspan="5">Nenhuma movimentação registrada.</td></tr>{% endfor %}
 </tbody></table></div></details>
 </section>
-{% if current_user['role']=='admin' %}
-<section class="panel chest-section" style="padding:20px"><details><summary>Configuração avançada: consumo por produto</summary>
-<p>O consumo é aplicado automaticamente a cada venda. Configure apenas produtos sem regra definida; não é necessário lançar materiais no Baú manualmente. A IA não deve inventar quantidades de consumo.</p>
-<form method="post" action="{{ url_for('admin_chest_recipe') }}" style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
-<input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-<label>Produto<select name="product" required>{% for p in products %}<option value="{{ p }}">{{ p }}</option>{% endfor %}</select></label>
-<label>Material<select name="material" required>{% for m in materials %}<option value="{{ m }}">{{ m }}</option>{% endfor %}</select></label>
-<label>Quantidade por unidade<input name="per_unit" type="number" min="0" step="0.01" required></label>
-<button class="btn" type="submit">Salvar regra</button></form>
-<div class="chest-scroll" style="margin-top:12px"><table><thead><tr><th>Produto</th><th>Material</th><th>Por unidade</th></tr></thead><tbody>
-{% for r in recipes %}<tr><td>{{ r.product }}</td><td>{{ r.material }}</td><td>{{ '%g'|format(r.per_unit|float) }}</td></tr>{% else %}<tr><td colspan="3">Nenhuma regra cadastrada. Produtos sem regra não terão desconto presumido.</td></tr>{% endfor %}
-</tbody></table></div></details></section>
-{% endif %}
 {% endblock %}
