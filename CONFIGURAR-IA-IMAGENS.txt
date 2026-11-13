@@ -1,0 +1,11 @@
+VETERANI - IA DE IMAGENS COM GOOGLE GEMINI
+
+1. Abra https://aistudio.google.com/apikey e crie uma chave da API Gemini.
+2. Na Vercel > projeto > Settings > Environment Variables, cadastre GEMINI_API_KEY em Production como Sensitive/Secret. Nunca coloque a chave no GitHub.
+3. Opcional: GEMINI_VISION_MODEL (padrao gemini-2.5-flash-lite). A disponibilidade de modelos e cotas gratuitas pode variar.
+4. Atualize o GitHub com os arquivos deste ZIP e aguarde o deploy Ready.
+5. Envie uma nova entrega com foto JPG, PNG ou WebP e confira a analise no painel administrativo.
+6. Se a API falhar ou a cota acabar, a entrega continua salva e a aprovacao manual permanece disponivel. Confira os logs da Vercel.
+7. A analise e consultiva, nao confirma pesos, materiais ocultos ou autenticidade, e nao aprova automaticamente.
+8. Antes de usar com membros reais, revise a Politica de Privacidade: as fotos sao enviadas ao Google Gemini. Confira os termos de uso e tratamento de dados do nivel gratuito.
+9. OPENAI_API_KEY nao e utilizada por esta versao.

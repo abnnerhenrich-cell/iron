@@ -15,7 +15,7 @@
   <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v=10">
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=10">
   <link rel="manifest" href="/manifest.webmanifest?v=9">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=veterani-discord-status-2">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=veterani-mobile-all-items-v3">
 </head>
 {% set member_mode = request.endpoint in ['dashboard','submit','history','notifications','notification_mark_read','notifications_mark_all_read','member_home','calculator','calculator_app'] %}
 <body class="{{ 'is-auth' if current_user else 'is-guest' }} {{ 'is-member-mode' if member_mode else 'is-admin-mode' }}">
@@ -125,21 +125,33 @@
   {% endif %}
 
   {% if current_user %}
-  <nav class="bottom-nav" aria-label="Navegação principal">
-    {% if current_user['role']=='admin' and not member_mode %}
+  {% if current_user and current_user['role'] in ['admin','manager'] and not member_mode %}
+
+    </nav>
+  </section>
+  {% endif %}
+  <nav class="bottom-nav bottom-nav-complete" aria-label="Navegação principal — deslize para os lados">
+{% if current_user['role']=='admin' and not member_mode %}
+        <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}"><b>⌂</b><span>Visão geral</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] }}" href="{{ url_for('admin_members') }}"><b>◉</b><span>Membros</span></a>
+        <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}"><b>＋</b><span>Cadastros</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" href="{{ url_for('admin_cycles') }}"><b>◇</b><span>Metas</span></a>
+        <a class="{{ 'active' if request.endpoint in ['investigative_home','investigative_folder'] }}" href="{{ url_for('investigative_home') }}"><b>▣</b><span>Investigativa</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_calculator','admin_calculator_app'] }}" href="{{ url_for('admin_calculator') }}"><b>⌗</b><span>Calculadora</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] }}" href="{{ url_for('admin_trades') }}"><b>↕</b><span>Compras & Vendas</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_chest','admin_chest_recipe'] }}" href="{{ url_for('admin_chest') }}"><b>▣</b><span>Baú de Materiais</span></a>
+        <a class="{{ 'active' if request.endpoint=='admin_permissions' }}" href="{{ url_for('admin_permissions') }}"><b>⌘</b><span>Permissões</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_submissions','admin_revoke_ai','admin_review'] }}" href="{{ url_for('admin_submissions', status='approved') }}"><b>✓</b><span>Entregas da IA</span></a>
+        <a class="{{ 'active' if request.endpoint=='admin_audit' }}" href="{{ url_for('admin_audit') }}"><b>◷</b><span>Auditoria</span></a>
+      {% elif current_user['role']=='manager' and not member_mode %}
       <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}"><b>⌂</b><span>Início</span></a>
-      <a class="{{ 'active' if request.endpoint in ['admin_members','admin_member_detail','admin_member_goals','admin_member_history'] }}" href="{{ url_for('admin_members') }}"><b>◉</b><span>Membros</span></a>
-      <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}"><b>＋</b><span>Cadastros</span></a>
-      <a class="{{ 'active' if request.endpoint in ['admin_cycles','admin_cycle_detail'] }}" href="{{ url_for('admin_cycles') }}"><b>◇</b><span>Metas</span></a>
-      <a class="{{ 'active' if request.endpoint in ['investigative_home','investigative_folder'] }}" href="{{ url_for('investigative_home') }}"><b>▣</b><span>Investigativa</span></a>
-      <a class="{{ 'active' if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] }}" href="{{ url_for('admin_trades') }}"><b>↕</b><span>Negócios</span></a>
-    {% elif current_user['role']=='manager' and not member_mode %}
-      <a class="{{ 'active' if request.endpoint=='admin_dashboard' }}" href="{{ url_for('admin_dashboard') }}"><b>⌂</b><span>Início</span></a>
-      <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}"><b>＋</b><span>Cadastros</span></a>
-      <a class="{{ 'active' if request.endpoint in ['investigative_home','investigative_folder'] }}" href="{{ url_for('investigative_home') }}"><b>▣</b><span>Investigativa</span></a>
-      <a class="{{ 'active' if request.endpoint in ['admin_calculator','admin_calculator_app'] }}" href="{{ url_for('admin_calculator') }}"><b>⌗</b><span>Calcular</span></a>
-      <a class="{{ 'active' if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] }}" href="{{ url_for('admin_trades') }}"><b>↕</b><span>Negócios</span></a>
-    {% else %}
+        <a class="{{ 'active' if request.endpoint=='admin_registrations' }}" href="{{ url_for('admin_registrations') }}"><b>＋</b><span>Cadastros</span></a>
+        <a class="{{ 'active' if request.endpoint in ['investigative_home','investigative_folder'] }}" href="{{ url_for('investigative_home') }}"><b>▣</b><span>Investigativa</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_calculator','admin_calculator_app'] }}" href="{{ url_for('admin_calculator') }}"><b>⌗</b><span>Calculadora</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_trades','admin_trade_save','admin_trade_delete','admin_trade_mark_delivered'] }}" href="{{ url_for('admin_trades') }}"><b>↕</b><span>Compras & Vendas</span></a>
+        <a class="{{ 'active' if request.endpoint in ['admin_chest','admin_chest_recipe'] }}" href="{{ url_for('admin_chest') }}"><b>▣</b><span>Baú de Materiais</span></a>
+          {% else %}
+
       <a class="{{ 'active' if request.endpoint=='dashboard' }}" href="{{ url_for('dashboard') }}"><b>⌂</b><span>Início</span></a>
       <a class="{{ 'active' if request.endpoint=='submit' }}" href="{{ url_for('submit') }}"><b>＋</b><span>Entregar</span></a>
       <a class="{{ 'active' if request.endpoint=='history' }}" href="{{ url_for('history') }}"><b>◔</b><span>Histórico</span></a>
@@ -473,5 +485,6 @@ const loader=document.getElementById('veteraniLoader');document.querySelectorAll
   <span aria-hidden="true"> · </span>
   <a href="mailto:abnner014@gmail.com" style="color:#c6d7f4;">Contato</a>
 </footer>
+
 </body>
 </html>
