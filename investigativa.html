@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Investigativa{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <span class="eyebrow">INVESTIGATIVA</span>
+    <h1>Pastas de investigação</h1>
+    <p>Crie uma pasta para cada caso e guarde dentro dela textos e imagens. Só Gerente e Hierarquia têm acesso.</p>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Nova pasta</h2></div>
+  <form class="inv-form-row" method="post" action="{{ url_for('admin_investigativa_create') }}">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="text" name="name" maxlength="80" placeholder="Nome da pasta" aria-label="Nome da pasta" required>
+    <button class="btn primary" type="submit">Criar pasta</button>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Pastas{% if folders %} ({{ folders|length }}){% endif %}</h2>
+    <form class="inv-search" method="get" action="{{ url_for('admin_investigativa') }}">
+      <input type="search" name="q" value="{{ q }}" placeholder="Buscar pasta" aria-label="Buscar pasta">
+    </form>
+  </div>
+  {% if folders %}
+  <div class="inv-grid">
+    {% for f in folders %}
+    <a class="inv-folder" href="{{ url_for('admin_investigativa_folder', folder_id=f['id']) }}">
+      <span class="inv-folder-icon" aria-hidden="true">▤</span>
+      <strong>{{ f['name'] }}</strong>
+      <small>{{ f['texts'] }} texto(s) · {{ f['images'] }} imagem(ns)</small>
+      <small>Criada em {{ f['created_at']|dt if f['created_at'] else '' }}{% if f['creator'] %} por {{ f['creator'] }}{% endif %}</small>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">
+    <h2>{{ 'Nenhuma pasta encontrada' if q else 'Nenhuma pasta criada' }}</h2>
+    <p>{{ 'Tente outro nome na busca.' if q else 'Crie a primeira pasta no campo acima.' }}</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

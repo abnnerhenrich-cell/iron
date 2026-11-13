@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}Admin · Metas de {{ member['name'] }}{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <span class="eyebrow">PASTA DO MEMBRO</span>
+    <div class="member-title-with-photo">
+      <div class="avatar-silver member-page-avatar">
+        {% if member.get('has_profile_image') %}
+          <img src="{{ url_for('profile_photo', user_id=member['id']) }}" alt="Foto de {{ member['name'] }}">
+        {% else %}
+          {{ member['name'][0]|upper }}
+        {% endif %}
+      </div>
+      <h1>{{ member['name'] }}</h1>
+    </div>
+    <p>Crie e acompanhe metas exclusivas deste membro.</p>
+  </div>
+  <a class="btn ghost" href="{{ url_for('admin_members') }}">← Voltar para membros</a>
+</section>
+
+<nav class="member-tabs">
+  <a href="{{ url_for('admin_member_detail', user_id=member['id']) }}">Resumo</a>
+  <a class="active" href="{{ url_for('admin_member_goals', user_id=member['id']) }}">Metas personalizadas</a>
+  <a href="{{ url_for('admin_member_history', user_id=member['id']) }}">Entregas e Aprovações</a>
+</nav>
+
+{% if cycle %}
+<section class="panel form-panel personal-goal-form">
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">NOVA META INDIVIDUAL</span>
+      <h2>Materiais padrão para {{ member['name'] }}</h2>
+      <p>Escolha somente os materiais que farão parte da meta e informe a quantidade de cada um.</p>
+    </div>
+  </div>
+
+  <form method="post" class="materials-goal-form">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+    <div class="materials-catalog">
+      {% for material in personal_goal_catalog %}
+      <label class="material-goal-card">
+        <div class="material-goal-head">
+          <span class="material-goal-image">
+            <img src="{{ url_for('static', filename=material['image']) }}" alt="{{ material['title'] }}" loading="lazy">
+          </span>
+          <strong>{{ material['title'] }}</strong>
+        </div>
+        <div class="material-goal-qty">
+          <span>Quantidade</span>
+          <input
+            name="qty_{{ material['key'] }}"
+            type="number"
+            min="0"
+            step="1"
+            inputmode="numeric"
+            placeholder="0"
+          >
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+
+    <div class="goal-owner-lock">
+      <span>MEMBRO DA META</span>
+      <strong>{{ member['name'] }}</strong>
+      <small>{{ member['email'] }}</small>
+    </div>
+
+    <button class="btn primary material-submit" type="submit">＋ Criar metas selecionadas</button>
+  </form>
+</section>
+
+<section class="panel member-goals-panel">
+  <div class="admin-member-goal-identity">
+    <div class="avatar-silver admin-goal-avatar">
+      {% if member.get('has_profile_image') %}
+        <img src="{{ url_for('profile_photo', user_id=member['id']) }}" alt="Foto de {{ member['name'] }}">
+      {% else %}
+        <span>{{ member['name'][0]|upper }}</span>
+      {% endif %}
+    </div>
+    <div>
+      <span class="eyebrow">METAS DO MEMBRO</span>
+      <strong>{{ member['name'] }}</strong>
+      <small>{{ member['email'] }}</small>
+    </div>
+  </div>
+
+  <div class="panel-head">
+    <div>
+      <span class="eyebrow">METAS DE {{ member['name']|upper }}</span>
+      <h2>{{ cycle['title'] }}</h2>
+      <p>{{ cycle['start_date'] }} até {{ cycle['end_date'] }}</p>
+    </div>
+  </div>
+
+  <div class="balance-center">
+    <div class="balance-center-head">
+      <div>
+        <span class="eyebrow">SALDO DO MEMBRO</span>
+        <strong>Saldo para a próxima meta</strong>
+        <small>Positivo reduz a próxima meta. Negativo aumenta. Você pode ajustar ou zerar antes de criar a próxima meta.</small>
+      </div>
+    </div>
+
+    {% if credits %}
+    <div class="balance-list">
+      {% for c in credits %}
+      <article class="balance-row {{ 'is-negative' if c['balance'] < 0 else 'is-positive' }}">
+        <div class="balance-product">
+          <span>{{ c['goal_title'] }}</span>
+          <strong>{{ '+' if c['balance'] > 0 else '' }}{{ c['balance']|round|int }} {{ c['unit'] }}</strong>
+        </div>
+        <form method="post" action="{{ url_for('admin_member_credit_adjust', user_id=member['id'], credit_id=c['id']) }}" class="balance-edit-form">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <label>
+            <span>Novo saldo</span>
+            <input name="balance" type="number" step="0.01" value="{{ c['balance'] }}" aria-label="Novo saldo de {{ c['goal_title'] }}">
+          </label>
+          <button class="btn ghost" type="submit">Salvar</button>
+        </form>
+        <form method="post" action="{{ url_for('admin_member_credit_delete', user_id=member['id'], credit_id=c['id']) }}" onsubmit="return confirm('Zerar o saldo de {{ c['goal_title'] }}?')">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button class="btn danger subtle" type="submit">Zerar</button>
+        </form>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="balance-empty">Nenhum saldo pendente para a próxima meta.</div>
+    {% endif %}
+  </div>
+
+  {% if goals %}
+  <form method="post" action="{{ url_for('admin_member_goals_close', user_id=member['id']) }}" class="closing-review" onsubmit="return confirm('Fechar as metas abertas deste período para {{ member['name'] }}?')">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="closing-review-head">
+      <div>
+        <span class="eyebrow">FECHAR PERÍODO</span>
+        <strong>Escolha o que acontece com a diferença de cada produto</strong>
+        <small>Antes de fechar, todas as entregas precisam estar aprovadas ou recusadas.</small>
+      </div>
+      <button class="btn primary" type="submit">✓ Fechar período</button>
+    </div>
+    <div class="closing-product-list">
+      {% for g in goals if not g['closed'] %}
+      <div class="closing-product-row">
+        <div class="closing-product-name">
+          {% set material_img = material_image(g['title']) %}
+          {% if material_img %}<span class="goal-icon goal-material-image"><img src="{{ url_for('static', filename=material_img) }}" alt="{{ g['title'] }}" loading="lazy"></span>{% else %}<span class="goal-icon">{{ g['icon'] }}</span>{% endif %}
+          <div><strong>{{ g['title'] }}</strong><small>Necessário {{ g['required_f']|round|int }} · Aprovado {{ g['approved_f']|round|int }} {{ g['unit'] }}</small></div>
+        </div>
+        <div class="closing-difference {{ 'positive' if g['difference'] > 0 else ('negative' if g['difference'] < 0 else 'neutral') }}">
+          <span>Diferença</span>
+          <strong>{{ '+' if g['difference'] > 0 else '' }}{{ g['difference']|round|int }} {{ g['unit'] }}</strong>
+        </div>
+        <label class="closing-choice">
+          <span>Ao fechar</span>
+          <select name="carry_{{ g['id'] }}">
+            <option value="carry" selected>{{ 'Levar +' ~ (g['difference']|round|int) ~ ' para próxima' if g['difference'] > 0 else ('Levar ' ~ (g['difference']|round|int) ~ ' para próxima' if g['difference'] < 0 else 'Concluir sem saldo') }}</option>
+            <option value="zero">Concluir e zerar diferença</option>
+          </select>
+        </label>
+      </div>
+      {% else %}
+      <div class="balance-empty">Todas as metas deste período já estão fechadas.</div>
+      {% endfor %}
+    </div>
+  </form>
+  {% endif %}
+
+  <div class="goal-admin-grid">
+    {% for g in goals %}
+    <article class="goal-admin-card {{ 'goal-complete' if g['complete'] else '' }}">
+      <div class="goal-admin-top">
+        <div>
+          {% set material_img = material_image(g['title']) %}
+          {% if material_img %}<span class="goal-icon goal-material-image"><img src="{{ url_for('static', filename=material_img) }}" alt="{{ g['title'] }}" loading="lazy"></span>{% else %}<span class="goal-icon">{{ g['icon'] }}</span>{% endif %}
+          <strong>{{ g['title'] }}</strong>
+        </div>
+        {% if g['closed'] %}
+        <span class="status approved">FECHADA</span>
+        {% else %}
+        <span class="status {{ 'approved' if g['complete'] else 'pending' }}">{{ 'COMPLETA' if g['complete'] else 'EM ANDAMENTO' }}</span>
+        {% endif %}
+      </div>
+
+      {% set approved_pct = ([((g['approved_f'] / g['required_f']) * 100)|round|int, 100]|min) if g['required_f'] else 100 %}
+      {% set pending_room = 100 - approved_pct %}
+      {% set pending_pct = ([((g['pending_f'] / g['required_f']) * 100)|round|int, pending_room]|min) if g['required_f'] else 0 %}
+      <div class="progress progress-review">
+        <i class="progress-approved" style="width:{{ approved_pct }}%"></i>
+        <i class="progress-pending" style="width:{{ pending_pct }}%; left:{{ approved_pct }}%"></i>
+      </div>
+      <div class="progress-legend">
+        <span><b class="legend-dot approved-dot"></b>Aprovado {{ approved_pct }}%</span>
+        <span><b class="legend-dot pending-dot"></b>Em análise {{ pending_pct }}%</span>
+      </div>
+
+      <div class="goal-numbers goal-numbers-audit">
+        <div><span>Meta original</span><strong>{{ g['target_f']|round|int }} {{ g['unit'] }}</strong></div>
+        <div><span>Saldo anterior</span><strong class="{{ 'green' if g['credit_applied_f'] > 0 else ('red' if g['credit_applied_f'] < 0 else '') }}">{{ '+' if g['credit_applied_f'] > 0 else '' }}{{ g['credit_applied_f']|round|int }} {{ g['unit'] }}</strong></div>
+        <div><span>Necessário</span><strong>{{ g['required_f']|round|int }} {{ g['unit'] }}</strong></div>
+        <div><span>Aprovado</span><strong>{{ g['approved_f']|round|int }} {{ g['unit'] }}</strong></div>
+        <div><span>Em análise</span><strong class="yellow">{{ g['pending_f']|round|int }} {{ g['unit'] }}</strong></div>
+        {% if g['surplus'] > 0 %}
+        <div class="audit-surplus"><span>Excedente atual</span><strong class="green">+{{ g['surplus']|round|int }} {{ g['unit'] }}</strong></div>
+        {% else %}
+        <div><span>Falta</span><strong>{{ g['remaining']|round|int }} {{ g['unit'] }}</strong></div>
+        {% endif %}
+      </div>
+
+      <div class="goal-card-actions">
+        <form method="post" action="{{ url_for('admin_goal_delete', goal_id=g['id']) }}" onsubmit="return confirm('Excluir esta meta de {{ member['name'] }}? As entregas e fotos exclusivas desta meta também serão apagadas.')">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button class="btn danger" type="submit">Excluir meta</button>
+        </form>
+      </div>
+    </article>
+    {% else %}
+    <div class="empty">
+      <h2>Nenhuma meta criada</h2>
+      <p>Use o formulário acima para criar a primeira meta personalizada de {{ member['name'] }}.</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<section class="panel empty">
+  <h2>Nenhuma meta ativa</h2>
+  <p>Primeiro crie e ative uma meta. Depois volte à pasta deste membro para criar as metas individuais dele.</p>
+  <a class="btn primary" href="{{ url_for('admin_cycles') }}">Ir para Metas</a>
+</section>
+{% endif %}
+{% endblock %}

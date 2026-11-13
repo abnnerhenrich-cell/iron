@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Admin · Entregas{% endblock %}
+{% block content %}
+<section class="hero">
+  <div><span class="eyebrow">REVISÃO</span><h1>Entregas dos usuários</h1><p>Confira as entregas e, se necessário, desfaça aprovações automáticas da IA.</p></div>
+</section>
+<div class="filters">
+  {% for x, label in [('pending','Pendentes'),('approved','Aprovadas'),('rejected','Reprovadas'),('all','Todas')] %}
+  <a class="filter {{ 'active' if status==x }}" href="{{ url_for('admin_submissions', status=x) }}">{{ label }}</a>
+  {% endfor %}
+</div>
+<section class="cards-list">
+  {% for s in rows %}
+  <article class="review-card panel">
+    <div class="review-main">
+      <div>
+        <span class="eyebrow">{{ s['cycle_title'] }}</span>
+        <h2>{{ s['goal_title'] }}</h2>
+        <p><strong>{{ s['user_name'] }}</strong> · {{ s['email'] }}</p>
+        <p class="amount">{{ money(s['amount']) if s['unit']=='R$' else (s['amount']|int|string + ' ' + s['unit']) }}</p>
+        {% if s['note'] %}<p>{{ s['note'] }}</p>{% endif %}
+      </div>
+      <div>
+        <span class="status {{ s['status'] }}">{{ s['status'] }}</span>
+        <div class="proof-grid">
+          {% if s['has_image'] %}
+          <a class="proof" href="{{ url_for('submission_image', submission_id=s['id'], index=1) }}" target="_blank">
+            <img src="{{ url_for('submission_image', submission_id=s['id'], index=1) }}" alt="Comprovante 1">
+            <span>Foto 1</span>
+          </a>
+          {% endif %}
+          {% if s['has_image2'] %}
+          <a class="proof" href="{{ url_for('submission_image', submission_id=s['id'], index=2) }}" target="_blank">
+            <img src="{{ url_for('submission_image', submission_id=s['id'], index=2) }}" alt="Comprovante 2">
+            <span>Foto 2</span>
+          </a>
+          {% endif %}
+          {% if s['has_image3'] %}
+          <a class="proof" href="{{ url_for('submission_image', submission_id=s['id'], index=3) }}" target="_blank">
+            <img src="{{ url_for('submission_image', submission_id=s['id'], index=3) }}" alt="Comprovante 3">
+            <span>Foto 3</span>
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% if s['ai_status'] == 'complete' and s['ai_result'] %}
+    <div class="panel" style="margin:12px 0;padding:14px;border-left:3px solid #6d1730">
+      <strong>Análise de IA · conferência visual</strong>
+      <p class="muted">Sugestão automática. Não confirma quantidade ou autenticidade e não substitui a revisão humana.</p>
+      {% if s['ai_result'].get('identificados') %}
+      <p><strong>Materiais identificados:</strong> {{ s['ai_result']['identificados']|join(', ') }}</p>
+      {% endif %}
+      {% for check in s['ai_result'].get('conferencias', []) %}
+        <p><strong>{{ check.get('material', 'Material') }}</strong> —
+        {% if check.get('resultado') == 'compativel' %}Compatível
+        {% elif check.get('resultado') == 'divergente' %}Possível divergência
+        {% else %}Inconclusivo{% endif %}
+        · {{ check.get('justificativa', '') }}</p>
+      {% endfor %}
+      <p>{{ s['ai_result'].get('resumo', '') }}</p>
+    </div>
+    {% elif s['ai_status'] == 'error' %}
+    <p class="muted">Análise de IA indisponível. Faça a conferência manual das fotos.</p>
+    {% elif s['ai_status'] == 'not_analyzed' %}
+    <p class="muted">Sem análise de IA. Conferência manual disponível.</p>
+    {% endif %}
+    {% if s['status']=='approved' and s['reviewed_by'] is none and s['ai_status']=='complete' and (s['admin_note'] or '').startswith('Aprovado automaticamente') %}
+    <form method="post" action="{{ url_for('admin_revoke_ai', submission_id=s['id']) }}" class="review-actions" onsubmit="return confirm('Desaprovar esta entrega aprovada pela IA? A quantidade será retirada do progresso da meta.');">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input name="reason" required minlength="5" maxlength="500" placeholder="Motivo da desaprovação (obrigatório)" aria-label="Motivo da desaprovação">
+      <button class="btn danger" type="submit">✕ Desaprovar aprovação da IA</button>
+    </form>
+    {% endif %}
+    {% if s['status']=='pending' %}
+    <form method="post" action="{{ url_for('admin_review', submission_id=s['id']) }}" class="review-actions">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input name="admin_note" placeholder="Observação do administrador (opcional)">
+      <button class="btn success" name="decision" value="approved">✓ Aprovar</button>
+      <button class="btn danger" name="decision" value="rejected">✕ Reprovar</button>
+    </form>
+    {% else %}
+      <p class="muted">Observação: {{ s['admin_note'] or '—' }}</p>
+    {% endif %}
+  </article>
+  {% else %}
+  <div class="panel empty"><h2>Nenhuma entrega nesta categoria.</h2></div>
+  {% endfor %}
+</section>
+{% endblock %}

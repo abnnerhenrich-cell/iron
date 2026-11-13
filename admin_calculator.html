@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Calculadora | Veterani{% endblock %}
+{% block content %}
+<section class="admin-calculator-page">
+  <div class="page-header calculator-page-header">
+    <div>
+      <span class="eyebrow">{{ "FERRAMENTA DO MEMBRO" if calculator_member else "FERRAMENTA DA HIERARQUIA" }}</span>
+      <h1>Calculadora</h1>
+    </div>
+  </div>
+  <div class="calculator-frame-shell">
+    <iframe id="ironCalculatorFrame" class="calculator-frame" src="{{ url_for('calculator_app' if calculator_member else 'admin_calculator_app') }}" title="Calculadora Veterani" loading="eager"></iframe>
+  </div>
+</section>
+{% endblock %}
