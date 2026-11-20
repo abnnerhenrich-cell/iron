@@ -128,13 +128,13 @@ body .card,body .box,body .inner-card,body .inner-panel{
 body .goal-card:hover,
 body .member-folder:hover,
 body .admin-area-card:hover{
-  border-color:#5a2733!important;box-shadow:none!important;transform:none!important;
+  border-color:#006414!important;box-shadow:none!important;transform:none!important;
 }
 body .active-goal-card,
 body .new-notification-banner,
 body .push-permission-toast{
   background:linear-gradient(100deg,rgba(0,100,20,.22),var(--panel) 70%)!important;
-  border:1px solid #5a2733!important;
+  border:1px solid #006414!important;
 }
 body .panel{padding:26px!important}
 body .panel-head{margin-bottom:20px!important;align-items:flex-start!important}
@@ -253,7 +253,7 @@ body .btn.primary,body button.primary{
   color:#fff!important;border:1px solid #c5384f!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 8px 22px rgba(0,100,20,.28)!important;
 }
-body .btn.primary:hover{background:linear-gradient(180deg,#c22f4a,#9b1e37)!important;transform:none!important}
+body .btn.primary:hover{background:linear-gradient(180deg,#c22f4a,#006414)!important;transform:none!important}
 body .btn.ghost,body .btn.secondary{
   background:transparent!important;color:var(--steel)!important;border:1px solid var(--line)!important;box-shadow:none!important;
 }
@@ -348,7 +348,7 @@ body .login-split .login-form-col .tiny + .tiny{margin-top:8px!important}
 body table,body thead,body tbody,body tr{background:transparent!important}
 body .hero-side{background:transparent!important;border-left:1px solid var(--line-soft)!important}
 body .goal-card:before,body .goal-card:after,body .panel:after{display:none!important}
-body .new-notification-banner-icon{background:rgba(0,100,20,.28)!important;color:#ffb3c0!important;border:1px solid #5a2733}
+body .new-notification-banner-icon{background:rgba(0,100,20,.28)!important;color:#ffb3c0!important;border:1px solid #006414}
 body .new-notification-banner strong{font-size:15px!important}
 body .new-notification-banner small{font-size:13px!important}
 body .guest-install-app,body .mobile-install{
@@ -367,7 +367,7 @@ body .photo-box,body .upload-box,body .proof-box,body .saldo-box,body .balance-b
 body .admin-member-goal-identity,body .upload-drop,body .badge,body .member-tabs a{
   background:var(--panel-2)!important;border:1px solid var(--line-soft)!important;color:var(--steel)!important;
 }
-body .member-tabs a.active{background:rgba(0,100,20,.28)!important;border-color:#5a2733!important;color:#fff!important}
+body .member-tabs a.active{background:rgba(0,100,20,.28)!important;border-color:#006414!important;color:#fff!important}
 body .upload-drop:hover{border-color:var(--wine-2)!important}
 body .install-sheet-card{background:var(--panel)!important;border:1px solid var(--line)!important;border-radius:16px!important}
 body .install-sheet-backdrop{background:rgba(5,3,4,.78)!important}
@@ -379,7 +379,7 @@ body .type-options button,body .markup-options button{
 body .qty-control button:hover,body .quantity-control button:hover,body .stepper button:hover,body .segmented button:hover{
   background:rgba(0,100,20,.18)!important;border-color:var(--wine-2)!important;
 }
-body .veterani-loader{background:rgba(8,5,6,.9)!important}
+body .veterani-loader{background:rgba(0,100,20,0.9)!important}
 
 /* ---------- tela de entrega ---------- */
 body .delivery-item,body .note-box,body .upload-box,body .delivery-summary{
@@ -398,7 +398,7 @@ body .delivery-item label,body .delivery-item .label{
   font-size:14px!important;letter-spacing:0!important;text-transform:none!important;color:var(--steel-2)!important;font-weight:600!important;
 }
 body .note-box small,body .upload-box small{font-size:13px!important;letter-spacing:0!important;text-transform:none!important;color:var(--mute)!important}
-body .upload-drop{border-style:dashed!important;border-color:#4a3a3e!important}
+body .upload-drop{border-style:dashed!important;border-color:#164225!important}
 body .upload-drop span,body .upload-drop strong{font-size:15px!important;color:var(--steel)!important}
 body .hero h1{font-size:clamp(34px,4.2vw,52px)!important}
 body .sticky-submit .btn:disabled{opacity:.55}

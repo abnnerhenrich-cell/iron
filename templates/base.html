@@ -11,19 +11,20 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Veterani">
   <title>{% block title %}Veterani Metas{% endblock %}</title>
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32.png') }}?v=green-20261119">
-  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v=green-20261119">
-  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=green-20261119">
-  <link rel="manifest" href="/manifest.webmanifest?v=green-20261119">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=green-20261119">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32.png') }}?v=green-logo-20261120">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}?v=green-logo-20261120">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}?v=green-logo-20261120">
+  <link rel="manifest" href="/manifest.webmanifest?v=green-logo-20261120">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=green-logo-20261120">
   <link rel="stylesheet" href="{{ url_for('static', filename='green-global.css') }}?v=20261119">
+  <link rel="stylesheet" href="{{ url_for('static', filename='green-final.css') }}?v=green-final-20261120-2">
 </head>
 {% set member_mode = request.endpoint in ['dashboard','submit','history','notifications','notification_mark_read','notifications_mark_all_read','member_home','calculator','calculator_app'] %}
 <body class="{{ 'is-auth' if current_user else 'is-guest' }} {{ 'is-member-mode' if member_mode else 'is-admin-mode' }}">
   {% if current_user %}
   <aside class="app-sidebar">
     <a class="sidebar-brand" href="{{ url_for('admin_dashboard' if current_user['role'] in ['admin','manager'] and not member_mode else 'dashboard') }}">
-      <img class="brand-logo" src="{{ url_for('static', filename='veterani-logo.png') }}?v=green-20261119" alt="Veterani">
+      <img class="brand-logo" src="{{ url_for('static', filename='veterani-logo.png') }}?v=green-logo-20261120" alt="Veterani">
       <span class="brand-copy"><strong>Veterani</strong><small>{{ 'ESPAÇO DO MEMBRO' if member_mode else ('PAINEL GERENTE' if current_user['role']=='manager' else ('PAINEL DA HIERARQUIA' if current_user['role']=='admin' else 'ESPAÇO DO MEMBRO')) }}</small></span>
     </a>
 
@@ -82,7 +83,7 @@
   </aside>
 
   <header class="mobile-topbar">
-    <a class="mobile-brand" href="{{ url_for('admin_dashboard' if current_user['role'] in ['admin','manager'] and not member_mode else 'dashboard') }}"><img class="brand-logo" src="{{ url_for('static', filename='veterani-logo.png') }}?v=green-20261119" alt="Veterani"><strong>Veterani</strong></a>
+    <a class="mobile-brand" href="{{ url_for('admin_dashboard' if current_user['role'] in ['admin','manager'] and not member_mode else 'dashboard') }}"><img class="brand-logo" src="{{ url_for('static', filename='veterani-logo.png') }}?v=green-logo-20261120" alt="Veterani"><strong>Veterani</strong></a>
     <div class="mobile-top-actions">
       {% if current_user['discord_user_id'] %}
       <span class="mobile-discord-status" role="status" title="Discord conectado{{ ' · canal pendente' if not current_user['discord_channel_id'] else '' }}" aria-label="Discord conectado">✓ <span>Discord</span></span>
@@ -152,7 +153,7 @@
     <div class="install-sheet-backdrop" data-close-install></div>
     <section class="install-sheet-card" role="dialog" aria-modal="true" aria-labelledby="installTitle">
       <button class="install-sheet-close" type="button" data-close-install aria-label="Fechar">×</button>
-      <div class="install-sheet-brand"><img class="brand-logo" src="{{ url_for('static', filename='veterani-logo.png') }}?v=green-20261119" alt="Veterani"></div>
+      <div class="install-sheet-brand"><img class="brand-logo" src="{{ url_for('static', filename='veterani-logo.png') }}?v=green-logo-20261120" alt="Veterani"></div>
       <span class="eyebrow">Veterani NO CELULAR</span>
       <h2 id="installTitle">Adicionar à Tela de Início</h2>
       <p id="installHelpText">Você pode instalar o Veterani no celular ou computador para abrir como aplicativo.</p>
@@ -459,7 +460,7 @@
   </script>
   {% endif %}
 
-  <div class="veterani-loader" id="veteraniLoader"><div class="veterani-loader-inner"><img src="{{ url_for('static', filename='veterani-logo.png') }}" alt=""><strong id="veteraniLoaderText">Processando...</strong></div></div>
+  <div class="veterani-loader" id="veteraniLoader"><div class="veterani-loader-inner"><img src="{{ url_for('static', filename='veterani-logo.png') }}?v=green-logo-20261120" alt=""><strong id="veteraniLoaderText">Processando...</strong></div></div>
   <div class="v5-lightbox" id="proofLightbox"><button type="button" data-lb-close>×</button><button class="prev" type="button" data-lb-prev>‹</button><img alt="Comprovante ampliado"><button class="next" type="button" data-lb-next>›</button></div>
 <script>
 (()=>{const lb=document.getElementById('proofLightbox'),img=lb?.querySelector('img');let items=[],idx=0;function show(i){if(!items.length)return;idx=(i+items.length)%items.length;img.src=items[idx].href;lb.classList.add('open')}document.querySelectorAll('.proof,.member-proof').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();items=[...document.querySelectorAll('.proof,.member-proof')];show(items.indexOf(a))}));lb?.querySelector('[data-lb-close]')?.addEventListener('click',()=>lb.classList.remove('open'));lb?.querySelector('[data-lb-prev]')?.addEventListener('click',()=>show(idx-1));lb?.querySelector('[data-lb-next]')?.addEventListener('click',()=>show(idx+1));lb?.addEventListener('click',e=>{if(e.target===lb)lb.classList.remove('open')});

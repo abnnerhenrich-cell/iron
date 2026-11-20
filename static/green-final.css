@@ -1,0 +1,20 @@
+
+/* VETERANI | Uniformização integral preto + verde #006414 | 20/11/2026 */
+:root{--wine:#006414;--wine-2:#006414;--wine-3:#238d42;--blue:#006414;--cyan:#006414;--cyan-strong:#006414;--green:#006414;--bg:#050805;--bg-soft:#080e09;--surface:#0b160e;--surface-2:#0e1c12;--surface-3:#122819;--stroke:#25432d;--stroke-2:#315b3b;--panel:#0b160e;--panel-2:#0e1c12;--panel-3:#122819;--line:#25432d}
+html,body{background:#050805!important}
+.app-sidebar,.mobile-topbar,.bottom-nav{background:#070e09!important;border-color:#25432d!important}
+.hero,.admin-hero,.dashboard-hero,.cycle-highlight{background:linear-gradient(112deg,#091b0e 0%,#061009 58%,#12351b 100%)!important;border-color:#315b3b!important}
+.hero:before,.dashboard-hero:before{background:radial-gradient(circle,rgba(0,100,20,.20),transparent 70%)!important}
+.panel,.stats,.stat-card,.summary-card,.member-folder,.member-card,.goal-admin-card,.member-review-card,.profile-photo-card,.section-choice,.admin-area-card,.review-card,.auth-card,.login-card,.list-card,.notification-card{background:#0a180e!important;border-color:#25432d!important}
+.sidebar-nav a.active,.btn.primary,.btn-primary,button.primary,.install-app-sidebar.active{background:linear-gradient(135deg,#006414,#004a10)!important;border-color:#238d42!important;color:#fff!important}
+.sidebar-nav a.active::before{background:#3aa558!important}
+.btn.ghost,.btn-secondary,.filter,.tab-btn,.tabs a,.context-switch,.install-app-sidebar,.step-btn{background:#0c1c11!important;border-color:#25432d!important;color:#e8f2eb!important}
+.btn.ghost:hover,.filter.active,.filter:hover,.tab-btn.active,.tabs a.active{background:#006414!important;border-color:#238d42!important;color:#fff!important}
+input,textarea,select,.upload-drop,.review-info-box,.review-result{background:#08160d!important;border-color:#2b4934!important;color:#f4f8f5!important}
+input:focus,textarea:focus,select:focus{border-color:#238d42!important;box-shadow:0 0 0 3px rgba(0,100,20,.16)!important}
+.table-wrap,table,tbody,td{background-color:#09170d!important;border-color:#25432d!important}
+th,thead,thead tr{background:#102619!important;border-color:#315b3b!important}
+tbody tr:hover{background:#102719!important}
+.eyebrow:before,.cycle-status-label:before{background:#238d42!important}
+.progress-orb{border-color:#25432d!important}
+/* Danger and negative financial values remain red to communicate their meaning. */
