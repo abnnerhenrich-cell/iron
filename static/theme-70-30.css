@@ -1,0 +1,18 @@
+/* VETERANI: 70% preto / 30% verde. Verde oficial #006414. */
+:root{--green:#006414;--wine:#006414;--wine-2:#006414;--wine-3:#006414;--blue:#006414;--cyan:#006414;--cyan-strong:#006414;--bg:#030503;--bg-soft:#060806;--surface:#090d0a;--surface-2:#0b110c;--surface-3:#0d160f;--panel:#090d0a;--panel-2:#0b110c;--panel-3:#0d160f;--stroke:#18331e;--stroke-2:#21462a;--line:#18331e}
+html,body,.app-main,.app-shell,.main-content{background:#030503!important}
+.app-sidebar,.mobile-topbar,.bottom-nav{background:#050805!important;border-color:#18331e!important}
+.hero,.admin-hero,.dashboard-hero,.cycle-highlight{background:linear-gradient(115deg,#060906 0%,#080d09 72%,#06320f 100%)!important;border-color:#21462a!important}
+.hero:before,.dashboard-hero:before{background:radial-gradient(circle,rgba(0,100,20,.12),transparent 70%)!important}
+.panel,.stats,.stat-card,.summary-card,.member-folder,.member-card,.goal-admin-card,.member-review-card,.profile-photo-card,.section-choice,.admin-area-card,.review-card,.auth-card,.login-card,.list-card,.notification-card,.card,.tile{background:#090e0a!important;border-color:#18331e!important}
+.sidebar-nav a.active,.btn.primary,.btn-primary,button.primary,.install-app-sidebar.active{background:#006414!important;border-color:#006414!important;color:#fff!important}
+.sidebar-nav a.active::before,.eyebrow:before,.cycle-status-label:before{background:#006414!important}
+.btn.ghost,.btn-secondary,.filter,.tab-btn,.tabs a,.context-switch,.install-app-sidebar,.step-btn{background:#0b110c!important;border-color:#21462a!important;color:#e8f2eb!important}
+.btn.ghost:hover,.filter.active,.filter:hover,.tab-btn.active,.tabs a.active{background:#006414!important;border-color:#006414!important;color:#fff!important}
+input,textarea,select,.upload-drop,.review-info-box,.review-result{background:#080c09!important;border-color:#21462a!important;color:#f4f8f5!important}
+input:focus,textarea:focus,select:focus{border-color:#006414!important;box-shadow:0 0 0 3px rgba(0,100,20,.16)!important}
+.table-wrap,table,tbody,td{background-color:#080c09!important;border-color:#18331e!important}
+th,thead,thead tr{background:#0d1a10!important;border-color:#21462a!important}
+tbody tr:hover{background:#0e1d12!important}
+.progress-orb{border-color:#21462a!important}
+/* Vermelho permanece apenas em alertas, exclusão e saldo negativo. */
