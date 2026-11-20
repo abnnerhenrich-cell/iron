@@ -407,15 +407,6 @@ def init_db():
             cur.execute("ALTER TABLE trade_records ADD COLUMN IF NOT EXISTS price_type TEXT")
             cur.execute("ALTER TABLE trade_records ADD COLUMN IF NOT EXISTS unit_price NUMERIC(14,2)")
             cur.execute("ALTER TABLE trade_records ADD COLUMN IF NOT EXISTS markup_percent NUMERIC(5,2) NOT NULL DEFAULT 0")
-            # Bau: receitas por produto e consumo efetivo por venda.
-            cur.execute("""CREATE TABLE IF NOT EXISTS chest_recipes (
-                product TEXT NOT NULL, material TEXT NOT NULL,
-                per_unit NUMERIC(14,2) NOT NULL CHECK(per_unit >= 0),
-                PRIMARY KEY(product, material))""")
-            cur.execute("""CREATE TABLE IF NOT EXISTS chest_sale_items (
-                trade_id BIGINT NOT NULL REFERENCES trade_records(id) ON DELETE CASCADE,
-                material TEXT NOT NULL, amount NUMERIC(14,2) NOT NULL CHECK(amount >= 0),
-                PRIMARY KEY(trade_id, material))""")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_trade_records_date ON trade_records(record_date DESC)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_trade_records_type ON trade_records(record_type)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_trade_records_delivery ON trade_records(delivery_status, delivery_date)")
@@ -3605,61 +3596,6 @@ def parse_trade_number(raw):
         return 0.0
 
 
-# O saldo e calculado das aprovacoes ATUAIS e dos consumos registrados.
-# Assim, uma revogacao, exclusao ou edicao estorna sem movimentacoes duplicadas.
-CHEST_MATERIALS = ["Plástico", "Borracha", "Vidro", "Cobre", "Alumínio", "Chapa de Metal", "Placa de Trânsito", "Lona", "Dinheiro Sujo", "Dinheiro Limpo"]
-
-def chest_balances(cur):
-    cur.execute("""SELECT g.title AS material, COALESCE(SUM(s.amount),0) AS amount
-        FROM submissions s JOIN goals g ON g.id=s.goal_id
-        WHERE s.status='approved' AND g.unit <> 'R$' GROUP BY g.title""")
-    incoming = {r['material']: float(r['amount']) for r in cur.fetchall()}
-    cur.execute("SELECT material, COALESCE(SUM(amount),0) AS amount FROM chest_sale_items GROUP BY material")
-    outgoing = {r['material']: float(r['amount']) for r in cur.fetchall()}
-    names = list(dict.fromkeys(CHEST_MATERIALS + list(incoming) + list(outgoing)))
-    return [{'material': name, 'entries': incoming.get(name, 0), 'exits': outgoing.get(name, 0),
-             'balance': incoming.get(name, 0)-outgoing.get(name, 0)} for name in names]
-
-@app.get('/admin/bau')
-@staff_required
-def admin_chest():
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            balances = chest_balances(cur)
-            cur.execute('SELECT product, material, per_unit FROM chest_recipes ORDER BY product, material')
-            recipes = cur.fetchall()
-            cur.execute("""SELECT s.id, s.created_at AS happened_at, g.title AS material, s.amount AS amount,
-                           'Entrada aprovada' AS event, u.name AS person
-                           FROM submissions s JOIN goals g ON g.id=s.goal_id JOIN users u ON u.id=s.user_id
-                           WHERE s.status='approved' AND g.unit <> 'R$'
-                           UNION ALL
-                           SELECT t.id, t.created_at, i.material, -i.amount, 'Venda: ' || t.product, COALESCE(t.responsible,'')
-                           FROM chest_sale_items i JOIN trade_records t ON t.id=i.trade_id
-                           ORDER BY happened_at DESC LIMIT 150""")
-            movements = cur.fetchall()
-    return render_template('admin_chest.html', balances=balances, recipes=recipes,
-                           movements=movements, products=list(TRADE_PRODUCTS), materials=CHEST_MATERIALS)
-
-@app.post('/admin/bau/receita')
-@admin_required
-def admin_chest_recipe():
-    validate_csrf()
-    product = (request.form.get('product') or '').strip()
-    material = (request.form.get('material') or '').strip()
-    amount = parse_trade_number(request.form.get('per_unit'))
-    if product not in TRADE_PRODUCTS or material not in CHEST_MATERIALS or amount < 0 or amount > 1000000:
-        flash('Produto, material ou quantidade inválidos.', 'danger')
-        return redirect(url_for('admin_chest'))
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            if amount == 0:
-                cur.execute('DELETE FROM chest_recipes WHERE product=%s AND material=%s', (product,material))
-            else:
-                cur.execute("INSERT INTO chest_recipes(product, material, per_unit) VALUES (%s,%s,%s) ON CONFLICT(product,material) DO UPDATE SET per_unit=EXCLUDED.per_unit", (product,material,amount))
-        conn.commit()
-    flash('Receita do produto atualizada.', 'success')
-    return redirect(url_for('admin_chest'))
-
 @app.route("/admin/compras-vendas")
 @staff_required
 def admin_trades():
@@ -3749,17 +3685,6 @@ def admin_trades():
                 cur.execute("SELECT * FROM trade_records WHERE id=%s", (edit_id,))
                 edit_record = cur.fetchone()
 
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute('SELECT product, material, per_unit FROM chest_recipes')
-            recipe_rows = cur.fetchall()
-            edit_consumption = {}
-            if edit_record and edit_record['record_type'] == 'sale':
-                cur.execute('SELECT material, amount FROM chest_sale_items WHERE trade_id=%s', (edit_record['id'],))
-                edit_consumption = {r['material']: float(r['amount']) for r in cur.fetchall()}
-    recipe_map = {}
-    for r in recipe_rows:
-        recipe_map.setdefault(r['product'], {})[r['material']] = float(r['per_unit'])
     return render_template(
         "admin_trades.html",
         view=view,
@@ -3772,7 +3697,6 @@ def admin_trades():
         date_from=date_from,
         date_to=date_to,
         trade_products=TRADE_PRODUCTS,
-        chest_recipes=recipe_map, chest_materials=CHEST_MATERIALS, edit_consumption=edit_consumption,
     )
 
 
@@ -3810,12 +3734,15 @@ def admin_trade_save():
             return redirect(url_for("admin_trades", view=record_type, edit=record_id) if record_id else url_for("admin_trades", view=record_type))
         total = unit_price * quantity * (1 + markup_percent / 100.0)
     else:
-        # Compra: o valor total é informado diretamente, sem valor unitário.
+        # Compra é totalmente livre: produto, documento/tipo, valor unitário,
+        # acréscimo e total podem ser informados manualmente.
         document_type = (request.form.get("document_type") or "").strip() or None
         price_type = document_type
-        unit_price = 0.0  # mantido para compatibilidade com o banco
+        unit_price = parse_trade_number(request.form.get("unit_price"))
         markup_percent = parse_trade_number(request.form.get("markup_percent"))
         total = parse_trade_number(request.form.get("total"))
+        if total <= 0 and unit_price > 0 and quantity > 0:
+            total = unit_price * quantity * (1 + markup_percent / 100.0)
 
     seller = (request.form.get("seller") or "").strip() or None
     supplier = (request.form.get("supplier") or "").strip() or None
@@ -3844,18 +3771,6 @@ def admin_trade_save():
     if record_type == "purchase" and not supplier:
         flash("Informe o fornecedor.", "danger")
         return redirect(url_for("admin_trades", view="purchase", edit=record_id) if record_id else url_for("admin_trades", view="purchase"))
-
-    # Consumo automatico por produto: calculado no servidor em toda venda.
-    # Nenhuma selecao manual nem aprovacao adicional e necessaria.
-    chest_items = {}
-    if record_type == 'sale':
-        with get_conn() as recipe_conn:
-            with recipe_conn.cursor() as recipe_cur:
-                recipe_cur.execute('SELECT material, per_unit FROM chest_recipes WHERE product=%s', (product,))
-                for recipe in recipe_cur.fetchall():
-                    amount = round(float(recipe['per_unit']) * quantity, 2)
-                    if amount > 0:
-                        chest_items[recipe['material']] = amount
 
     with get_conn() as conn:
         try:
@@ -3895,18 +3810,6 @@ def admin_trade_save():
                         unit_price, markup_percent, quantity, total, record_date, delivery_status,
                         delivery_date, notes, admin["id"]
                     ))
-                # Ajustes da venda sao gravados na mesma transacao do registro.
-                # Nao ha bloqueio por saldo negativo.
-                if not record_id:
-                    cur.execute("SELECT currval(pg_get_serial_sequence('trade_records','id')) AS id")
-                    saved_trade_id = cur.fetchone()['id']
-                else:
-                    saved_trade_id = record_id
-                cur.execute('DELETE FROM chest_sale_items WHERE trade_id=%s', (saved_trade_id,))
-                if record_type == 'sale':
-                    for material, amount in chest_items.items():
-                        cur.execute('INSERT INTO chest_sale_items(trade_id,material,amount) VALUES (%s,%s,%s)',
-                                    (saved_trade_id, material, amount))
             conn.commit()
         except Exception as exc:
             conn.rollback()
@@ -3914,17 +3817,8 @@ def admin_trade_save():
             flash(f"Não foi possível salvar o registro ({type(exc).__name__}).", "danger")
             return redirect(url_for("admin_trades", view=record_type))
 
-    if not record_id:
-        trade_notice = {"product": product, "quantity": quantity, "total": total,
-                        "seller": seller, "supplier": supplier, "buyer": buyer,
-                        "responsible": responsible, "date": record_date,
-                        "unit_price": unit_price, "document_type": document_type,
-                        "contact": contact, "markup_percent": markup_percent,
-                        "markup_amount": unit_price * quantity * markup_percent / 100.0}
-        if record_type == "sale":
-            discord_send_sale(trade_notice)
-        else:
-            discord_send_purchase(trade_notice)
+    if record_type == "sale" and not record_id:
+        discord_send_sale({"product": product, "quantity": quantity, "total": total, "seller": seller, "buyer": buyer, "responsible": responsible, "date": record_date, "markup_percent": markup_percent, "markup_amount": unit_price * quantity * markup_percent / 100.0})
     flash("Venda salva com sucesso." if record_type == "sale" else "Compra salva com sucesso.", "success")
     return redirect(url_for("admin_trades", view="history"))
 
@@ -4258,10 +4152,8 @@ def service_worker():
 DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "1564340327249223720")
 DISCORD_GUILD_ID = os.getenv("DISCORD_GUILD_ID", "1319723201743552677")
 DISCORD_MANAGEMENT_ROLE_ID = os.getenv("DISCORD_MANAGEMENT_ROLE_ID", "1564336547950493746")
-DISCORD_VETERANO_ROLE_ID = "1319723201961394250"
 DISCORD_META_CATEGORY_ID = os.getenv("DISCORD_META_CATEGORY_ID", "1486815221619232839")
 DISCORD_SALES_CHANNEL_ID = os.getenv("DISCORD_SALES_CHANNEL_ID", "1556355351102628032")
-DISCORD_PURCHASES_CHANNEL_ID = "1556355365627502723"
 DISCORD_REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "https://veterani.vercel.app/discord/callback")
 
 
@@ -4423,9 +4315,6 @@ def discord_ensure_channel(user_id):
         "permission_overwrites": [
             {"id": DISCORD_GUILD_ID, "type": 0, "deny": "1024", "allow": "0"},
             {"id": DISCORD_MANAGEMENT_ROLE_ID, "type": 0, "allow": "68608", "deny": "0"},
-            # Impede que o cargo VETERANO herde acesso da categoria.
-            # O dono da sala continua com acesso pela permissão individual.
-            {"id": DISCORD_VETERANO_ROLE_ID, "type": 0, "allow": "0", "deny": "1024"},
             {"id": discord_id, "type": 1, "allow": "68608", "deny": "0"},
             {"id": bot_id, "type": 1, "allow": "68608", "deny": "0"},
         ]
@@ -4474,38 +4363,6 @@ def discord_send_sale(sale):
         discord_request("POST", f"/channels/{DISCORD_SALES_CHANNEL_ID}/messages", payload)
     except Exception:
         app.logger.exception("Discord: falha ao publicar venda")
-
-
-def discord_send_purchase(purchase):
-    """Publica compras no canal exclusivo de compras."""
-    if not os.getenv("DISCORD_BOT_TOKEN"):
-        return
-    try:
-        fields = [
-            {"name": "📦 Produto", "value": str(purchase.get("product") or "—")[:1024], "inline": True},
-            {"name": "🔢 Quantidade", "value": discord_number(purchase.get("quantity")), "inline": True},
-            {"name": "💵 Valor total", "value": "R$ " + discord_number(purchase.get("total")), "inline": True},
-            {"name": "🏭 Fornecedor", "value": str(purchase.get("supplier") or "—")[:1024], "inline": True},
-            {"name": "🤝 Comprador", "value": str(purchase.get("buyer") or "—")[:1024], "inline": True},
-            {"name": "📋 Responsável", "value": str(purchase.get("responsible") or "—")[:1024], "inline": False},
-            {"name": "📅 Data da compra", "value": discord_br_date(purchase.get("date")), "inline": False},
-        ]
-        if purchase.get("document_type"):
-            fields.append({"name": "📄 Documento/tipo", "value": str(purchase["document_type"])[:1024], "inline": True})
-        if purchase.get("contact"):
-            fields.append({"name": "📞 Contato", "value": str(purchase["contact"])[:1024], "inline": True})
-        payload = {
-            "allowed_mentions": {"parse": []},
-            "embeds": [{
-                "title": "🛒 NOVA COMPRA REGISTRADA",
-                "color": 0x234B78,
-                "fields": fields,
-                "footer": {"text": "Veterani · Registro de compras · " + datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%d/%m/%Y às %H:%M")},
-            }],
-        }
-        discord_request("POST", f"/channels/{DISCORD_PURCHASES_CHANNEL_ID}/messages", payload)
-    except Exception:
-        app.logger.exception("Discord: falha ao publicar compra")
 
 
 @app.route("/discord/connect")

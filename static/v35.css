@@ -292,3 +292,15 @@ tbody tr:hover {
 }
 
 
+
+/* VETERANI - PRETO E VERDE NEON | 2026-11 */
+:root{--ink:#050805;--ink-2:#080e09;--panel:#0c130e;--panel-2:#101b13;--panel-3:#152319;--line:#203627;--line-soft:#17281c;--wine:#006414;--wine-2:#006414;--wine-3:#238d42;--bg:#050805;--bg-soft:#080e09;--surface:#0c130e;--surface-2:#101b13;--surface-3:#152319;--stroke:#203627;--stroke-2:#31523a;--blue:#006414;--cyan:#006414;--cyan-strong:#006414;--green:#006414;--line-strong:rgba(0,100,20,.32);--ok:#006414;--shadow:0 24px 70px rgba(0,0,0,.45)}
+html,body{background-color:#050805!important;color-scheme:dark}
+body{background-image:radial-gradient(circle at 85% 0%,rgba(0,100,20,.09),transparent 38rem),radial-gradient(circle at 4% 70%,rgba(0,130,38,.065),transparent 36rem)!important}
+::selection{background:#006414;color:#fff}
+:focus-visible{outline-color:#238d42!important}
+input:focus,textarea:focus,select:focus{border-color:#006414!important;box-shadow:0 0 0 3px rgba(0,100,20,.12)!important}
+.app-sidebar{background:linear-gradient(180deg,#0c130e,#050805)!important;border-right-color:#203627!important}
+.brand-logo{filter:drop-shadow(0 0 14px rgba(0,100,20,.28))!important}
+a:hover{color:#3aa558}
+::-webkit-scrollbar-thumb{background:#285e39}

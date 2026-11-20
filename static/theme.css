@@ -7,13 +7,13 @@
 
 :root{
   /* base: preto quente com fundo levemente vinho (o antigo era azul-marinho) */
-  --ink:#0d0a0b;
-  --ink-2:#120d0e;
-  --panel:#171112;
-  --panel-2:#1f1618;
-  --panel-3:#271d1f;
-  --line:#33272a;
-  --line-soft:#271e20;
+  --ink:#050805;
+  --ink-2:#080e09;
+  --panel:#0c130e;
+  --panel-2:#101b13;
+  --panel-3:#152319;
+  --line:#203627;
+  --line-soft:#17281c;
 
   /* texto em tons de aço */
   --steel:#efe9e7;
@@ -21,14 +21,14 @@
   --mute:#8f8482;
 
   /* marca */
-  --wine:#8e1b32;
-  --wine-2:#b3263f;
-  --wine-3:#d4455f;
+  --wine:#00a82d;
+  --wine-2:#006414;
+  --wine-3:#42ff70;
 
   /* status (mantidos para leitura rápida) */
   --ok:#5fd0a0;
   --wait:#e6b955;
-  --bad:#f2717e;
+  --bad:#ff777d;
 
   --font-display:"Barlow Condensed","Arial Narrow","Roboto Condensed",Inter,system-ui,sans-serif;
   --font-body:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -36,7 +36,7 @@
   /* aliases usados pelo style.css antigo: reaponta tudo para a nova paleta */
   --bg:var(--ink);--bg-soft:var(--ink-2);
   --surface:var(--panel);--surface-2:var(--panel-2);--surface-3:var(--panel-3);
-  --stroke:var(--line);--stroke-2:#43353a;
+  --stroke:var(--line);--stroke-2:#31523a;
   --text:var(--steel);--muted:var(--mute);--muted-2:#6f6563;
   --silver:var(--steel);--silver-mid:var(--steel-2);
   --green:var(--ok);--yellow:var(--wait);--red:var(--bad);
@@ -49,7 +49,7 @@ body{
   font-family:var(--font-body)!important;
   color:var(--steel)!important;
   background:
-    radial-gradient(60rem 28rem at 100% -8%,rgba(142,27,50,.16),transparent 70%),
+    radial-gradient(60rem 28rem at 100% -8%,rgba(0,100,20,.16),transparent 70%),
     var(--ink)!important;
   -webkit-font-smoothing:antialiased;
 }
@@ -76,7 +76,7 @@ body .app-sidebar{
   box-shadow:none!important;
 }
 body .sidebar-brand{padding-bottom:26px!important}
-body .brand-logo{filter:drop-shadow(0 4px 14px rgba(142,27,50,.45))}
+body .brand-logo{filter:drop-shadow(0 4px 14px rgba(0,100,20,.45))}
 body .brand-copy strong{font-family:var(--font-display);font-size:24px!important;letter-spacing:.12em!important;font-weight:700}
 body .brand-copy small{font-size:11px!important;letter-spacing:.04em!important;color:var(--mute)!important}
 body .sidebar-section-label{display:none!important}
@@ -89,7 +89,7 @@ body .sidebar-nav a{
 body .sidebar-nav a:hover{color:var(--steel)!important;background:var(--panel)!important}
 body .sidebar-nav a.active{
   color:#fff!important;
-  background:linear-gradient(90deg,rgba(142,27,50,.34),rgba(142,27,50,.06))!important;
+  background:linear-gradient(90deg,rgba(0,100,20,.34),rgba(0,100,20,.06))!important;
 }
 body .sidebar-nav a.active:before{
   content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:var(--wine-3);
@@ -133,7 +133,7 @@ body .admin-area-card:hover{
 body .active-goal-card,
 body .new-notification-banner,
 body .push-permission-toast{
-  background:linear-gradient(100deg,rgba(142,27,50,.22),var(--panel) 70%)!important;
+  background:linear-gradient(100deg,rgba(0,100,20,.22),var(--panel) 70%)!important;
   border:1px solid #5a2733!important;
 }
 body .panel{padding:26px!important}
@@ -153,7 +153,7 @@ body .hero{
 }
 body .hero:before{
   width:520px!important;height:520px!important;right:-140px!important;top:-260px!important;
-  background:radial-gradient(circle,rgba(142,27,50,.20),transparent 66%)!important;
+  background:radial-gradient(circle,rgba(0,100,20,.20),transparent 66%)!important;
 }
 body .hero:after{display:none!important} /* marca d'água "IRON" removida */
 body .hero p{font-size:15px!important;color:var(--steel-2)!important}
@@ -165,7 +165,7 @@ body .hero-chip{
 /* anel de progresso: o destaque do painel do membro */
 body .progress-orb{
   background:conic-gradient(var(--wine-2) calc(var(--progress)*1%),var(--panel-3) 0)!important;
-  box-shadow:0 0 0 1px var(--line),0 0 46px rgba(142,27,50,.28)!important;
+  box-shadow:0 0 0 1px var(--line),0 0 46px rgba(0,100,20,.28)!important;
 }
 body .progress-orb:after{background:var(--ink-2)!important;border-color:var(--line)!important}
 body .progress-orb-content strong{font-family:var(--font-display)!important;font-size:46px!important;font-weight:700!important;letter-spacing:0!important}
@@ -233,7 +233,7 @@ body thead th,body th{
 }
 body td{background:transparent!important;padding:14px 12px!important;font-size:14px!important;border-bottom:1px solid var(--line-soft)!important;color:var(--steel)!important}
 body tbody tr:last-child td{border-bottom:0!important}
-body tbody tr:hover td{background:rgba(142,27,50,.06)!important}
+body tbody tr:hover td{background:rgba(0,100,20,.06)!important}
 
 /* ---------- status ---------- */
 body .status{
@@ -251,13 +251,13 @@ body .btn{
 body .btn.primary,body button.primary{
   background:linear-gradient(180deg,var(--wine-2),var(--wine))!important;
   color:#fff!important;border:1px solid #c5384f!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 8px 22px rgba(142,27,50,.28)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 8px 22px rgba(0,100,20,.28)!important;
 }
 body .btn.primary:hover{background:linear-gradient(180deg,#c22f4a,#9b1e37)!important;transform:none!important}
 body .btn.ghost,body .btn.secondary{
   background:transparent!important;color:var(--steel)!important;border:1px solid var(--line)!important;box-shadow:none!important;
 }
-body .btn.ghost:hover,body .btn.secondary:hover{border-color:var(--wine-2)!important;background:rgba(142,27,50,.10)!important}
+body .btn.ghost:hover,body .btn.secondary:hover{border-color:var(--wine-2)!important;background:rgba(0,100,20,.10)!important}
 
 /* ---------- formulários ---------- */
 body label{color:var(--steel-2);font-size:14px;font-weight:600}
@@ -286,7 +286,7 @@ body .bottom-nav a.active b{color:var(--wine-3)}
 /* ---------- telas de acesso (login, cadastro, senha) ---------- */
 body.is-guest{
   background:
-    radial-gradient(48rem 34rem at 22% 40%,rgba(142,27,50,.20),transparent 70%),
+    radial-gradient(48rem 34rem at 22% 40%,rgba(0,100,20,.20),transparent 70%),
     var(--ink)!important;
 }
 body .login-page .login-card{
@@ -295,7 +295,7 @@ body .login-page .login-card{
 }
 body .login-page .login-card:before{display:none!important}
 body .login-page .logo-box-art{background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important}
-body .login-page .logo-box-art img{filter:drop-shadow(0 10px 30px rgba(142,27,50,.5))}
+body .login-page .logo-box-art img{filter:drop-shadow(0 10px 30px rgba(0,100,20,.5))}
 body .login-page h1{font-size:40px!important}
 body .login-page .field-label-row{display:flex;justify-content:space-between;align-items:center}
 body .login-page .field-label-row a{font-size:13px!important;color:var(--steel-2)!important;font-weight:600}
@@ -311,7 +311,7 @@ body .login-page .tiny a{color:var(--steel)!important;font-weight:700;text-decor
 body .login-page .login-card.login-split{
   width:min(960px,100%)!important;padding:0!important;overflow:hidden;
   display:grid!important;grid-template-columns:1.05fr 1fr;
-  background:linear-gradient(100deg,rgba(142,27,50,.16),transparent 55%),var(--panel)!important;
+  background:linear-gradient(100deg,rgba(0,100,20,.16),transparent 55%),var(--panel)!important;
 }
 body .login-split .login-brand{padding:48px 44px;display:flex;flex-direction:column;justify-content:center}
 body .login-split .logo-box-art{width:auto!important;height:auto!important;margin:0 0 18px!important;padding:0!important;justify-content:flex-start}
@@ -348,7 +348,7 @@ body .login-split .login-form-col .tiny + .tiny{margin-top:8px!important}
 body table,body thead,body tbody,body tr{background:transparent!important}
 body .hero-side{background:transparent!important;border-left:1px solid var(--line-soft)!important}
 body .goal-card:before,body .goal-card:after,body .panel:after{display:none!important}
-body .new-notification-banner-icon{background:rgba(142,27,50,.28)!important;color:#ffb3c0!important;border:1px solid #5a2733}
+body .new-notification-banner-icon{background:rgba(0,100,20,.28)!important;color:#ffb3c0!important;border:1px solid #5a2733}
 body .new-notification-banner strong{font-size:15px!important}
 body .new-notification-banner small{font-size:13px!important}
 body .guest-install-app,body .mobile-install{
@@ -367,7 +367,7 @@ body .photo-box,body .upload-box,body .proof-box,body .saldo-box,body .balance-b
 body .admin-member-goal-identity,body .upload-drop,body .badge,body .member-tabs a{
   background:var(--panel-2)!important;border:1px solid var(--line-soft)!important;color:var(--steel)!important;
 }
-body .member-tabs a.active{background:rgba(142,27,50,.28)!important;border-color:#5a2733!important;color:#fff!important}
+body .member-tabs a.active{background:rgba(0,100,20,.28)!important;border-color:#5a2733!important;color:#fff!important}
 body .upload-drop:hover{border-color:var(--wine-2)!important}
 body .install-sheet-card{background:var(--panel)!important;border:1px solid var(--line)!important;border-radius:16px!important}
 body .install-sheet-backdrop{background:rgba(5,3,4,.78)!important}
@@ -377,7 +377,7 @@ body .type-options button,body .markup-options button{
   background:var(--panel-2)!important;border-color:var(--line)!important;color:var(--steel)!important;
 }
 body .qty-control button:hover,body .quantity-control button:hover,body .stepper button:hover,body .segmented button:hover{
-  background:rgba(142,27,50,.18)!important;border-color:var(--wine-2)!important;
+  background:rgba(0,100,20,.18)!important;border-color:var(--wine-2)!important;
 }
 body .veterani-loader{background:rgba(8,5,6,.9)!important}
 
@@ -391,7 +391,7 @@ body .sticky-submit{
 }
 body .stepper input{background:var(--ink-2)!important;font-weight:700}
 body .step-btn{background:var(--panel-3)!important;border:1px solid var(--line)!important;color:var(--steel)!important}
-body .step-btn:hover{border-color:var(--wine-2)!important;background:rgba(142,27,50,.18)!important}
+body .step-btn:hover{border-color:var(--wine-2)!important;background:rgba(0,100,20,.18)!important}
 body .delivery-item small,body .delivery-info small,body .delivery-summary,body .upload-status{font-size:13px!important;color:var(--mute)!important}
 body .note-box label,body .upload-box label,body .note-box .label,body .upload-box .label,
 body .delivery-item label,body .delivery-item .label{
@@ -427,7 +427,7 @@ body .context-switch{
   background:var(--panel)!important;border:1px solid var(--line)!important;border-radius:12px!important;
 }
 body .context-switch:hover{border-color:var(--wine-2)!important}
-body .context-switch>span{background:rgba(142,27,50,.30)!important;color:#ffb3c0!important}
+body .context-switch>span{background:rgba(0,100,20,.30)!important;color:#ffb3c0!important}
 body .context-switch small{font-size:11px!important}
 body .v5-rank-list>a,body .v5-rank-list>div{background:var(--panel-2)!important;border:1px solid var(--line-soft)!important}
 
@@ -448,3 +448,15 @@ body .v5-rank-list>a,body .v5-rank-list>div{background:var(--panel-2)!important;
 @media(prefers-reduced-motion:reduce){
   *{transition:none!important;animation:none!important;scroll-behavior:auto!important}
 }
+
+/* VETERANI - PRETO E VERDE NEON | 2026-11 */
+:root{--ink:#050805;--ink-2:#080e09;--panel:#0c130e;--panel-2:#101b13;--panel-3:#152319;--line:#203627;--line-soft:#17281c;--wine:#006414;--wine-2:#006414;--wine-3:#238d42;--bg:#050805;--bg-soft:#080e09;--surface:#0c130e;--surface-2:#101b13;--surface-3:#152319;--stroke:#203627;--stroke-2:#31523a;--blue:#006414;--cyan:#006414;--cyan-strong:#006414;--green:#006414;--line-strong:rgba(0,100,20,.32);--ok:#006414;--shadow:0 24px 70px rgba(0,0,0,.45)}
+html,body{background-color:#050805!important;color-scheme:dark}
+body{background-image:radial-gradient(circle at 85% 0%,rgba(0,100,20,.09),transparent 38rem),radial-gradient(circle at 4% 70%,rgba(0,130,38,.065),transparent 36rem)!important}
+::selection{background:#006414;color:#fff}
+:focus-visible{outline-color:#238d42!important}
+input:focus,textarea:focus,select:focus{border-color:#006414!important;box-shadow:0 0 0 3px rgba(0,100,20,.12)!important}
+.app-sidebar{background:linear-gradient(180deg,#0c130e,#050805)!important;border-right-color:#203627!important}
+.brand-logo{filter:drop-shadow(0 0 14px rgba(0,100,20,.28))!important}
+a:hover{color:#3aa558}
+::-webkit-scrollbar-thumb{background:#285e39}
